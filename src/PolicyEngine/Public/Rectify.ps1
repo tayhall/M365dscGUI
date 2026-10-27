@@ -10,7 +10,8 @@ function New-PERectifyPlan
     - Ambiguous, NotChecked, NotAvailable, Excluded, Unkeyed and Unreadable findings are refused for every action, as
       is any unknown Kind. (Excluded: a type of Data\ExcludedTypes.psd1 that the comparison did not look at.)
     - Create only for Missing (Record = BlueprintRecord). Update only for Changed (Record = BlueprintRecord, the
-      desired state). Remove only for TargetOnly with a matching Remove decision (ResourceType and Key,
+      desired state, except that a property excluded for the tenant (finding.ExcludedDifferences or a PropertyExcluded decision) keeps
+      the tenant's value from the finding's TargetRecord). Remove only for TargetOnly with a matching Remove decision (ResourceType and Key,
       case-insensitive), State Open and no Hint (Record = TargetRecord; the configuration sets Ensure = 'Absent').
       Promote only for TargetOnly, State Open or Unmanaged (Record = TargetRecord, applied to the master).
     - Unmanaged findings are refused for Create, Update and Remove.
@@ -219,21 +220,40 @@ function New-PERectifyPlan
             $record = [pscustomobject]@{ ResourceType = $record.ResourceType; Key = $record.Key; Workload = $record.Workload; TenantId = $record.TenantId; Properties = $bag }
         }
         # A property the owner excluded for this tenant is not enforced: the record keeps the tenant's value for it (the property is left out when the
-        # tenant has none), so the Revert changes only what is still drift. The finding's own record is not touched (a copy of the bag is changed).
-        if ($side -eq 'Changed' -and $null -ne $finding.PSObject.Properties['ExcludedDifferences'] -and @($finding.ExcludedDifferences).Count -gt 0)
+        # tenant has none), so the Revert changes only what is still drift. The property comes from the finding (ExcludedDifferences) and from the
+        # PropertyExcluded decisions passed in (a finding stored before the exclusion was made still holds the property as an enforced difference).
+        # The tenant's value is read from the finding's target record; the finding's own records are not touched (a copy of the bag is changed).
+        if ($side -eq 'Changed' -and $hasTarget)
         {
-            $bag = [ordered]@{}
-            foreach ($name in (Get-PEPropertyBag -Record $record).get_Keys()) { $bag[$name] = (Get-PEPropertyBag -Record $record)[$name] }
-            foreach ($excluded in @($finding.ExcludedDifferences))
+            $protectedNames = [System.Collections.Generic.List[string]]::new()
+            if ($null -ne $finding.PSObject.Properties['ExcludedDifferences'])
             {
-                $existing = @($bag.get_Keys() | Where-Object { [string]$_ -ieq [string]$excluded.Property })
-                foreach ($name in $existing) { $bag.Remove($name) }
-                if ($null -ne $excluded.Target)
+                foreach ($excluded in @($finding.ExcludedDifferences)) { if ($null -ne $excluded) { $protectedNames.Add([string]$excluded.Property) } }
+            }
+            foreach ($rule in @($Decisions))
+            {
+                if ($null -ne $rule -and $rule.Kind -eq 'PropertyExcluded' -and -not [string]::IsNullOrWhiteSpace([string]$rule.Tenant) -and
+                    [string]$rule.ResourceType -ieq $type -and ([string]::IsNullOrEmpty([string]$rule.Key) -or [string]$rule.Key -ieq $key))
                 {
-                    $bag[$(if ($existing.Count -gt 0) { $existing[0] } else { [string]$excluded.Property })] = $excluded.Target
+                    $protectedNames.Add([string]$rule.Property)
                 }
             }
-            $record = [pscustomobject]@{ ResourceType = $record.ResourceType; Key = $record.Key; Workload = $record.Workload; TenantId = $record.TenantId; Properties = $bag }
+            if ($protectedNames.Count -gt 0)
+            {
+                $recordBag = Get-PEPropertyBag -Record $record
+                $targetBag = Get-PEPropertyBag -Record $finding.TargetRecord
+                $bag = [ordered]@{}
+                foreach ($name in $recordBag.get_Keys()) { $bag[$name] = $recordBag[$name] }
+                foreach ($protectedName in $protectedNames)
+                {
+                    foreach ($name in @($bag.get_Keys() | Where-Object { [string]$_ -ieq $protectedName })) { $bag.Remove($name) }
+                    foreach ($name in $targetBag.get_Keys())
+                    {
+                        if ([string]$name -ieq $protectedName -and $null -ne $targetBag[$name]) { $bag[$name] = $targetBag[$name]; break }
+                    }
+                }
+                $record = [pscustomobject]@{ ResourceType = $record.ResourceType; Key = $record.Key; Workload = $record.Workload; TenantId = $record.TenantId; Properties = $bag }
+            }
         }
         if ([string]$record.ResourceType -ine $type -or [string]$record.Key -ine $key)
         {

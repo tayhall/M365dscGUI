@@ -129,8 +129,12 @@ function Get-PEGuiFinding {
     $offline = [bool](Get-PEGuiProperty $tenant 'offline')
     $findings = Read-PEGuiFile -DataRoot $DataRoot -RelativePath "tenants/$TenantId/findings.json"
     if ($null -eq $findings) { return @() }
+    # An item excluded as a whole (an Unmanaged decision) can always be brought back, even when its settings are also excluded one by one.
+    $unmanaged = @((Get-PEGuiExclusion -DataRoot $DataRoot).unmanaged | Where-Object { $_ -and $_.tenantId -eq $TenantId } | ForEach-Object { $_.itemId })
     $out = foreach ($f in @($findings)) {
-        $f | Add-Member -NotePropertyName allowedActions -NotePropertyValue (Get-PEGuiAllowedAction -Finding $f -Offline:$offline) -Force -PassThru
+        $actions = Get-PEGuiAllowedAction -Finding $f -Offline:$offline
+        if ($f.state -eq 'Unmanaged' -and $f.itemId -and $f.itemId -in $unmanaged -and 'Unexclude' -notin $actions) { $actions = , @('Unexclude') }
+        $f | Add-Member -NotePropertyName allowedActions -NotePropertyValue $actions -Force -PassThru
     }
     @($out)
 }

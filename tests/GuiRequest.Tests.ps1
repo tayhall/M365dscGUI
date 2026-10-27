@@ -36,12 +36,12 @@ BeforeAll {
     function Add-ReplicaCheck
     {
         # Registers replica 'dev' with its own blueprint 'dev' and a stored Full check of it against that blueprint.
-        param ([object[]]$OwnRecords, [object[]]$TenantRecords)
+        param ([object[]]$OwnRecords, [object[]]$TenantRecords, [object[]]$Decisions = @())
         Set-PETenant -Slug 'dev' -DisplayName 'Dev' -TenantId 'dev.onmicrosoft.com' -DataRoot $script:Temp | Out-Null
         Initialize-PEBlueprint -Name 'dev' -State (New-TestState -Records $OwnRecords) -DataRoot $script:Temp | Out-Null
         Set-PETenant -Slug 'dev' -Blueprints @('main', 'dev') -DataRoot $script:Temp | Out-Null
         $state = New-TestState -Records $TenantRecords
-        $findings = @(Compare-PEState -Blueprint (Get-PEBlueprint -Name 'dev' -DataRoot $script:Temp) -Target $state)
+        $findings = @(Compare-PEState -Blueprint (Get-PEBlueprint -Name 'dev' -DataRoot $script:Temp) -Target $state -Decisions $Decisions)
         $directory = Join-Path (Join-Path $script:Temp 'checks') '20261021-030000'
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
         [ordered]@{ CheckId = '20261021-030000'; Kind = 'Full'; TenantSlug = 'dev'; BlueprintName = 'dev'; BlueprintVersion = 1; Findings = $findings; State = $state } |
@@ -1112,5 +1112,23 @@ Describe 'Invoke-PEGuiRequest and properties excluded for a tenant' {
         (Get-PEGuiAllowedAction -Finding ([pscustomobject]@{ state = 'Open'; kind = 'Changed' })) -join ',' | Should -Be 'Accept,Promote,Exclude,ExcludeProperty,ExcludePropertyForTenant'
         (Get-PEGuiAllowedAction -Finding ([pscustomobject]@{ state = 'Unmanaged'; kind = 'Changed'; excludedDifferences = @([pscustomobject]@{ property = 'Priority' }) })).Count | Should -Be 0
         (Get-PEGuiAllowedAction -Finding ([pscustomobject]@{ state = 'Unmanaged'; kind = 'TargetOnly' })) -join ',' | Should -Be 'Unexclude'
+    }
+
+    It 'an item excluded as a whole can be brought back even when a property of it is excluded too' {
+        Set-PEDecision -Kind Unmanaged -ResourceType 'AADGroup' -Key 'Sales' -Tenant 'dev' -Reason 'tenant specific' -DataRoot $script:Temp | Out-Null
+        Set-PEDecision -Kind PropertyExcluded -ResourceType 'AADGroup' -Property 'Description' -Tenant 'dev' -Reason 'local' -DataRoot $script:Temp | Out-Null
+        Add-ReplicaCheck -OwnRecords @((New-TestRecord -Key 'Sales' -Props @{ Description = 'one' })) -TenantRecords @((New-TestRecord -Key 'Sales' -Props @{ Description = 'two' })) -Decisions @(Get-PEDecision -Tenant 'dev' -DataRoot $script:Temp)
+        $f = @(Get-PEGuiFinding -DataRoot $script:Gui -TenantId 'dev' | Where-Object key -eq 'Sales')[0]
+        $f.state | Should -Be 'Unmanaged'
+        @($f.excludedDifferences.property) | Should -Contain 'Description'
+        @($f.allowedActions) | Should -Be @('Unexclude')
+    }
+
+    It 'a finding excluded only through its properties offers no item action' {
+        Set-PEDecision -Kind PropertyExcluded -ResourceType 'AADGroup' -Property 'Description' -Tenant 'dev' -Reason 'local' -DataRoot $script:Temp | Out-Null
+        Add-ReplicaCheck -OwnRecords @((New-TestRecord -Key 'Sales' -Props @{ Description = 'one' })) -TenantRecords @((New-TestRecord -Key 'Sales' -Props @{ Description = 'two' })) -Decisions @(Get-PEDecision -Tenant 'dev' -DataRoot $script:Temp)
+        $f = @(Get-PEGuiFinding -DataRoot $script:Gui -TenantId 'dev' | Where-Object key -eq 'Sales')[0]
+        $f.state | Should -Be 'Unmanaged'
+        @($f.allowedActions).Count | Should -Be 0
     }
 }

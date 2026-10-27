@@ -1496,10 +1496,30 @@ Describe 'New-PERectifyPlan and properties excluded for the tenant' {
         $script:Mixed.BlueprintRecord.Properties['Description'] | Should -Be 'Sales team'
     }
 
-    It 'a tenant value of null removes the excluded property from the record' {
-        $script:Mixed.ExcludedDifferences = @([pscustomobject]@{ Property = 'Description'; Blueprint = 'Sales team'; Target = $null })
-        $plan = @(New-PERectifyPlan -Findings @($script:Mixed) -Action Update @PlanArgs)
+    It 'a tenant with no value for the excluded property gets it left out of the record' {
+        $noValue = [pscustomobject]@{ ResourceType = 'AADGroup'; Key = 'Sales'; Workload = 'Entra ID'; Properties = [ordered]@{ DisplayName = 'Sales' } }
+        $mixed = $script:Mixed | Select-Object *
+        $mixed.TargetRecord = $noValue
+        $plan = @(New-PERectifyPlan -Findings @($mixed) -Action Update -Source (New-TestState -Records @($noValue)) -Blueprint $script:Blueprint)
         $plan[0].Record.Properties.Contains('Description') | Should -BeFalse
+    }
+
+    It 'a stored finding older than the exclusion is still protected by the decisions passed in' {
+        $rule = { param ($key, $tenant) [pscustomobject]@{ Kind = 'PropertyExcluded'; ResourceType = 'AADGroup'; Key = $key; Property = 'description'; Value = $null; Tenant = $tenant } }
+        # $script:Changed has Description as an enforced difference and no ExcludedDifferences (it was made before the exclusion).
+        $type = @(New-PERectifyPlan -Findings $script:Changed -Action Update @PlanArgs -Decisions @(& $rule $null 'dev'))
+        $type[0].Record.Properties['Description'] | Should -Be 'Sales team (edited)'
+        $item = @(New-PERectifyPlan -Findings $script:Changed -Action Update @PlanArgs -Decisions @(& $rule 'sales' 'dev'))
+        $item[0].Record.Properties['Description'] | Should -Be 'Sales team (edited)'
+    }
+
+    It 'a decision for another item, with no tenant, or for another property does not protect anything' {
+        $make = { param ($key, $tenant, $property) [pscustomobject]@{ Kind = 'PropertyExcluded'; ResourceType = 'AADGroup'; Key = $key; Property = $property; Value = $null; Tenant = $tenant } }
+        foreach ($decision in @((& $make 'Finance' 'dev' 'Description'), (& $make $null $null 'Description'), (& $make $null 'dev' 'MailEnabled')))
+        {
+            $plan = @(New-PERectifyPlan -Findings $script:Changed -Action Update @PlanArgs -Decisions @($decision))
+            $plan[0].Record.Properties['Description'] | Should -Be 'Sales team'
+        }
     }
 
     It 'a finding without excluded differences plans as before' {

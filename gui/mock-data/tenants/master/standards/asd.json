@@ -101,6 +101,8 @@
       "workload": "Entra ID",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "CountriesAndRegions",
@@ -132,6 +134,8 @@
       "workload": "Entra ID",
       "kind": "Changed",
       "status": "accepted",
+      "state": "Accepted",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "IsTrusted",
@@ -157,6 +161,8 @@
       "workload": "Intune",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "Block credential stealing",
@@ -183,6 +189,8 @@
       "workload": "Intune",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "PasswordRequired",
@@ -209,6 +217,8 @@
       "workload": "Intune",
       "kind": "Missing",
       "status": "missing",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [],
       "acceptedDifferences": [],
       "approvedBy": null,
@@ -229,6 +239,8 @@
       "workload": "Exchange Online",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "ExternalDelayDsnEnabled",
@@ -255,6 +267,8 @@
       "workload": "Teams",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "AllowGiphy",
@@ -281,6 +295,8 @@
       "workload": "Teams",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "AllowAnonymousUsersToJoinMeeting",
@@ -307,6 +323,8 @@
       "workload": "Teams",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "DefaultCatalogAppsType",
@@ -333,6 +351,8 @@
       "workload": "Teams",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "AllowPreview",
@@ -359,6 +379,8 @@
       "workload": "Teams",
       "kind": "Changed",
       "status": "accepted",
+      "state": "Accepted",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "AllowPrivateChannelCreation",
@@ -384,6 +406,8 @@
       "workload": "Teams",
       "kind": "Changed",
       "status": "accepted",
+      "state": "Accepted",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "AllowPrivateCalling",
@@ -409,6 +433,8 @@
       "workload": "Security and Compliance",
       "kind": "Changed",
       "status": "lookAgain",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "Priority",
@@ -436,6 +462,8 @@
       "workload": "Security and Compliance",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "Mode",
@@ -462,6 +490,8 @@
       "workload": "Security and Compliance",
       "kind": "Changed",
       "status": "differs",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "Enabled",
@@ -488,6 +518,8 @@
       "workload": "Security and Compliance",
       "kind": "Missing",
       "status": "missing",
+      "state": "Open",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [],
       "acceptedDifferences": [],
       "approvedBy": null,
@@ -508,6 +540,8 @@
       "workload": "Security and Compliance",
       "kind": "Changed",
       "status": "accepted",
+      "state": "Accepted",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "Mode",
@@ -533,6 +567,8 @@
       "workload": "Security and Compliance",
       "kind": "Changed",
       "status": "accepted",
+      "state": "Accepted",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "RetentionDuration",
@@ -558,6 +594,8 @@
       "workload": "Security and Compliance",
       "kind": "Changed",
       "status": "accepted",
+      "state": "Accepted",
+      "firstSeen": "2026-10-27T14:32:00Z",
       "differences": [
         {
           "property": "Mode",

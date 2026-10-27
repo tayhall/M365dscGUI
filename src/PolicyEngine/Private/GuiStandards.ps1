@@ -13,7 +13,10 @@ function ConvertTo-PEGuiStandardRow
 
         # itemId -> source version of the standard it was adopted from, for the items the tenant's own blueprint adopted.
         [Parameter(Mandatory)]
-        [hashtable]$Adopted
+        [hashtable]$Adopted,
+
+        # When the check was made. The Drift review shows it as First seen.
+        [string]$CheckedAt
     )
 
     $itemId = ConvertTo-PEGuiItemId -ResourceType ([string]$Finding.ResourceType) -Key ([string]$Finding.Key)
@@ -39,6 +42,9 @@ function ConvertTo-PEGuiStandardRow
         workload            = [string]$Finding.Workload
         kind                = [string]$Finding.Kind
         status              = $status
+        # The Drift review fields (state, firstSeen), so that page lists these rows as it lists any other.
+        state               = $(if ($accepted) { 'Accepted' } else { 'Open' })
+        firstSeen           = $CheckedAt
         # @(): a scriptblock's single result would be unrolled into an object, and an empty one into null; the page needs arrays.
         differences         = @(& $values $Finding.Differences)
         acceptedDifferences = @(& $values $Finding.AcceptedDifferences)
@@ -90,7 +96,9 @@ function Get-PEGuiStandardTenantView
         $adopted[(ConvertTo-PEGuiItemId -ResourceType $entry.ResourceType -Key $entry.Key)] = [string]$entry.SourceVersion
     }
 
-    $rows = @(@($check.Findings) | Where-Object { [string]$_.Kind -in 'Missing', 'Changed' } | ForEach-Object { ConvertTo-PEGuiStandardRow -Finding $_ -Adopted $adopted })
+    $checkedAt = $check.CheckedAt
+    $checkedAtText = $(if ($checkedAt -is [datetime]) { $checkedAt.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') } else { [string]$checkedAt })
+    $rows = @(@($check.Findings) | Where-Object { [string]$_.Kind -in 'Missing', 'Changed' } | ForEach-Object { ConvertTo-PEGuiStandardRow -Finding $_ -Adopted $adopted -CheckedAt $checkedAtText })
     $coverage = $check.Coverage
     $differ = @($rows | Where-Object { $_.status -ne 'accepted' }).Count
     $acceptedCount = @($rows | Where-Object { $_.status -eq 'accepted' }).Count
@@ -128,13 +136,12 @@ function Get-PEGuiStandardTenantView
             notCovered  = [int]$figures.Total - [int]$figures.Covered
         }
     })
-    $checkedAt = $check.CheckedAt
     [ordered]@{
         standard             = $Standard
         tenantId             = $TenantSlug
         checked              = $true
         checkId              = [string]$check.CheckId
-        checkedAt            = $(if ($checkedAt -is [datetime]) { $checkedAt.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') } else { [string]$checkedAt })
+        checkedAt            = $checkedAtText
         standardVersion      = [int]$check.StandardVersion
         sourceVersion        = [string]$check.SourceVersion
         blueprint            = [ordered]@{ name = [string]$check.BlueprintName; version = [int]$check.BlueprintVersion }

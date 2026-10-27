@@ -71,7 +71,7 @@ Start-PodeServer -Threads 4 -ScriptBlock {
     foreach ($path in '/', '/tenants', '/drift', '/blueprint', '/blueprint/compare', '/blueprint/versions/:version', '/exclusions', '/queue',
         '/activity', '/activity/:jobId', '/tenants/:tenantId/workloads/:workload',
         '/tenants/:tenantId/workloads/:workload/types/:resourceType', '/tenants/:tenantId/items/:itemId',
-        '/standards', '/standards/:name', '/standards/:name/not-covered') {
+        '/standards', '/standards/:name/not-covered') {
         Add-PodeRoute -Method Get -Path $path -ScriptBlock $shell
     }
 

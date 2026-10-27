@@ -26,6 +26,12 @@ Secrets and certificates live outside the repo, in `~\.m365dsc-policy\`.
 - `Initialize-PETenantBlueprint`: gives a replica its own blueprint (a copy of the master blueprint's latest version); `tenants.json` keeps each tenant's ordered `Blueprints` list, master blueprint first, and a tenant with no list follows the master blueprint alone.
 - `New-PEBlueprint`, `Add-PEBlueprintType`: build a blueprint from a DSC export. Blueprints are versioned, reviewed and written crash-safely.
 
+**Standards** (design: `docs/superpowers/specs/2026-10-27-standards-blueprints-design.md`)
+- A standard (the ASD Blueprint for Secure Cloud first) is a read-only blueprint with a `standard.json` (source, licence, imported versions) and a `coverage\vNNNN.json` per version. Every write and apply path refuses it.
+- `tools/Import-PEStandard.ps1` (`Import-PEStandard`): takes the latest ASD release tag (sparse clone into `data\sources\`), parses its DSC files with DSC's own parser, and stores what can be checked. Items with a placeholder or a property the pinned module lacks are listed as not covered, with the reason (`Get-PEStandardCoverage`).
+- `tools/Invoke-PEStandardCheck.ps1` (`Invoke-PEStandardCheck`): exports only the standard's workloads and compares only what the standard states (`Compare-PEState -Subset`). Reports "checked N of M settings".
+- `Set-PERiskAcceptance`: accept a difference (who approved it, why); shown as Accepted, and reopened when a newer version of the standard changes the item. `Copy-PEStandardItem` promotes items into a blueprint with provenance; `Get-PEStandardAdoption` shows what a blueprint has adopted; `Get-PEStandardChange` compares two versions of a standard.
+
 **Checking drift**
 - `Invoke-PEFullCheck`: full DSC export compared with the blueprint.
 - `Invoke-PEScopeCheck`: one resource type or a slice of keys; much faster than a full check.

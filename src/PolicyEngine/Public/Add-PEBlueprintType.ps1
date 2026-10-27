@@ -49,6 +49,7 @@ function Add-PEBlueprintType
     )
 
     $root = Get-PEDataRoot -Override $DataRoot
+    Assert-PEBlueprintNotStandard -Name $Name -Action 'add resource types to it' -DataRoot $root
     $Types = @($Types | Sort-Object -Unique)
     if ((Get-PETenant -Slug $Tenant -DataRoot $root).Role -ne 'Master')
     {

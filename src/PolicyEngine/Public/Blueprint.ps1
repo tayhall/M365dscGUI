@@ -160,6 +160,8 @@ function Approve-PEBlueprintChange
         [string]$DataRoot
     )
 
+    Assert-PEBlueprintNotStandard -Name $Name -Action 'approve a change' -DataRoot $DataRoot
+
     $accepted = @($Accept | Where-Object { $null -ne $_ })
     if ($accepted.Count -eq 0)
     {

@@ -68,6 +68,10 @@ function Set-PETenant
         [string]$DataRoot
     )
 
+    foreach ($follow in @($Blueprints))
+    {
+        Assert-PEBlueprintNotStandard -Name $follow -Action 'follow it as a tenant blueprint' -DataRoot $DataRoot
+    }
     if ($Offline -and $Slug -eq 'master')
     {
         throw 'The master tenant cannot be offline.'

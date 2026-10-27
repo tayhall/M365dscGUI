@@ -45,6 +45,7 @@ function Invoke-PEScopeCheck
     )
 
     $root = Get-PEDataRoot -Override $DataRoot
+    Assert-PEBlueprintNotStandard -Name $BlueprintName -Action 'run a scope check against it (use Invoke-PEStandardCheck)' -DataRoot $root
     $definition = Get-PEScope -Name $Scope -DataRoot $root
     if (@($definition.Types).Count -eq 0)
     {

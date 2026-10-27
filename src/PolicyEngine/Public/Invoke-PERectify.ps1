@@ -84,6 +84,8 @@ function Invoke-PERectify
         [string]$User
     )
 
+    Assert-PEBlueprintNotStandard -Name $BlueprintName -Action 'apply it to a tenant' -DataRoot $DataRoot
+
     # 1. Preconditions, before anything is generated, saved or applied.
     $items = @($Plan | Where-Object { $null -ne $_ })
     if ($items.Count -eq 0)

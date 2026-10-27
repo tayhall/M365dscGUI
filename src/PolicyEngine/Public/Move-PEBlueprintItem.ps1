@@ -85,6 +85,7 @@ function Move-PEBlueprintItem
         [string]$DataRoot
     )
 
+    Assert-PEBlueprintNotStandard -Name $To -Action 'move items into it' -DataRoot $DataRoot
     if ($From -eq $To)
     {
         throw 'The source and the target are the same blueprint.'

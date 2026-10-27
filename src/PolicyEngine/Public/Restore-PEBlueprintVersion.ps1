@@ -36,6 +36,7 @@ function Restore-PEBlueprintVersion
         [string]$DataRoot
     )
 
+    Assert-PEBlueprintNotStandard -Name $Name -Action 'restore a version' -DataRoot $DataRoot
     $directory = Get-PEBlueprintDirectory -Name $Name -DataRoot $DataRoot
     $lock = Enter-PEBlueprintLock -Directory $directory
     try

@@ -44,6 +44,7 @@ function Invoke-PEFullCheck
     )
 
     $root = Get-PEDataRoot -Override $DataRoot
+    Assert-PEBlueprintNotStandard -Name $BlueprintName -Action 'run a full check against it (use Invoke-PEStandardCheck)' -DataRoot $root
     $blueprint = Get-PEBlueprint -Name $BlueprintName -DataRoot $root
     Assert-PEModuleVersion -BlueprintName $BlueprintName -AcceptModuleChange:$AcceptModuleChange -DataRoot $root
     $blueprintVersion = @(Get-PEBlueprintVersionNumber -Directory (Get-PEBlueprintDirectory -Name $BlueprintName -DataRoot $root))[-1]

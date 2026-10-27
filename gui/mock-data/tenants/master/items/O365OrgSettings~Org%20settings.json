@@ -1,0 +1,20 @@
+{
+  "itemId": "O365OrgSettings~Org%20settings",
+  "resourceType": "O365OrgSettings",
+  "key": "Org settings",
+  "targetKey": "Org settings",
+  "blueprint": {
+    "IsSingleInstance": "Yes",
+    "M365WebEnableUsersToOpenFilesFrom3PStorage": false,
+    "CortanaEnabled": false,
+    "PlannerAllowCalendarSharing": true
+  },
+  "target": {
+    "IsSingleInstance": "Yes",
+    "M365WebEnableUsersToOpenFilesFrom3PStorage": false,
+    "CortanaEnabled": false,
+    "PlannerAllowCalendarSharing": true
+  },
+  "targetNote": null,
+  "unreadable": []
+}

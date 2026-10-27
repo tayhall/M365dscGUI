@@ -1,0 +1,22 @@
+{
+  "itemId": "IntuneWifiConfigurationPolicyWindows10~Office%20Wi-Fi",
+  "resourceType": "IntuneWifiConfigurationPolicyWindows10",
+  "key": "Office Wi-Fi",
+  "targetKey": "Office Wi-Fi",
+  "blueprint": {
+    "DisplayName": "Office Wi-Fi",
+    "Ssid": "CONTOSO-OFFICE",
+    "WiFiSecurityType": "wpa2Personal",
+    "ConnectAutomatically": true
+  },
+  "target": {
+    "DisplayName": "Office Wi-Fi",
+    "Ssid": "CONTOSO-OFFICE",
+    "WiFiSecurityType": "wpa2Personal",
+    "ConnectAutomatically": true
+  },
+  "targetNote": null,
+  "unreadable": [
+    "WiFiPreSharedKey"
+  ]
+}

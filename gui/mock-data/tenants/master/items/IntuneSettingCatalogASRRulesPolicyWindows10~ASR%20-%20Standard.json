@@ -1,0 +1,18 @@
+{
+  "itemId": "IntuneSettingCatalogASRRulesPolicyWindows10~ASR%20-%20Standard",
+  "resourceType": "IntuneSettingCatalogASRRulesPolicyWindows10",
+  "key": "ASR - Standard",
+  "targetKey": "ASR - Standard",
+  "blueprint": {
+    "DisplayName": "ASR - Standard",
+    "BlockOfficeMacros": "block",
+    "BlockExecutableEmail": "block"
+  },
+  "target": {
+    "DisplayName": "ASR - Standard",
+    "BlockOfficeMacros": "block",
+    "BlockExecutableEmail": "block"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

@@ -1,0 +1,324 @@
+[
+  {
+    "itemId": "AADConditionalAccessPolicy~CA001%20-%20Require%20MFA%20for%20admins",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA001 - Require MFA for admins",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADConditionalAccessPolicy~CA002%20-%20Block%20legacy%20authentication",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA002 - Block legacy authentication",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADConditionalAccessPolicy~CA003%20-%20Require%20compliant%20device",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA003 - Require compliant device",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADConditionalAccessPolicy~CA004%20-%20Require%20MFA%20for%20guests",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA004 - Require MFA for guests",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADConditionalAccessPolicy~CA005%20-%20Block%20high-risk%20sign-ins",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA005 - Block high-risk sign-ins",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADConditionalAccessPolicy~CA006%20-%20Session%20timeout%20for%20unmanaged%20devices",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA006 - Session timeout for unmanaged devices",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADGroup~All%20Staff",
+    "resourceType": "AADGroup",
+    "key": "All Staff",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADGroup~Finance",
+    "resourceType": "AADGroup",
+    "key": "Finance",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADGroup~HR",
+    "resourceType": "AADGroup",
+    "key": "HR",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADGroup~IT%20Admins",
+    "resourceType": "AADGroup",
+    "key": "IT Admins",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADGroup~Sales",
+    "resourceType": "AADGroup",
+    "key": "Sales",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADGroup~Marketing",
+    "resourceType": "AADGroup",
+    "key": "Marketing",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADGroup~Pilot%20Devices",
+    "resourceType": "AADGroup",
+    "key": "Pilot Devices",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADGroup~Guests%20-%20Partners",
+    "resourceType": "AADGroup",
+    "key": "Guests - Partners",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADGroup~Contractors",
+    "resourceType": "AADGroup",
+    "key": "Contractors",
+    "workload": "Entra ID",
+    "inBlueprint": false
+  },
+  {
+    "itemId": "AADNamedLocationPolicy~Head%20office",
+    "resourceType": "AADNamedLocationPolicy",
+    "key": "Head office",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADNamedLocationPolicy~Branch%20offices",
+    "resourceType": "AADNamedLocationPolicy",
+    "key": "Branch offices",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADNamedLocationPolicy~Blocked%20countries",
+    "resourceType": "AADNamedLocationPolicy",
+    "key": "Blocked countries",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADApplication~HR%20Portal",
+    "resourceType": "AADApplication",
+    "key": "HR Portal",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADApplication~Expense%20App",
+    "resourceType": "AADApplication",
+    "key": "Expense App",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "AADApplication~Intranet",
+    "resourceType": "AADApplication",
+    "key": "Intranet",
+    "workload": "Entra ID",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "IntuneDeviceConfigurationPolicyWindows10~Baseline%20-%20Win10",
+    "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+    "key": "Baseline - Win10",
+    "workload": "Intune",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "IntuneDeviceConfigurationPolicyWindows10~BitLocker%20-%20Win10",
+    "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+    "key": "BitLocker - Win10",
+    "workload": "Intune",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "IntuneDeviceConfigurationPolicyWindows10~Kiosk%20-%20Win10",
+    "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+    "key": "Kiosk - Win10",
+    "workload": "Intune",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "IntuneDeviceCompliancePolicyWindows10~Compliance%20-%20Win10%20Corporate",
+    "resourceType": "IntuneDeviceCompliancePolicyWindows10",
+    "key": "Compliance - Win10 Corporate",
+    "workload": "Intune",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "IntuneDeviceCompliancePolicyWindows10~Compliance%20-%20Win10%20BYOD",
+    "resourceType": "IntuneDeviceCompliancePolicyWindows10",
+    "key": "Compliance - Win10 BYOD",
+    "workload": "Intune",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "IntuneAppProtectionPolicyiOS~MAM%20-%20iOS%20Corporate",
+    "resourceType": "IntuneAppProtectionPolicyiOS",
+    "key": "MAM - iOS Corporate",
+    "workload": "Intune",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "IntuneWifiConfigurationPolicyWindows10~Office%20Wi-Fi",
+    "resourceType": "IntuneWifiConfigurationPolicyWindows10",
+    "key": "Office Wi-Fi",
+    "workload": "Intune",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "IntuneSettingCatalogASRRulesPolicyWindows10~ASR%20-%20Standard",
+    "resourceType": "IntuneSettingCatalogASRRulesPolicyWindows10",
+    "key": "ASR - Standard",
+    "workload": "Intune",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "EXOAcceptedDomain~contoso.example",
+    "resourceType": "EXOAcceptedDomain",
+    "key": "contoso.example",
+    "workload": "Exchange Online",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "EXOAcceptedDomain~contoso-prod.onmicrosoft.com",
+    "resourceType": "EXOAcceptedDomain",
+    "key": "contoso-prod.onmicrosoft.com",
+    "workload": "Exchange Online",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "EXOTransportRule~External%20sender%20banner",
+    "resourceType": "EXOTransportRule",
+    "key": "External sender banner",
+    "workload": "Exchange Online",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "EXOTransportRule~Block%20executable%20attachments",
+    "resourceType": "EXOTransportRule",
+    "key": "Block executable attachments",
+    "workload": "Exchange Online",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "EXOTransportRule~Disclaimer",
+    "resourceType": "EXOTransportRule",
+    "key": "Disclaimer",
+    "workload": "Exchange Online",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "EXOTransportRule~Partner%20TLS%20enforcement",
+    "resourceType": "EXOTransportRule",
+    "key": "Partner TLS enforcement",
+    "workload": "Exchange Online",
+    "inBlueprint": false
+  },
+  {
+    "itemId": "EXOAntiPhishPolicy~Office365%20AntiPhish%20Default",
+    "resourceType": "EXOAntiPhishPolicy",
+    "key": "Office365 AntiPhish Default",
+    "workload": "Exchange Online",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "EXOAntiPhishPolicy~Executive%20protection",
+    "resourceType": "EXOAntiPhishPolicy",
+    "key": "Executive protection",
+    "workload": "Exchange Online",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "EXOMalwareFilterPolicy~Default",
+    "resourceType": "EXOMalwareFilterPolicy",
+    "key": "Default",
+    "workload": "Exchange Online",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "TeamsMeetingPolicy~Global",
+    "resourceType": "TeamsMeetingPolicy",
+    "key": "Global",
+    "workload": "Teams",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "TeamsMeetingPolicy~RestrictedPresenters",
+    "resourceType": "TeamsMeetingPolicy",
+    "key": "RestrictedPresenters",
+    "workload": "Teams",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "TeamsMeetingPolicy~Executives",
+    "resourceType": "TeamsMeetingPolicy",
+    "key": "Executives",
+    "workload": "Teams",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "TeamsMeetingPolicy~Legacy%20Webinar",
+    "resourceType": "TeamsMeetingPolicy",
+    "key": "Legacy Webinar",
+    "workload": "Teams",
+    "inBlueprint": false
+  },
+  {
+    "itemId": "TeamsMessagingPolicy~Global",
+    "resourceType": "TeamsMessagingPolicy",
+    "key": "Global",
+    "workload": "Teams",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "TeamsMessagingPolicy~Students",
+    "resourceType": "TeamsMessagingPolicy",
+    "key": "Students",
+    "workload": "Teams",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "TeamsFederationConfiguration~Global",
+    "resourceType": "TeamsFederationConfiguration",
+    "key": "Global",
+    "workload": "Teams",
+    "inBlueprint": true
+  },
+  {
+    "itemId": "O365OrgSettings~Org%20settings",
+    "resourceType": "O365OrgSettings",
+    "key": "Org settings",
+    "workload": "Other",
+    "inBlueprint": true
+  }
+]

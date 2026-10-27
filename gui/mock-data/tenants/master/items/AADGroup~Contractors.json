@@ -1,0 +1,19 @@
+{
+  "itemId": "AADGroup~Contractors",
+  "resourceType": "AADGroup",
+  "key": "Contractors",
+  "targetKey": "Contractors",
+  "blueprint": null,
+  "target": {
+    "DisplayName": "Contractors",
+    "MailNickname": "Contractors",
+    "Description": "Contractors members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

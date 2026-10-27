@@ -1,0 +1,27 @@
+{
+  "itemId": "TeamsFederationConfiguration~Global",
+  "resourceType": "TeamsFederationConfiguration",
+  "key": "Global",
+  "targetKey": "Global",
+  "blueprint": {
+    "Identity": "Global",
+    "AllowFederatedUsers": true,
+    "AllowTeamsConsumer": false,
+    "AllowPublicUsers": false,
+    "AllowedDomains": [
+      "partner.example"
+    ]
+  },
+  "target": {
+    "Identity": "Global",
+    "AllowFederatedUsers": true,
+    "AllowTeamsConsumer": false,
+    "AllowPublicUsers": false,
+    "AllowedDomains": [
+      "partner.example",
+      "vendor.example"
+    ]
+  },
+  "targetNote": null,
+  "unreadable": []
+}

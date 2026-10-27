@@ -1,0 +1,30 @@
+{
+  "itemId": "IntuneDeviceCompliancePolicyWindows10~Compliance%20-%20Win10%20Corporate",
+  "resourceType": "IntuneDeviceCompliancePolicyWindows10",
+  "key": "Compliance - Win10 Corporate",
+  "targetKey": "Compliance - Win10 Corporate",
+  "blueprint": {
+    "DisplayName": "Compliance - Win10 Corporate",
+    "OsMinimumVersion": "10.0.19045",
+    "BitLockerEnabled": true,
+    "SecureBootEnabled": true,
+    "AntivirusRequired": true,
+    "PasswordRequired": true,
+    "Assignments": [
+      "Group: All Devices"
+    ]
+  },
+  "target": {
+    "DisplayName": "Compliance - Win10 Corporate",
+    "OsMinimumVersion": "10.0.19045",
+    "BitLockerEnabled": true,
+    "SecureBootEnabled": true,
+    "AntivirusRequired": true,
+    "PasswordRequired": true,
+    "Assignments": [
+      "Group: All Devices"
+    ]
+  },
+  "targetNote": null,
+  "unreadable": []
+}

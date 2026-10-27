@@ -1,0 +1,20 @@
+{
+  "jobId": "J-1042",
+  "requestId": null,
+  "action": "Accept",
+  "tenantId": "replica",
+  "items": [
+    {
+      "itemId": "IntuneDeviceConfigurationPolicyWindows10~Kiosk%20-%20Win10",
+      "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+      "key": "Kiosk - Win10"
+    }
+  ],
+  "status": "Succeeded",
+  "requestedAt": "2026-10-21T09:12:00Z",
+  "updatedAt": "2026-10-21T09:12:00Z",
+  "reason": "",
+  "result": "Applied. Re-check: aligned.",
+  "config": "# Generated for J-1042, target: replica\nConfiguration PE_J1042 {\n    Import-DscResource -ModuleName Microsoft365DSC -ModuleVersion 2.26.1015.1\n    Node localhost {\n        IntuneDeviceConfigurationPolicyWindows10 'Kiosk - Win10' {\n            DisplayName                      = 'Kiosk - Win10'\n            PasswordRequired                 = $true\n            PasswordMinimumLength            = 14\n            ScreenLockTimeoutMinutes         = 10\n            DefenderScanType                 = 'full'\n            DefenderMonitorFileActivity      = 'monitorAllFiles'\n            FirewallEnabled                  = $true\n            SmartScreenEnableAppInstallControl = $true\n            BitLockerEncryptDevice           = $true\n            Assignments                      = @('Group: All Devices')\n            Ensure                           = 'Present'\n            ApplicationId                    = $ConfigurationData.NonNodeData.ApplicationId\n            TenantId                         = $ConfigurationData.NonNodeData.TenantId\n            CertificateThumbprint            = $ConfigurationData.NonNodeData.CertificateThumbprint\n        }\n    }\n}",
+  "mock": true
+}

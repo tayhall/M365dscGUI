@@ -1,0 +1,14 @@
+{
+  "jobId": "J-1043",
+  "requestId": null,
+  "action": "FullCheck",
+  "tenantId": "replica",
+  "items": [],
+  "status": "Running",
+  "requestedAt": "2026-10-21T10:58:00Z",
+  "updatedAt": "2026-10-21T10:58:00Z",
+  "reason": "Scheduled daily full check",
+  "result": "Exporting Intune: 212 of 429 components",
+  "config": null,
+  "mock": true
+}

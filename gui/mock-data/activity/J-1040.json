@@ -1,0 +1,20 @@
+{
+  "jobId": "J-1040",
+  "requestId": null,
+  "action": "Accept",
+  "tenantId": "master",
+  "items": [
+    {
+      "itemId": "TeamsMeetingPolicy~Global",
+      "resourceType": "TeamsMeetingPolicy",
+      "key": "Global"
+    }
+  ],
+  "status": "Failed",
+  "requestedAt": "2026-10-20T11:05:00Z",
+  "updatedAt": "2026-10-20T11:05:00Z",
+  "reason": "",
+  "result": "Apply failed: TeamsMeetingPolicy “Global”: Set-CsTeamsMeetingPolicy timed out after 300 s. Nothing was changed; the item is still drifted.",
+  "config": "# Generated for J-1040, target: master\nConfiguration PE_J1040 {\n    Import-DscResource -ModuleName Microsoft365DSC -ModuleVersion 2.26.1015.1\n    Node localhost {\n        TeamsMeetingPolicy 'Global' {\n            Identity                         = 'Global'\n            AllowCloudRecording              = $true\n            AllowTranscription               = $true\n            AutoAdmittedUsers                = 'EveryoneInCompany'\n            DesignatedPresenterRoleMode      = 'EveryoneUserOverride'\n            AllowMeetNow                     = $true\n            Description                      = ''\n            Ensure                           = 'Present'\n            ApplicationId                    = $ConfigurationData.NonNodeData.ApplicationId\n            TenantId                         = $ConfigurationData.NonNodeData.TenantId\n            CertificateThumbprint            = $ConfigurationData.NonNodeData.CertificateThumbprint\n        }\n    }\n}",
+  "mock": true
+}

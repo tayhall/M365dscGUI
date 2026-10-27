@@ -1,0 +1,26 @@
+{
+  "itemId": "TeamsMeetingPolicy~RestrictedPresenters",
+  "resourceType": "TeamsMeetingPolicy",
+  "key": "RestrictedPresenters",
+  "targetKey": "RestrictedPresenters",
+  "blueprint": {
+    "Identity": "RestrictedPresenters",
+    "AllowCloudRecording": true,
+    "AllowTranscription": true,
+    "AutoAdmittedUsers": "EveryoneInCompany",
+    "DesignatedPresenterRoleMode": "EveryoneUserOverride",
+    "AllowMeetNow": true,
+    "Description": ""
+  },
+  "target": {
+    "Identity": "RestrictedPresenters",
+    "AllowCloudRecording": true,
+    "AllowTranscription": true,
+    "AutoAdmittedUsers": "EveryoneInCompany",
+    "DesignatedPresenterRoleMode": "EveryoneUserOverride",
+    "AllowMeetNow": true,
+    "Description": ""
+  },
+  "targetNote": null,
+  "unreadable": []
+}

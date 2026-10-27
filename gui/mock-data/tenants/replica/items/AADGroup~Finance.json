@@ -1,0 +1,28 @@
+{
+  "itemId": "AADGroup~Finance",
+  "resourceType": "AADGroup",
+  "key": "Finance",
+  "targetKey": "Finance Team",
+  "blueprint": {
+    "DisplayName": "Finance",
+    "MailNickname": "Finance",
+    "Description": "Finance members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "target": {
+    "DisplayName": "Finance Team",
+    "MailNickname": "FinanceTeam",
+    "Description": "Finance Team members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

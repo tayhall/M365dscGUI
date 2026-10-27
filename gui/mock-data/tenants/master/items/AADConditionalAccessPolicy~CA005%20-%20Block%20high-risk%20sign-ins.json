@@ -1,0 +1,52 @@
+{
+  "itemId": "AADConditionalAccessPolicy~CA005%20-%20Block%20high-risk%20sign-ins",
+  "resourceType": "AADConditionalAccessPolicy",
+  "key": "CA005 - Block high-risk sign-ins",
+  "targetKey": "CA005 - Block high-risk sign-ins",
+  "blueprint": {
+    "DisplayName": "CA005 - Block high-risk sign-ins",
+    "State": "enabled",
+    "IncludeUsers": [
+      "All"
+    ],
+    "ExcludeGroups": [
+      "IT Admins"
+    ],
+    "IncludeApplications": [
+      "All"
+    ],
+    "ClientAppTypes": [
+      "all"
+    ],
+    "GrantControls": [
+      "mfa"
+    ],
+    "BuiltInControlsOperator": "OR",
+    "SignInRiskLevels": [],
+    "SessionControlsSignInFrequency": "Not configured"
+  },
+  "target": {
+    "DisplayName": "CA005 - Block high-risk sign-ins",
+    "State": "enabled",
+    "IncludeUsers": [
+      "All"
+    ],
+    "ExcludeGroups": [
+      "IT Admins"
+    ],
+    "IncludeApplications": [
+      "All"
+    ],
+    "ClientAppTypes": [
+      "all"
+    ],
+    "GrantControls": [
+      "mfa"
+    ],
+    "BuiltInControlsOperator": "OR",
+    "SignInRiskLevels": [],
+    "SessionControlsSignInFrequency": "Not configured"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

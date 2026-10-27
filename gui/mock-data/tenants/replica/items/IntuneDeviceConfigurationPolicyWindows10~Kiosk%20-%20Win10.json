@@ -1,0 +1,36 @@
+{
+  "itemId": "IntuneDeviceConfigurationPolicyWindows10~Kiosk%20-%20Win10",
+  "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+  "key": "Kiosk - Win10",
+  "targetKey": "Kiosk - Win10",
+  "blueprint": {
+    "DisplayName": "Kiosk - Win10",
+    "PasswordRequired": true,
+    "PasswordMinimumLength": 14,
+    "ScreenLockTimeoutMinutes": 10,
+    "DefenderScanType": "full",
+    "DefenderMonitorFileActivity": "monitorAllFiles",
+    "FirewallEnabled": true,
+    "SmartScreenEnableAppInstallControl": true,
+    "BitLockerEncryptDevice": true,
+    "Assignments": [
+      "Group: All Devices"
+    ]
+  },
+  "target": {
+    "DisplayName": "Kiosk - Win10",
+    "PasswordRequired": true,
+    "PasswordMinimumLength": 14,
+    "ScreenLockTimeoutMinutes": 10,
+    "DefenderScanType": "full",
+    "DefenderMonitorFileActivity": "monitorAllFiles",
+    "FirewallEnabled": true,
+    "SmartScreenEnableAppInstallControl": true,
+    "BitLockerEncryptDevice": true,
+    "Assignments": [
+      "Group: All Devices"
+    ]
+  },
+  "targetNote": null,
+  "unreadable": []
+}

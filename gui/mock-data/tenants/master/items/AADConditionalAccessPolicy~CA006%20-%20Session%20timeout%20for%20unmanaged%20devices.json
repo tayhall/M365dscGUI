@@ -1,0 +1,52 @@
+{
+  "itemId": "AADConditionalAccessPolicy~CA006%20-%20Session%20timeout%20for%20unmanaged%20devices",
+  "resourceType": "AADConditionalAccessPolicy",
+  "key": "CA006 - Session timeout for unmanaged devices",
+  "targetKey": "CA006 - Session timeout for unmanaged devices",
+  "blueprint": {
+    "DisplayName": "CA006 - Session timeout for unmanaged devices",
+    "State": "enabled",
+    "IncludeUsers": [
+      "All"
+    ],
+    "ExcludeGroups": [
+      "IT Admins"
+    ],
+    "IncludeApplications": [
+      "All"
+    ],
+    "ClientAppTypes": [
+      "all"
+    ],
+    "GrantControls": [
+      "mfa"
+    ],
+    "BuiltInControlsOperator": "OR",
+    "SignInRiskLevels": [],
+    "SessionControlsSignInFrequency": "Not configured"
+  },
+  "target": {
+    "DisplayName": "CA006 - Session timeout for unmanaged devices",
+    "State": "enabled",
+    "IncludeUsers": [
+      "All"
+    ],
+    "ExcludeGroups": [
+      "IT Admins"
+    ],
+    "IncludeApplications": [
+      "All"
+    ],
+    "ClientAppTypes": [
+      "all"
+    ],
+    "GrantControls": [
+      "mfa"
+    ],
+    "BuiltInControlsOperator": "OR",
+    "SignInRiskLevels": [],
+    "SessionControlsSignInFrequency": "Not configured"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

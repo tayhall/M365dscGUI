@@ -1,0 +1,36 @@
+{
+  "itemId": "IntuneDeviceConfigurationPolicyWindows10~Baseline%20-%20Win10",
+  "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+  "key": "Baseline - Win10",
+  "targetKey": "Baseline - Win10",
+  "blueprint": {
+    "DisplayName": "Baseline - Win10",
+    "PasswordRequired": true,
+    "PasswordMinimumLength": 14,
+    "ScreenLockTimeoutMinutes": 10,
+    "DefenderScanType": "full",
+    "DefenderMonitorFileActivity": "monitorAllFiles",
+    "FirewallEnabled": true,
+    "SmartScreenEnableAppInstallControl": true,
+    "BitLockerEncryptDevice": true,
+    "Assignments": [
+      "Group: All Devices"
+    ]
+  },
+  "target": {
+    "DisplayName": "Baseline - Win10",
+    "PasswordRequired": true,
+    "PasswordMinimumLength": 14,
+    "ScreenLockTimeoutMinutes": 10,
+    "DefenderScanType": "full",
+    "DefenderMonitorFileActivity": "monitorAllFiles",
+    "FirewallEnabled": true,
+    "SmartScreenEnableAppInstallControl": true,
+    "BitLockerEncryptDevice": true,
+    "Assignments": [
+      "Group: All Devices"
+    ]
+  },
+  "targetNote": null,
+  "unreadable": []
+}

@@ -1,0 +1,18 @@
+{
+  "itemId": "EXOTransportRule~Partner%20TLS%20enforcement",
+  "resourceType": "EXOTransportRule",
+  "key": "Partner TLS enforcement",
+  "targetKey": "Partner TLS enforcement",
+  "blueprint": null,
+  "target": {
+    "Name": "Partner TLS enforcement",
+    "Enabled": true,
+    "Mode": "Enforce",
+    "FromScope": "InOrganization",
+    "ApplyHtmlDisclaimerLocation": "Prepend",
+    "ApplyHtmlDisclaimerText": "",
+    "StopRuleProcessing": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

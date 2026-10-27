@@ -1,0 +1,45 @@
+Exporting Microsoft 365 configuration for Components: AADApplication, AADFederationConfiguration, AADFilteringPolicy, AADRoleEligibilityScheduleRequest, AADRoleManagementPolicyRule, EXOAvailabilityAddressSpace, EXOCalendarProcessing, EXOGlobalAddressList, TeamsCallParkPolicy, TeamsCallQueue, TeamsChannel, TeamsChannelsPolicy, TeamsChannelTab, TeamsUser, TeamsUpgradePolicy
+
+Authentication methods specified:
+- Service Principal with Certificate Thumbprint
+
+Starting export in sequential mode...
+[1/15] Extracting [AADApplication] using {CertificateThumbprint}...\r\n    |---[1/2] Sample App One✅
+    |---[2/2] Sample App Two✅
+Error Log created at {file://C:/Temp/1000-M365DSC-ErrorLog.log}
+[2/15] Extracting [AADFederationConfiguration] using {CertificateThumbprint}...\r\n[3/15] Extracting [AADFilteringPolicy] using {CertificateThumbprint}...❌
+    An error occurred while exporting resource {AADFilteringPolicy}: Forbidden: invented 403 for the layout fixture.
+[4/15] Extracting [AADRoleEligibilityScheduleRequest] using {CertificateThumbprint}...✅
+    |---[1/2] Sample Role One
+[5/15] Extracting [AADRoleManagementPolicyRule] using {CertificateThumbprint}...\r\n        |---[1/2] Sample Role One_Rule_A✅
+        |---[2/2] Sample Role One_Rule_B✅
+    |---[2/2] Sample Role Two
+        |---[1/2] Sample Role Two_Rule_A✅
+        |---[2/2] Sample Role Two_Rule_B✅
+\r\n    ❌ The specified account doesn't have permissions to access Availibility Address Space
+[6/15] Extracting [EXOAvailabilityAddressSpace] using {CertificateThumbprint}...[7/15] Extracting [EXOCalendarProcessing] using {CertificateThumbprint}...\r\n    |---[1/2] user1@contoso.example✅
+    |---[2/2] user2@contoso.example✅
+\r\n    🟡 The current tenant is not registered to allow for Global Address List
+[8/15] Extracting [EXOGlobalAddressList] using {CertificateThumbprint}...[9/15] Extracting [TeamsCallParkPolicy] using {CertificateThumbprint}...\r\n    |---[1/1] Global✅
+    |---[1/2] Team {Sample Team A}
+[10/15] Extracting [TeamsCallQueue] using {CertificateThumbprint}...\r\n[11/15] Extracting [TeamsChannel] using {CertificateThumbprint}...\r\n        |---[1/1] General✅
+    |---[2/2] Team {Sample Team B}
+        |---[1/2] General✅
+        |---[2/2] Planning✅
+[12/15] Extracting [TeamsChannelsPolicy] using {CertificateThumbprint}...\r\n    |---[1/2] Global✅
+    |---[2/2] Tag:Default✅
+    |---[1/2] Sample Team A
+        |---[1/1] General
+[13/15] Extracting [TeamsChannelTab] using {CertificateThumbprint}...\r\n            |---[1/2] Notes✅
+            |---[2/2] Files✅
+    |---[2/2] Sample Team B
+        |---[1/1] General
+            |---[1/1] Notes✅
+    > [1/1] Team {Sample Team A}
+[14/15] Extracting [TeamsUser] using {CertificateThumbprint}...\r\n        - [1/2] user1@contoso.example✅
+        - [2/2] user2@contoso.example✅
+[15/15] Extracting [TeamsUpgradePolicy] using {CertificateThumbprint}...\r\n    |---[1/1] Global✅
+⌛ Export took {42 seconds} for {20 instances}
+Successful exports: {14}
+Failed exports: {1}
+❌ Export completed with errors.

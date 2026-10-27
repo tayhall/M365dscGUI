@@ -1,0 +1,23 @@
+{
+  "itemId": "IntuneDeviceConfigurationPolicyWindows10~BitLocker%20-%20Win10",
+  "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+  "key": "BitLocker - Win10",
+  "targetKey": "BitLocker - Win10",
+  "blueprint": {
+    "DisplayName": "BitLocker - Win10",
+    "PasswordRequired": true,
+    "PasswordMinimumLength": 14,
+    "ScreenLockTimeoutMinutes": 10,
+    "DefenderScanType": "full",
+    "DefenderMonitorFileActivity": "monitorAllFiles",
+    "FirewallEnabled": true,
+    "SmartScreenEnableAppInstallControl": true,
+    "BitLockerEncryptDevice": true,
+    "Assignments": [
+      "Group: All Devices"
+    ]
+  },
+  "target": null,
+  "targetNote": null,
+  "unreadable": []
+}

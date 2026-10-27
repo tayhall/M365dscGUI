@@ -1,0 +1,28 @@
+{
+  "itemId": "AADApplication~HR%20Portal",
+  "resourceType": "AADApplication",
+  "key": "HR Portal",
+  "targetKey": "HR Portal",
+  "blueprint": {
+    "DisplayName": "HR Portal",
+    "SignInAudience": "AzureADMyOrg",
+    "PublicClient": false,
+    "ReplyURLs": [
+      "https://hrportal.contoso.example/auth"
+    ],
+    "Homepage": "https://hrportal.contoso.example"
+  },
+  "target": {
+    "DisplayName": "HR Portal",
+    "SignInAudience": "AzureADMyOrg",
+    "PublicClient": false,
+    "ReplyURLs": [
+      "https://hrportal.contoso.example/auth"
+    ],
+    "Homepage": "https://hrportal.contoso.example"
+  },
+  "targetNote": null,
+  "unreadable": [
+    "PasswordCredentials"
+  ]
+}

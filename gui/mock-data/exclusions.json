@@ -1,0 +1,38 @@
+{
+  "unmanaged": [
+    {
+      "tenantId": "master",
+      "itemId": "TeamsMeetingPolicy~Legacy%20Webinar",
+      "resourceType": "TeamsMeetingPolicy",
+      "key": "Legacy Webinar",
+      "reason": "Retiring with the old webinar platform in December",
+      "at": "2026-10-03T09:00:00Z"
+    },
+    {
+      "tenantId": "replica",
+      "itemId": "AADGroup~Dev%20Sandbox",
+      "resourceType": "AADGroup",
+      "key": "Dev Sandbox",
+      "reason": "Developer test group, Dev only",
+      "at": "2026-10-10T09:00:00Z"
+    }
+  ],
+  "noise": [
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "property": "SessionControlsSignInFrequency",
+      "value": "Not configured",
+      "itemId": null,
+      "reason": "DSC reports this on every run although nothing changed",
+      "at": "2026-10-14T09:00:00Z"
+    },
+    {
+      "resourceType": "TeamsMeetingPolicy",
+      "property": "Description",
+      "value": "",
+      "itemId": null,
+      "reason": "Empty and missing descriptions export differently",
+      "at": "2026-10-15T09:00:00Z"
+    }
+  ]
+}

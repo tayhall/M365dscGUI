@@ -1,0 +1,97 @@
+{
+  "AADConditionalAccessPolicy": {
+    "name": "Conditional access policy",
+    "workload": "Entra ID",
+    "keyProperty": "DisplayName"
+  },
+  "AADGroup": {
+    "name": "Group",
+    "workload": "Entra ID",
+    "keyProperty": "DisplayName"
+  },
+  "AADNamedLocationPolicy": {
+    "name": "Named location",
+    "workload": "Entra ID",
+    "keyProperty": "DisplayName"
+  },
+  "AADApplication": {
+    "name": "App registration",
+    "workload": "Entra ID",
+    "keyProperty": "DisplayName"
+  },
+  "IntuneDeviceConfigurationPolicyWindows10": {
+    "name": "Device configuration (Windows 10)",
+    "workload": "Intune",
+    "keyProperty": "DisplayName"
+  },
+  "IntuneDeviceCompliancePolicyWindows10": {
+    "name": "Compliance policy (Windows 10)",
+    "workload": "Intune",
+    "keyProperty": "DisplayName"
+  },
+  "IntuneAppProtectionPolicyiOS": {
+    "name": "App protection (iOS)",
+    "workload": "Intune",
+    "keyProperty": "DisplayName"
+  },
+  "IntuneWifiConfigurationPolicyWindows10": {
+    "name": "Wi-Fi profile (Windows 10)",
+    "workload": "Intune",
+    "keyProperty": "DisplayName"
+  },
+  "IntuneSettingCatalogASRRulesPolicyWindows10": {
+    "name": "Attack surface reduction rules",
+    "workload": "Intune",
+    "keyProperty": "DisplayName"
+  },
+  "IntuneDeviceEnrollmentStatusPageWindows10": {
+    "name": "Enrollment status page",
+    "workload": "Intune",
+    "keyProperty": null
+  },
+  "EXOAcceptedDomain": {
+    "name": "Accepted domain",
+    "workload": "Exchange Online",
+    "keyProperty": "Identity"
+  },
+  "EXOTransportRule": {
+    "name": "Mail flow rule",
+    "workload": "Exchange Online",
+    "keyProperty": "Name"
+  },
+  "EXOAntiPhishPolicy": {
+    "name": "Anti-phishing policy",
+    "workload": "Exchange Online",
+    "keyProperty": "Identity"
+  },
+  "EXOMalwareFilterPolicy": {
+    "name": "Malware filter policy",
+    "workload": "Exchange Online",
+    "keyProperty": "Identity"
+  },
+  "EXOFocusedInbox": {
+    "name": "Focused Inbox",
+    "workload": "Exchange Online",
+    "keyProperty": "Identity"
+  },
+  "TeamsMeetingPolicy": {
+    "name": "Meeting policy",
+    "workload": "Teams",
+    "keyProperty": "Identity"
+  },
+  "TeamsMessagingPolicy": {
+    "name": "Messaging policy",
+    "workload": "Teams",
+    "keyProperty": "Identity"
+  },
+  "TeamsFederationConfiguration": {
+    "name": "Federation configuration",
+    "workload": "Teams",
+    "keyProperty": "Identity"
+  },
+  "O365OrgSettings": {
+    "name": "Org settings",
+    "workload": "Other",
+    "keyProperty": "IsSingleInstance"
+  }
+}

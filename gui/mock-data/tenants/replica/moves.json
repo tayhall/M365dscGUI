@@ -1,0 +1,44 @@
+{
+  "master": {
+    "name": "prod",
+    "version": 7
+  },
+  "own": {
+    "name": "replica",
+    "version": 3
+  },
+  "up": [
+    {
+      "itemId": "AADConditionalAccessPolicy~CA007%20-%20Test%20MFA%20bypass",
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "CA007 - Test MFA bypass",
+      "op": "Added"
+    },
+    {
+      "itemId": "IntuneDeviceConfigurationPolicyWindows10~Baseline%20-%20Win10",
+      "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+      "key": "Baseline - Win10",
+      "op": "Changed"
+    }
+  ],
+  "down": [
+    {
+      "itemId": "AADConditionalAccessPolicy~CA005%20-%20Block%20high-risk%20sign-ins",
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "CA005 - Block high-risk sign-ins",
+      "op": "Added"
+    },
+    {
+      "itemId": "AADConditionalAccessPolicy~CA001%20-%20Require%20MFA%20for%20admins",
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "CA001 - Require MFA for admins",
+      "op": "Changed"
+    },
+    {
+      "itemId": "AADGroup~Dev%20Sandbox",
+      "resourceType": "AADGroup",
+      "key": "Dev Sandbox",
+      "op": "Removed"
+    }
+  ]
+}

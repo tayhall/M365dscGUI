@@ -1,0 +1,28 @@
+{
+  "itemId": "AADGroup~Guests%20-%20Partners",
+  "resourceType": "AADGroup",
+  "key": "Guests - Partners",
+  "targetKey": "Guests - Partners",
+  "blueprint": {
+    "DisplayName": "Guests - Partners",
+    "MailNickname": "GuestsPartners",
+    "Description": "Guests - Partners members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "target": {
+    "DisplayName": "Guests - Partners",
+    "MailNickname": "GuestsPartners",
+    "Description": "Guests - Partners members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

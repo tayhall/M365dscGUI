@@ -1,0 +1,29 @@
+{
+  "itemId": "AADConditionalAccessPolicy~CA007%20-%20Test%20MFA%20bypass",
+  "resourceType": "AADConditionalAccessPolicy",
+  "key": "CA007 - Test MFA bypass",
+  "targetKey": "CA007 - Test MFA bypass",
+  "blueprint": null,
+  "target": {
+    "DisplayName": "CA007 - Test MFA bypass",
+    "State": "disabled",
+    "IncludeUsers": [
+      "All"
+    ],
+    "ExcludeGroups": [
+      "IT Admins"
+    ],
+    "IncludeApplications": [
+      "All"
+    ],
+    "ClientAppTypes": [
+      "all"
+    ],
+    "GrantControls": [],
+    "BuiltInControlsOperator": "OR",
+    "SignInRiskLevels": [],
+    "SessionControlsSignInFrequency": "Not configured"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

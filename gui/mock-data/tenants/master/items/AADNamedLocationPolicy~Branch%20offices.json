@@ -1,0 +1,24 @@
+{
+  "itemId": "AADNamedLocationPolicy~Branch%20offices",
+  "resourceType": "AADNamedLocationPolicy",
+  "key": "Branch offices",
+  "targetKey": "Branch offices",
+  "blueprint": {
+    "DisplayName": "Branch offices",
+    "OdataType": "#microsoft.graph.ipNamedLocation",
+    "IsTrusted": true,
+    "IpRanges": [
+      "203.0.113.0/24"
+    ]
+  },
+  "target": {
+    "DisplayName": "Branch offices",
+    "OdataType": "#microsoft.graph.ipNamedLocation",
+    "IsTrusted": true,
+    "IpRanges": [
+      "203.0.113.0/24"
+    ]
+  },
+  "targetNote": null,
+  "unreadable": []
+}

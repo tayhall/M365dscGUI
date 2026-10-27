@@ -1,0 +1,20 @@
+{
+  "jobId": "J-1041",
+  "requestId": null,
+  "action": "Promote",
+  "tenantId": "replica",
+  "items": [
+    {
+      "itemId": "EXOTransportRule~Block%20executable%20attachments",
+      "resourceType": "EXOTransportRule",
+      "key": "Block executable attachments"
+    }
+  ],
+  "status": "Succeeded",
+  "requestedAt": "2026-10-20T16:40:00Z",
+  "updatedAt": "2026-10-20T16:40:00Z",
+  "reason": "Approved by security",
+  "result": "Applied to the master. Blueprint v7 created. Re-check: aligned.",
+  "config": "# Generated for J-1041, target: master\nConfiguration PE_J1041 {\n    Import-DscResource -ModuleName Microsoft365DSC -ModuleVersion 2.26.1015.1\n    Node localhost {\n        EXOTransportRule 'Block executable attachments' {\n            Name                             = 'Block executable attachments'\n            Enabled                          = $true\n            Mode                             = 'Enforce'\n            FromScope                        = 'NotInOrganization'\n            ApplyHtmlDisclaimerLocation      = 'Prepend'\n            ApplyHtmlDisclaimerText          = '[External] Take care with links.'\n            StopRuleProcessing               = $false\n            Ensure                           = 'Present'\n            ApplicationId                    = $ConfigurationData.NonNodeData.ApplicationId\n            TenantId                         = $ConfigurationData.NonNodeData.TenantId\n            CertificateThumbprint            = $ConfigurationData.NonNodeData.CertificateThumbprint\n        }\n    }\n}",
+  "mock": true
+}

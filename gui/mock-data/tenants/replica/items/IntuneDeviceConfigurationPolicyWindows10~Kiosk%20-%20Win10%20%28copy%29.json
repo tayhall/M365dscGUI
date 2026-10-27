@@ -1,0 +1,21 @@
+{
+  "itemId": "IntuneDeviceConfigurationPolicyWindows10~Kiosk%20-%20Win10%20%28copy%29",
+  "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+  "key": "Kiosk - Win10 (copy)",
+  "targetKey": "Kiosk - Win10 (copy)",
+  "blueprint": null,
+  "target": {
+    "DisplayName": "Kiosk - Win10 (copy)",
+    "PasswordRequired": true,
+    "PasswordMinimumLength": 14,
+    "ScreenLockTimeoutMinutes": 0,
+    "DefenderScanType": "full",
+    "DefenderMonitorFileActivity": "monitorAllFiles",
+    "FirewallEnabled": true,
+    "SmartScreenEnableAppInstallControl": true,
+    "BitLockerEncryptDevice": true,
+    "Assignments": []
+  },
+  "targetNote": null,
+  "unreadable": []
+}

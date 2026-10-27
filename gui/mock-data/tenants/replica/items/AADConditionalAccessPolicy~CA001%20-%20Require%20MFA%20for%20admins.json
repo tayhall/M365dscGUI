@@ -1,0 +1,54 @@
+{
+  "itemId": "AADConditionalAccessPolicy~CA001%20-%20Require%20MFA%20for%20admins",
+  "resourceType": "AADConditionalAccessPolicy",
+  "key": "CA001 - Require MFA for admins",
+  "targetKey": "CA001 - Require MFA for admins",
+  "blueprint": {
+    "DisplayName": "CA001 - Require MFA for admins",
+    "State": "enabled",
+    "IncludeUsers": [
+      "All"
+    ],
+    "ExcludeGroups": [
+      "IT Admins"
+    ],
+    "IncludeApplications": [
+      "All"
+    ],
+    "ClientAppTypes": [
+      "all"
+    ],
+    "GrantControls": [
+      "mfa"
+    ],
+    "BuiltInControlsOperator": "OR",
+    "SignInRiskLevels": [],
+    "SessionControlsSignInFrequency": "Not configured"
+  },
+  "target": {
+    "DisplayName": "CA001 - Require MFA for admins",
+    "State": "enabled",
+    "IncludeUsers": [
+      "All"
+    ],
+    "ExcludeGroups": [
+      "IT Admins",
+      "Break Glass"
+    ],
+    "IncludeApplications": [
+      "All"
+    ],
+    "ClientAppTypes": [
+      "all"
+    ],
+    "GrantControls": [
+      "mfa",
+      "compliantDevice"
+    ],
+    "BuiltInControlsOperator": "OR",
+    "SignInRiskLevels": [],
+    "SessionControlsSignInFrequency": "Not configured"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

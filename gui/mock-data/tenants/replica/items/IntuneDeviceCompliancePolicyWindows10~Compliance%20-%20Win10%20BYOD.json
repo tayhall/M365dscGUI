@@ -1,0 +1,30 @@
+{
+  "itemId": "IntuneDeviceCompliancePolicyWindows10~Compliance%20-%20Win10%20BYOD",
+  "resourceType": "IntuneDeviceCompliancePolicyWindows10",
+  "key": "Compliance - Win10 BYOD",
+  "targetKey": "Compliance - Win10 BYOD",
+  "blueprint": {
+    "DisplayName": "Compliance - Win10 BYOD",
+    "OsMinimumVersion": "10.0.19045",
+    "BitLockerEnabled": true,
+    "SecureBootEnabled": true,
+    "AntivirusRequired": true,
+    "PasswordRequired": true,
+    "Assignments": [
+      "Group: All Devices"
+    ]
+  },
+  "target": {
+    "DisplayName": "Compliance - Win10 BYOD",
+    "OsMinimumVersion": "10.0.19041",
+    "BitLockerEnabled": true,
+    "SecureBootEnabled": true,
+    "AntivirusRequired": true,
+    "PasswordRequired": true,
+    "Assignments": [
+      "Group: All Devices"
+    ]
+  },
+  "targetNote": null,
+  "unreadable": []
+}

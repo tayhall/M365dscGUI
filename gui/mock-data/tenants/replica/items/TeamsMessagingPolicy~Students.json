@@ -1,0 +1,17 @@
+{
+  "itemId": "TeamsMessagingPolicy~Students",
+  "resourceType": "TeamsMessagingPolicy",
+  "key": "Students",
+  "targetKey": "Students",
+  "blueprint": {
+    "Identity": "Students",
+    "AllowUserEditMessage": true,
+    "AllowUserDeleteMessage": true,
+    "AllowGiphy": true,
+    "GiphyRatingType": "Moderate",
+    "ReadReceiptsEnabledType": "UserPreference"
+  },
+  "target": null,
+  "targetNote": null,
+  "unreadable": []
+}

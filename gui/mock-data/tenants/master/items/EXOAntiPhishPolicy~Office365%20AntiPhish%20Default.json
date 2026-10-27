@@ -1,0 +1,26 @@
+{
+  "itemId": "EXOAntiPhishPolicy~Office365%20AntiPhish%20Default",
+  "resourceType": "EXOAntiPhishPolicy",
+  "key": "Office365 AntiPhish Default",
+  "targetKey": "Office365 AntiPhish Default",
+  "blueprint": {
+    "Identity": "Office365 AntiPhish Default",
+    "Enabled": true,
+    "PhishThresholdLevel": 2,
+    "EnableMailboxIntelligence": true,
+    "EnableSpoofIntelligence": true,
+    "EnableTargetedUserProtection": false,
+    "TargetedUserProtectionAction": "Quarantine"
+  },
+  "target": {
+    "Identity": "Office365 AntiPhish Default",
+    "Enabled": true,
+    "PhishThresholdLevel": 2,
+    "EnableMailboxIntelligence": true,
+    "EnableSpoofIntelligence": true,
+    "EnableTargetedUserProtection": false,
+    "TargetedUserProtectionAction": "Quarantine"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

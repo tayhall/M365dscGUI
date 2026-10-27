@@ -1,0 +1,28 @@
+{
+  "itemId": "AADApplication~Expense%20App",
+  "resourceType": "AADApplication",
+  "key": "Expense App",
+  "targetKey": "Expense App",
+  "blueprint": {
+    "DisplayName": "Expense App",
+    "SignInAudience": "AzureADMyOrg",
+    "PublicClient": false,
+    "ReplyURLs": [
+      "https://expenseapp.contoso.example/auth"
+    ],
+    "Homepage": "https://expenseapp.contoso.example"
+  },
+  "target": {
+    "DisplayName": "Expense App",
+    "SignInAudience": "AzureADMyOrg",
+    "PublicClient": false,
+    "ReplyURLs": [
+      "https://expenseapp.contoso.example/auth"
+    ],
+    "Homepage": "https://expenseapp.contoso.example"
+  },
+  "targetNote": null,
+  "unreadable": [
+    "PasswordCredentials"
+  ]
+}

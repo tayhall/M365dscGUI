@@ -1,0 +1,28 @@
+{
+  "itemId": "AADGroup~Marketing",
+  "resourceType": "AADGroup",
+  "key": "Marketing",
+  "targetKey": "Marketing",
+  "blueprint": {
+    "DisplayName": "Marketing",
+    "MailNickname": "Marketing",
+    "Description": "Marketing members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "target": {
+    "DisplayName": "Marketing",
+    "MailNickname": "Marketing",
+    "Description": "Marketing members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

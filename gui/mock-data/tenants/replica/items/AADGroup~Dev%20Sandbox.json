@@ -1,0 +1,19 @@
+{
+  "itemId": "AADGroup~Dev%20Sandbox",
+  "resourceType": "AADGroup",
+  "key": "Dev Sandbox",
+  "targetKey": "Dev Sandbox",
+  "blueprint": null,
+  "target": {
+    "DisplayName": "Dev Sandbox",
+    "MailNickname": "DevSandbox",
+    "Description": "Dev Sandbox members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

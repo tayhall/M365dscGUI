@@ -1,0 +1,26 @@
+{
+  "itemId": "EXOTransportRule~Disclaimer",
+  "resourceType": "EXOTransportRule",
+  "key": "Disclaimer",
+  "targetKey": "Disclaimer",
+  "blueprint": {
+    "Name": "Disclaimer",
+    "Enabled": true,
+    "Mode": "Enforce",
+    "FromScope": "NotInOrganization",
+    "ApplyHtmlDisclaimerLocation": "Prepend",
+    "ApplyHtmlDisclaimerText": "[External] Take care with links.",
+    "StopRuleProcessing": false
+  },
+  "target": {
+    "Name": "Disclaimer",
+    "Enabled": true,
+    "Mode": "Enforce",
+    "FromScope": "NotInOrganization",
+    "ApplyHtmlDisclaimerLocation": "Prepend",
+    "ApplyHtmlDisclaimerText": "[External] Take care with links.",
+    "StopRuleProcessing": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

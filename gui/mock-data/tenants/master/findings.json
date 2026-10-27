@@ -1,0 +1,128 @@
+[
+  {
+    "id": "AADConditionalAccessPolicy~CA003%20-%20Require%20compliant%20device",
+    "itemId": "AADConditionalAccessPolicy~CA003%20-%20Require%20compliant%20device",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA003 - Require compliant device",
+    "workload": "Entra ID",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "State",
+        "blueprint": "enabled",
+        "target": "enabledForReportingButNotEnforced"
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-21T02:00:00Z"
+  },
+  {
+    "id": "AADGroup~Contractors",
+    "itemId": "AADGroup~Contractors",
+    "resourceType": "AADGroup",
+    "key": "Contractors",
+    "workload": "Entra ID",
+    "kind": "TargetOnly",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-20T02:00:00Z"
+  },
+  {
+    "id": "EXOTransportRule~Disclaimer",
+    "itemId": "EXOTransportRule~Disclaimer",
+    "resourceType": "EXOTransportRule",
+    "key": "Disclaimer",
+    "workload": "Exchange Online",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "Enabled",
+        "blueprint": true,
+        "target": false
+      },
+      {
+        "property": "ApplyHtmlDisclaimerText",
+        "blueprint": "[External] Take care with links.",
+        "target": "Sent from Contoso. Confidential."
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-21T02:00:00Z"
+  },
+  {
+    "id": "EXOTransportRule~Partner%20TLS%20enforcement",
+    "itemId": "EXOTransportRule~Partner%20TLS%20enforcement",
+    "resourceType": "EXOTransportRule",
+    "key": "Partner TLS enforcement",
+    "workload": "Exchange Online",
+    "kind": "TargetOnly",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-21T02:00:00Z"
+  },
+  {
+    "id": "EXOAntiPhishPolicy~Executive%20protection",
+    "itemId": "EXOAntiPhishPolicy~Executive%20protection",
+    "resourceType": "EXOAntiPhishPolicy",
+    "key": "Executive protection",
+    "workload": "Exchange Online",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "PhishThresholdLevel",
+        "blueprint": 2,
+        "target": 3
+      },
+      {
+        "property": "EnableTargetedUserProtection",
+        "blueprint": false,
+        "target": true
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-19T02:00:00Z"
+  },
+  {
+    "id": "TeamsMeetingPolicy~Legacy%20Webinar",
+    "itemId": "TeamsMeetingPolicy~Legacy%20Webinar",
+    "resourceType": "TeamsMeetingPolicy",
+    "key": "Legacy Webinar",
+    "workload": "Teams",
+    "kind": "TargetOnly",
+    "state": "Unmanaged",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-01T02:00:00Z"
+  },
+  {
+    "id": "EXOFocusedInbox~",
+    "itemId": null,
+    "resourceType": "EXOFocusedInbox",
+    "key": null,
+    "workload": "Exchange Online",
+    "kind": "NotAvailable",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": "Fails the same way in the blueprint export: feature not licensed in this tenant.",
+    "firstSeen": null
+  }
+]

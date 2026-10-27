@@ -1,0 +1,26 @@
+{
+  "itemId": "EXOTransportRule~External%20sender%20banner",
+  "resourceType": "EXOTransportRule",
+  "key": "External sender banner",
+  "targetKey": "External sender banner",
+  "blueprint": {
+    "Name": "External sender banner",
+    "Enabled": true,
+    "Mode": "Enforce",
+    "FromScope": "NotInOrganization",
+    "ApplyHtmlDisclaimerLocation": "Prepend",
+    "ApplyHtmlDisclaimerText": "[External] Take care with links.",
+    "StopRuleProcessing": false
+  },
+  "target": {
+    "Name": "External sender banner",
+    "Enabled": true,
+    "Mode": "Enforce",
+    "FromScope": "NotInOrganization",
+    "ApplyHtmlDisclaimerLocation": "Prepend",
+    "ApplyHtmlDisclaimerText": "[External] Take care with links.",
+    "StopRuleProcessing": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

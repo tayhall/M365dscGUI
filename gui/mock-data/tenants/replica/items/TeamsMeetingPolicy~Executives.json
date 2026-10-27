@@ -1,0 +1,26 @@
+{
+  "itemId": "TeamsMeetingPolicy~Executives",
+  "resourceType": "TeamsMeetingPolicy",
+  "key": "Executives",
+  "targetKey": "Executives",
+  "blueprint": {
+    "Identity": "Executives",
+    "AllowCloudRecording": true,
+    "AllowTranscription": true,
+    "AutoAdmittedUsers": "EveryoneInCompany",
+    "DesignatedPresenterRoleMode": "EveryoneUserOverride",
+    "AllowMeetNow": true,
+    "Description": ""
+  },
+  "target": {
+    "Identity": "Executives",
+    "AllowCloudRecording": true,
+    "AllowTranscription": true,
+    "AutoAdmittedUsers": "Everyone",
+    "DesignatedPresenterRoleMode": "EveryoneUserOverride",
+    "AllowMeetNow": true,
+    "Description": ""
+  },
+  "targetNote": null,
+  "unreadable": []
+}

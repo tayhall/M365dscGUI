@@ -1,0 +1,17 @@
+{
+  "itemId": "TeamsMessagingPolicy~Contractors",
+  "resourceType": "TeamsMessagingPolicy",
+  "key": "Contractors",
+  "targetKey": "Contractors",
+  "blueprint": null,
+  "target": {
+    "Identity": "Contractors",
+    "AllowUserEditMessage": true,
+    "AllowUserDeleteMessage": true,
+    "AllowGiphy": false,
+    "GiphyRatingType": "Moderate",
+    "ReadReceiptsEnabledType": "UserPreference"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

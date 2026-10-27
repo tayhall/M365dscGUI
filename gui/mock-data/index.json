@@ -1,0 +1,76 @@
+{
+  "generatedAt": "2026-10-21T11:05:00Z",
+  "mockNow": "2026-10-21T11:10:00Z",
+  "fullCheckOverdueHours": 36,
+  "blueprint": {
+    "name": "prod",
+    "version": 7,
+    "acceptedAt": "2026-10-20T12:00:00Z",
+    "source": "Promote",
+    "reason": "Block executable attachments, approved by security"
+  },
+  "workloads": [
+    "Entra ID",
+    "Intune",
+    "Exchange Online",
+    "Teams",
+    "Other"
+  ],
+  "tenants": [
+    {
+      "tenantId": "master",
+      "role": "Master",
+      "displayName": "contoso-prod.onmicrosoft.com",
+      "lastFullCheck": "2026-10-21T02:00:00Z",
+      "layers": [
+        {
+          "name": "prod",
+          "version": 7,
+          "role": "master",
+          "sameAsOwn": true,
+          "checked": true,
+          "problem": null,
+          "drifted": 5,
+          "aligned": 38,
+          "changed": 3,
+          "missing": 0,
+          "targetOnly": 2
+        }
+      ]
+    },
+    {
+      "tenantId": "replica",
+      "role": "Replica",
+      "displayName": "contoso-dev.onmicrosoft.com",
+      "lastFullCheck": "2026-10-19T02:10:00Z",
+      "layers": [
+        {
+          "name": "prod",
+          "version": 7,
+          "role": "master",
+          "sameAsOwn": false,
+          "checked": true,
+          "problem": null,
+          "drifted": 12,
+          "aligned": 29,
+          "changed": 6,
+          "missing": 2,
+          "targetOnly": 2
+        },
+        {
+          "name": "replica",
+          "version": 3,
+          "role": "tenant",
+          "sameAsOwn": true,
+          "checked": true,
+          "problem": null,
+          "drifted": 15,
+          "aligned": 31,
+          "changed": 7,
+          "missing": 3,
+          "targetOnly": 3
+        }
+      ]
+    }
+  ]
+}

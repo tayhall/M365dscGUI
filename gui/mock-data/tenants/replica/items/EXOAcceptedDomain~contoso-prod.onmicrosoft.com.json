@@ -1,0 +1,20 @@
+{
+  "itemId": "EXOAcceptedDomain~contoso-prod.onmicrosoft.com",
+  "resourceType": "EXOAcceptedDomain",
+  "key": "contoso-prod.onmicrosoft.com",
+  "targetKey": "contoso-prod.onmicrosoft.com",
+  "blueprint": {
+    "Identity": "contoso-prod.onmicrosoft.com",
+    "DomainType": "Authoritative",
+    "MatchSubDomains": false,
+    "OutboundOnly": false
+  },
+  "target": {
+    "Identity": "contoso-prod.onmicrosoft.com",
+    "DomainType": "Authoritative",
+    "MatchSubDomains": false,
+    "OutboundOnly": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

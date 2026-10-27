@@ -1,0 +1,26 @@
+{
+  "itemId": "EXOAntiPhishPolicy~Executive%20protection",
+  "resourceType": "EXOAntiPhishPolicy",
+  "key": "Executive protection",
+  "targetKey": "Executive protection",
+  "blueprint": {
+    "Identity": "Executive protection",
+    "Enabled": true,
+    "PhishThresholdLevel": 2,
+    "EnableMailboxIntelligence": true,
+    "EnableSpoofIntelligence": true,
+    "EnableTargetedUserProtection": false,
+    "TargetedUserProtectionAction": "Quarantine"
+  },
+  "target": {
+    "Identity": "Executive protection",
+    "Enabled": true,
+    "PhishThresholdLevel": 3,
+    "EnableMailboxIntelligence": true,
+    "EnableSpoofIntelligence": true,
+    "EnableTargetedUserProtection": true,
+    "TargetedUserProtectionAction": "Quarantine"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

@@ -1,0 +1,52 @@
+{
+  "itemId": "AADConditionalAccessPolicy~CA003%20-%20Require%20compliant%20device",
+  "resourceType": "AADConditionalAccessPolicy",
+  "key": "CA003 - Require compliant device",
+  "targetKey": "CA003 - Require compliant device",
+  "blueprint": {
+    "DisplayName": "CA003 - Require compliant device",
+    "State": "enabled",
+    "IncludeUsers": [
+      "All"
+    ],
+    "ExcludeGroups": [
+      "IT Admins"
+    ],
+    "IncludeApplications": [
+      "All"
+    ],
+    "ClientAppTypes": [
+      "all"
+    ],
+    "GrantControls": [
+      "mfa"
+    ],
+    "BuiltInControlsOperator": "OR",
+    "SignInRiskLevels": [],
+    "SessionControlsSignInFrequency": "Not configured"
+  },
+  "target": {
+    "DisplayName": "CA003 - Require compliant device",
+    "State": "enabled",
+    "IncludeUsers": [
+      "All"
+    ],
+    "ExcludeGroups": [
+      "IT Admins"
+    ],
+    "IncludeApplications": [
+      "All"
+    ],
+    "ClientAppTypes": [
+      "all"
+    ],
+    "GrantControls": [
+      "mfa"
+    ],
+    "BuiltInControlsOperator": "OR",
+    "SignInRiskLevels": [],
+    "SessionControlsSignInFrequency": "Not configured"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

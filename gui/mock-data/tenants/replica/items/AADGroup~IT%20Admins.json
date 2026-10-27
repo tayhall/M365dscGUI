@@ -1,0 +1,28 @@
+{
+  "itemId": "AADGroup~IT%20Admins",
+  "resourceType": "AADGroup",
+  "key": "IT Admins",
+  "targetKey": "IT Admins",
+  "blueprint": {
+    "DisplayName": "IT Admins",
+    "MailNickname": "ITAdmins",
+    "Description": "IT Admins members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "target": {
+    "DisplayName": "IT Admins",
+    "MailNickname": "ITAdmins",
+    "Description": "IT Admins members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

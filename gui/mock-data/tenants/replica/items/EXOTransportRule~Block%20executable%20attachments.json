@@ -1,0 +1,26 @@
+{
+  "itemId": "EXOTransportRule~Block%20executable%20attachments",
+  "resourceType": "EXOTransportRule",
+  "key": "Block executable attachments",
+  "targetKey": "Block executable attachments",
+  "blueprint": {
+    "Name": "Block executable attachments",
+    "Enabled": true,
+    "Mode": "Enforce",
+    "FromScope": "NotInOrganization",
+    "ApplyHtmlDisclaimerLocation": "Prepend",
+    "ApplyHtmlDisclaimerText": "[External] Take care with links.",
+    "StopRuleProcessing": false
+  },
+  "target": {
+    "Name": "Block executable attachments",
+    "Enabled": true,
+    "Mode": "Enforce",
+    "FromScope": "NotInOrganization",
+    "ApplyHtmlDisclaimerLocation": "Prepend",
+    "ApplyHtmlDisclaimerText": "[External] Take care with links.",
+    "StopRuleProcessing": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

@@ -1,0 +1,19 @@
+# Local reference clone of upstream (clone separately: https://github.com/Microsoft365DSC/Microsoft365DSC)
+Microsoft365DSC/
+
+# Visual brainstorming companion output
+.superpowers/
+
+# Never commit certificates or keys
+*.pfx
+*.cer
+*.key
+
+# Exports contain tenant data
+/data/
+# Safety net: never allow data folders under src or tools
+/src/data/
+/tools/data/
+
+# Browser tool scratch (Playwright)
+.playwright-mcp/

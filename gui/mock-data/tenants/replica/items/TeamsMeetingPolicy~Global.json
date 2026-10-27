@@ -1,0 +1,26 @@
+{
+  "itemId": "TeamsMeetingPolicy~Global",
+  "resourceType": "TeamsMeetingPolicy",
+  "key": "Global",
+  "targetKey": "Global",
+  "blueprint": {
+    "Identity": "Global",
+    "AllowCloudRecording": true,
+    "AllowTranscription": true,
+    "AutoAdmittedUsers": "EveryoneInCompany",
+    "DesignatedPresenterRoleMode": "EveryoneUserOverride",
+    "AllowMeetNow": true,
+    "Description": ""
+  },
+  "target": {
+    "Identity": "Global",
+    "AllowCloudRecording": false,
+    "AllowTranscription": true,
+    "AutoAdmittedUsers": "EveryoneInCompany",
+    "DesignatedPresenterRoleMode": "EveryoneUserOverride",
+    "AllowMeetNow": true,
+    "Description": ""
+  },
+  "targetNote": null,
+  "unreadable": []
+}

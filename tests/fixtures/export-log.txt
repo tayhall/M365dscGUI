@@ -1,0 +1,18 @@
+Exporting Microsoft 365 configuration for Components: AADGroup, EXOAcceptedDomain, EXOFocusedInbox
+ 
+Authentication methods specified:
+- Service Principal with Certificate Thumbprint
+ 
+Starting export in sequential mode...
+[1/3] Extracting [AADGroup] using {CertificateThumbprint}...
+    |---[1/2] Sales✅
+    |---[2/2] Finance✅
+[2/3] Extracting [EXOAcceptedDomain] using {CertificateThumbprint}...✅
+[3/3] Extracting [EXOFocusedInbox] using {CertificateThumbprint}...
+    |---[1/28] user@contoso.example❌
+    An error occurred while exporting resource {EXOFocusedInbox}: The term Get-FocusedInbox is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+⌛ Export took {12 seconds} for {2 instances}
+Successful exports: {2}
+Failed exports: {1}
+❌ Export completed with errors.

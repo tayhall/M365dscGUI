@@ -1,0 +1,130 @@
+[
+  {
+    "version": 1,
+    "at": "2026-09-28T12:00:00Z",
+    "source": "Initial",
+    "revertTo": null,
+    "reason": "Initial blueprint from the master full export",
+    "changes": []
+  },
+  {
+    "version": 2,
+    "at": "2026-09-30T12:00:00Z",
+    "source": "Promote",
+    "revertTo": null,
+    "reason": "Anti-phishing baseline agreed with security",
+    "changes": [
+      {
+        "op": "Changed",
+        "resourceType": "EXOAntiPhishPolicy",
+        "key": "Office365 AntiPhish Default",
+        "itemId": "EXOAntiPhishPolicy~Office365%20AntiPhish%20Default"
+      }
+    ]
+  },
+  {
+    "version": 3,
+    "at": "2026-10-02T12:00:00Z",
+    "source": "Promote",
+    "revertTo": null,
+    "reason": "Intune baseline built in Dev first",
+    "changes": [
+      {
+        "op": "Added",
+        "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+        "key": "Baseline - Win10",
+        "itemId": "IntuneDeviceConfigurationPolicyWindows10~Baseline%20-%20Win10"
+      },
+      {
+        "op": "Added",
+        "resourceType": "IntuneDeviceCompliancePolicyWindows10",
+        "key": "Compliance - Win10 Corporate",
+        "itemId": "IntuneDeviceCompliancePolicyWindows10~Compliance%20-%20Win10%20Corporate"
+      }
+    ]
+  },
+  {
+    "version": 4,
+    "at": "2026-10-06T12:00:00Z",
+    "source": "Promote",
+    "revertTo": null,
+    "reason": "Meeting policy for executives",
+    "changes": [
+      {
+        "op": "Added",
+        "resourceType": "TeamsMeetingPolicy",
+        "key": "Executives",
+        "itemId": "TeamsMeetingPolicy~Executives"
+      }
+    ]
+  },
+  {
+    "version": 5,
+    "at": "2026-10-08T12:00:00Z",
+    "source": "Promote",
+    "revertTo": null,
+    "reason": "Master changes from CAB 2026-10-08",
+    "changes": [
+      {
+        "op": "Added",
+        "resourceType": "AADConditionalAccessPolicy",
+        "key": "CA008 - Test policy",
+        "itemId": "AADConditionalAccessPolicy~CA008%20-%20Test%20policy"
+      },
+      {
+        "op": "Changed",
+        "resourceType": "AADGroup",
+        "key": "IT Admins",
+        "itemId": "AADGroup~IT%20Admins"
+      },
+      {
+        "op": "Removed",
+        "resourceType": "TeamsMessagingPolicy",
+        "key": "Students",
+        "itemId": "TeamsMessagingPolicy~Students"
+      }
+    ]
+  },
+  {
+    "version": 6,
+    "at": "2026-10-12T12:00:00Z",
+    "source": "Revert",
+    "revertTo": 4,
+    "reason": "v5 took in a test policy and removed a live one by mistake",
+    "changes": [
+      {
+        "op": "Removed",
+        "resourceType": "AADConditionalAccessPolicy",
+        "key": "CA008 - Test policy",
+        "itemId": "AADConditionalAccessPolicy~CA008%20-%20Test%20policy"
+      },
+      {
+        "op": "Changed",
+        "resourceType": "AADGroup",
+        "key": "IT Admins",
+        "itemId": "AADGroup~IT%20Admins"
+      },
+      {
+        "op": "Added",
+        "resourceType": "TeamsMessagingPolicy",
+        "key": "Students",
+        "itemId": "TeamsMessagingPolicy~Students"
+      }
+    ]
+  },
+  {
+    "version": 7,
+    "at": "2026-10-20T12:00:00Z",
+    "source": "Promote",
+    "revertTo": null,
+    "reason": "Block executable attachments, approved by security",
+    "changes": [
+      {
+        "op": "Added",
+        "resourceType": "EXOTransportRule",
+        "key": "Block executable attachments",
+        "itemId": "EXOTransportRule~Block%20executable%20attachments"
+      }
+    ]
+  }
+]

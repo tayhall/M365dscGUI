@@ -1,0 +1,14 @@
+# Invented values. Layout copied from a live delta export log (Microsoft365DSC 2.26.1021.1, AADGroup with -Filters
+# "DisplayName eq '<name>'" matching one group): the deferred line break is flattened to a literal \r\n, so the one
+# instance line lands on the Extracting line, and DSC prints [1/15] for a single group (.Count of a non-array object).
+Exporting Microsoft 365 configuration for Components: AADGroup
+ 
+Authentication methods specified:
+- Service Principal with Certificate Thumbprint
+ 
+Starting export in sequential mode...
+[1/1] Extracting [AADGroup] using {CertificateThumbprint}...\r\n    |---[1/15] Contoso Pilot Group✅
+⌛ Export took {7 seconds} for {1 instances}
+Successful exports: {1}
+Failed exports: {0}
+✅ Export completed successfully.

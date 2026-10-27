@@ -1,0 +1,14 @@
+{
+  "jobId": "J-1039",
+  "requestId": null,
+  "action": "QuickScan",
+  "tenantId": "master",
+  "items": [],
+  "status": "Succeeded",
+  "requestedAt": "2026-10-20T10:30:00Z",
+  "updatedAt": "2026-10-20T10:30:00Z",
+  "reason": "Scheduled every 30 min",
+  "result": "No new, missing or renamed objects.",
+  "config": null,
+  "mock": true
+}

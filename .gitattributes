@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.ps1 text eol=lf
+*.psd1 text eol=lf
+*.psm1 text eol=lf
+*.md text eol=lf
+# Real export.log layouts (Windows CRLF output); kept byte-exact to keep CRLF parsing covered.
+tests/fixtures/export-log*.txt -text

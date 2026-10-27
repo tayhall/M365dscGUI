@@ -1,0 +1,250 @@
+{
+  "tenantId": "master",
+  "workloads": [
+    {
+      "workload": "Entra ID",
+      "managed": 20,
+      "aligned": 19,
+      "drifted": 2,
+      "excluded": 0,
+      "notChecked": 0,
+      "notCheckedTypes": [],
+      "types": [
+        {
+          "resourceType": "AADConditionalAccessPolicy",
+          "items": 6,
+          "managed": 6,
+          "aligned": 5,
+          "drifted": 1,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "AADGroup",
+          "items": 9,
+          "managed": 8,
+          "aligned": 8,
+          "drifted": 1,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "AADNamedLocationPolicy",
+          "items": 3,
+          "managed": 3,
+          "aligned": 3,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "AADApplication",
+          "items": 3,
+          "managed": 3,
+          "aligned": 3,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        }
+      ]
+    },
+    {
+      "workload": "Intune",
+      "managed": 8,
+      "aligned": 8,
+      "drifted": 0,
+      "excluded": 0,
+      "notChecked": 0,
+      "notCheckedTypes": [],
+      "types": [
+        {
+          "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+          "items": 3,
+          "managed": 3,
+          "aligned": 3,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "IntuneDeviceCompliancePolicyWindows10",
+          "items": 2,
+          "managed": 2,
+          "aligned": 2,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "IntuneAppProtectionPolicyiOS",
+          "items": 1,
+          "managed": 1,
+          "aligned": 1,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "IntuneWifiConfigurationPolicyWindows10",
+          "items": 1,
+          "managed": 1,
+          "aligned": 1,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "IntuneSettingCatalogASRRulesPolicyWindows10",
+          "items": 1,
+          "managed": 1,
+          "aligned": 1,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "IntuneDeviceEnrollmentStatusPageWindows10",
+          "items": 0,
+          "managed": 0,
+          "aligned": 0,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        }
+      ]
+    },
+    {
+      "workload": "Exchange Online",
+      "managed": 8,
+      "aligned": 6,
+      "drifted": 3,
+      "excluded": 0,
+      "notChecked": 0,
+      "notCheckedTypes": [],
+      "types": [
+        {
+          "resourceType": "EXOAcceptedDomain",
+          "items": 2,
+          "managed": 2,
+          "aligned": 2,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "EXOTransportRule",
+          "items": 4,
+          "managed": 3,
+          "aligned": 2,
+          "drifted": 2,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "EXOAntiPhishPolicy",
+          "items": 2,
+          "managed": 2,
+          "aligned": 1,
+          "drifted": 1,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "EXOMalwareFilterPolicy",
+          "items": 1,
+          "managed": 1,
+          "aligned": 1,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "EXOFocusedInbox",
+          "items": 0,
+          "managed": 0,
+          "aligned": 0,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "NotAvailable",
+          "error": "Fails the same way in the blueprint export: feature not licensed in this tenant."
+        }
+      ]
+    },
+    {
+      "workload": "Teams",
+      "managed": 6,
+      "aligned": 6,
+      "drifted": 0,
+      "excluded": 1,
+      "notChecked": 0,
+      "notCheckedTypes": [],
+      "types": [
+        {
+          "resourceType": "TeamsMeetingPolicy",
+          "items": 4,
+          "managed": 3,
+          "aligned": 3,
+          "drifted": 0,
+          "excluded": 1,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "TeamsMessagingPolicy",
+          "items": 2,
+          "managed": 2,
+          "aligned": 2,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        },
+        {
+          "resourceType": "TeamsFederationConfiguration",
+          "items": 1,
+          "managed": 1,
+          "aligned": 1,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        }
+      ]
+    },
+    {
+      "workload": "Other",
+      "managed": 1,
+      "aligned": 1,
+      "drifted": 0,
+      "excluded": 0,
+      "notChecked": 0,
+      "notCheckedTypes": [],
+      "types": [
+        {
+          "resourceType": "O365OrgSettings",
+          "items": 1,
+          "managed": 1,
+          "aligned": 1,
+          "drifted": 0,
+          "excluded": 0,
+          "status": "Checked",
+          "error": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "itemId": "TeamsMeetingPolicy~Legacy%20Webinar",
+  "resourceType": "TeamsMeetingPolicy",
+  "key": "Legacy Webinar",
+  "targetKey": "Legacy Webinar",
+  "blueprint": null,
+  "target": {
+    "Identity": "Legacy Webinar",
+    "AllowCloudRecording": true,
+    "AllowTranscription": true,
+    "AutoAdmittedUsers": "EveryoneInCompany",
+    "DesignatedPresenterRoleMode": "EveryoneUserOverride",
+    "AllowMeetNow": true,
+    "Description": ""
+  },
+  "targetNote": null,
+  "unreadable": []
+}

@@ -1,0 +1,24 @@
+{
+  "itemId": "TeamsMessagingPolicy~Global",
+  "resourceType": "TeamsMessagingPolicy",
+  "key": "Global",
+  "targetKey": "Global",
+  "blueprint": {
+    "Identity": "Global",
+    "AllowUserEditMessage": true,
+    "AllowUserDeleteMessage": true,
+    "AllowGiphy": true,
+    "GiphyRatingType": "Moderate",
+    "ReadReceiptsEnabledType": "UserPreference"
+  },
+  "target": {
+    "Identity": "Global",
+    "AllowUserEditMessage": true,
+    "AllowUserDeleteMessage": true,
+    "AllowGiphy": true,
+    "GiphyRatingType": "Moderate",
+    "ReadReceiptsEnabledType": "UserPreference"
+  },
+  "targetNote": null,
+  "unreadable": []
+}

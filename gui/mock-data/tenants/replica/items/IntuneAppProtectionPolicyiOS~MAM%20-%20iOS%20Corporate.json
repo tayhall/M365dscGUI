@@ -1,0 +1,34 @@
+{
+  "itemId": "IntuneAppProtectionPolicyiOS~MAM%20-%20iOS%20Corporate",
+  "resourceType": "IntuneAppProtectionPolicyiOS",
+  "key": "MAM - iOS Corporate",
+  "targetKey": "MAM - iOS Corporate",
+  "blueprint": {
+    "DisplayName": "MAM - iOS Corporate",
+    "PinRequired": true,
+    "MinimumPinLength": 6,
+    "AllowedDataStorageLocations": [
+      "OneDriveForBusiness",
+      "SharePoint"
+    ],
+    "DataBackupBlocked": true,
+    "Assignments": [
+      "Group: All Staff"
+    ]
+  },
+  "target": {
+    "DisplayName": "MAM - iOS Corporate",
+    "PinRequired": true,
+    "MinimumPinLength": 6,
+    "AllowedDataStorageLocations": [
+      "OneDriveForBusiness",
+      "SharePoint"
+    ],
+    "DataBackupBlocked": true,
+    "Assignments": [
+      "Group: All Staff"
+    ]
+  },
+  "targetNote": null,
+  "unreadable": []
+}

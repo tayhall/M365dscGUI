@@ -1,0 +1,28 @@
+{
+  "itemId": "AADGroup~Sales",
+  "resourceType": "AADGroup",
+  "key": "Sales",
+  "targetKey": "Sales",
+  "blueprint": {
+    "DisplayName": "Sales",
+    "MailNickname": "Sales",
+    "Description": "Sales members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "target": {
+    "DisplayName": "Sales",
+    "MailNickname": "Sales",
+    "Description": "Sales members",
+    "SecurityEnabled": true,
+    "MailEnabled": false,
+    "GroupTypes": [],
+    "Visibility": "Private",
+    "IsAssignableToRole": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

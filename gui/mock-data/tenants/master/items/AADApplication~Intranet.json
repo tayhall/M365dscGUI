@@ -1,0 +1,28 @@
+{
+  "itemId": "AADApplication~Intranet",
+  "resourceType": "AADApplication",
+  "key": "Intranet",
+  "targetKey": "Intranet",
+  "blueprint": {
+    "DisplayName": "Intranet",
+    "SignInAudience": "AzureADMyOrg",
+    "PublicClient": false,
+    "ReplyURLs": [
+      "https://intranet.contoso.example/auth"
+    ],
+    "Homepage": "https://intranet.contoso.example"
+  },
+  "target": {
+    "DisplayName": "Intranet",
+    "SignInAudience": "AzureADMyOrg",
+    "PublicClient": false,
+    "ReplyURLs": [
+      "https://intranet.contoso.example/auth"
+    ],
+    "Homepage": "https://intranet.contoso.example"
+  },
+  "targetNote": null,
+  "unreadable": [
+    "PasswordCredentials"
+  ]
+}

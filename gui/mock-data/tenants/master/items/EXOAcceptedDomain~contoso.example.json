@@ -1,0 +1,20 @@
+{
+  "itemId": "EXOAcceptedDomain~contoso.example",
+  "resourceType": "EXOAcceptedDomain",
+  "key": "contoso.example",
+  "targetKey": "contoso.example",
+  "blueprint": {
+    "Identity": "contoso.example",
+    "DomainType": "Authoritative",
+    "MatchSubDomains": false,
+    "OutboundOnly": false
+  },
+  "target": {
+    "Identity": "contoso.example",
+    "DomainType": "Authoritative",
+    "MatchSubDomains": false,
+    "OutboundOnly": false
+  },
+  "targetNote": null,
+  "unreadable": []
+}

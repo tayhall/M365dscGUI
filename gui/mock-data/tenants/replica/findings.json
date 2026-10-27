@@ -1,0 +1,384 @@
+[
+  {
+    "id": "AADConditionalAccessPolicy~CA001%20-%20Require%20MFA%20for%20admins",
+    "itemId": "AADConditionalAccessPolicy~CA001%20-%20Require%20MFA%20for%20admins",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA001 - Require MFA for admins",
+    "workload": "Entra ID",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "ExcludeGroups",
+        "blueprint": [
+          "IT Admins"
+        ],
+        "target": [
+          "IT Admins",
+          "Break Glass"
+        ]
+      },
+      {
+        "property": "GrantControls",
+        "blueprint": [
+          "mfa"
+        ],
+        "target": [
+          "mfa",
+          "compliantDevice"
+        ]
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-19T02:00:00Z"
+  },
+  {
+    "id": "AADConditionalAccessPolicy~CA005%20-%20Block%20high-risk%20sign-ins",
+    "itemId": "AADConditionalAccessPolicy~CA005%20-%20Block%20high-risk%20sign-ins",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA005 - Block high-risk sign-ins",
+    "workload": "Entra ID",
+    "kind": "Missing",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-18T02:00:00Z"
+  },
+  {
+    "id": "AADConditionalAccessPolicy~CA007%20-%20Test%20MFA%20bypass",
+    "itemId": "AADConditionalAccessPolicy~CA007%20-%20Test%20MFA%20bypass",
+    "resourceType": "AADConditionalAccessPolicy",
+    "key": "CA007 - Test MFA bypass",
+    "workload": "Entra ID",
+    "kind": "TargetOnly",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-20T02:00:00Z"
+  },
+  {
+    "id": "AADGroup~Finance",
+    "itemId": "AADGroup~Finance",
+    "resourceType": "AADGroup",
+    "key": "Finance",
+    "workload": "Entra ID",
+    "kind": "PossibleRename",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "DisplayName",
+        "blueprint": "Finance",
+        "target": "Finance Team"
+      },
+      {
+        "property": "MailNickname",
+        "blueprint": "Finance",
+        "target": "FinanceTeam"
+      },
+      {
+        "property": "Description",
+        "blueprint": "Finance members",
+        "target": "Finance Team members"
+      }
+    ],
+    "hint": "Possible rename of Finance Team",
+    "other": "Finance Team",
+    "error": null,
+    "firstSeen": "2026-10-20T02:00:00Z"
+  },
+  {
+    "id": "AADGroup~Sales",
+    "itemId": "AADGroup~Sales",
+    "resourceType": "AADGroup",
+    "key": "Sales",
+    "workload": "Entra ID",
+    "kind": "Ambiguous",
+    "state": "Open",
+    "differences": [],
+    "hint": "Two groups named “Sales” exist in the replica. Rename one so they can be matched.",
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-17T02:00:00Z"
+  },
+  {
+    "id": "AADGroup~Dev%20Sandbox",
+    "itemId": "AADGroup~Dev%20Sandbox",
+    "resourceType": "AADGroup",
+    "key": "Dev Sandbox",
+    "workload": "Entra ID",
+    "kind": "TargetOnly",
+    "state": "Unmanaged",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-09T02:00:00Z"
+  },
+  {
+    "id": "AADNamedLocationPolicy~Blocked%20countries",
+    "itemId": "AADNamedLocationPolicy~Blocked%20countries",
+    "resourceType": "AADNamedLocationPolicy",
+    "key": "Blocked countries",
+    "workload": "Entra ID",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "IsTrusted",
+        "blueprint": true,
+        "target": false
+      },
+      {
+        "property": "IpRanges",
+        "blueprint": [
+          "203.0.113.0/24"
+        ],
+        "target": [
+          "203.0.113.0/24",
+          "198.51.100.0/24"
+        ]
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-19T02:00:00Z"
+  },
+  {
+    "id": "IntuneDeviceConfigurationPolicyWindows10~Baseline%20-%20Win10",
+    "itemId": "IntuneDeviceConfigurationPolicyWindows10~Baseline%20-%20Win10",
+    "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+    "key": "Baseline - Win10",
+    "workload": "Intune",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "PasswordMinimumLength",
+        "blueprint": 14,
+        "target": 8
+      },
+      {
+        "property": "DefenderScanType",
+        "blueprint": "full",
+        "target": "quick"
+      },
+      {
+        "property": "Assignments",
+        "blueprint": [
+          "Group: All Devices"
+        ],
+        "target": [
+          "Group: Pilot Devices"
+        ]
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-21T02:00:00Z"
+  },
+  {
+    "id": "IntuneDeviceConfigurationPolicyWindows10~BitLocker%20-%20Win10",
+    "itemId": "IntuneDeviceConfigurationPolicyWindows10~BitLocker%20-%20Win10",
+    "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+    "key": "BitLocker - Win10",
+    "workload": "Intune",
+    "kind": "Missing",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-21T02:00:00Z"
+  },
+  {
+    "id": "IntuneDeviceConfigurationPolicyWindows10~Kiosk%20-%20Win10%20%28copy%29",
+    "itemId": "IntuneDeviceConfigurationPolicyWindows10~Kiosk%20-%20Win10%20%28copy%29",
+    "resourceType": "IntuneDeviceConfigurationPolicyWindows10",
+    "key": "Kiosk - Win10 (copy)",
+    "workload": "Intune",
+    "kind": "TargetOnly",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-20T02:00:00Z"
+  },
+  {
+    "id": "IntuneDeviceCompliancePolicyWindows10~Compliance%20-%20Win10%20BYOD",
+    "itemId": "IntuneDeviceCompliancePolicyWindows10~Compliance%20-%20Win10%20BYOD",
+    "resourceType": "IntuneDeviceCompliancePolicyWindows10",
+    "key": "Compliance - Win10 BYOD",
+    "workload": "Intune",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "OsMinimumVersion",
+        "blueprint": "10.0.19045",
+        "target": "10.0.19041"
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-19T02:00:00Z"
+  },
+  {
+    "id": "IntuneSettingCatalogASRRulesPolicyWindows10~",
+    "itemId": null,
+    "resourceType": "IntuneSettingCatalogASRRulesPolicyWindows10",
+    "key": null,
+    "workload": "Intune",
+    "kind": "NotChecked",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": "An error occurred while exporting resource IntuneSettingCatalogASRRulesPolicyWindows10: Request_ResourceNotFound (Graph 404) after 3 retries.",
+    "firstSeen": null
+  },
+  {
+    "id": "IntuneDeviceEnrollmentStatusPageWindows10~",
+    "itemId": null,
+    "resourceType": "IntuneDeviceEnrollmentStatusPageWindows10",
+    "key": null,
+    "workload": "Intune",
+    "kind": "Unkeyed",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": "No reliable key for this type. Instances are reported, never matched.",
+    "firstSeen": null
+  },
+  {
+    "id": "IntuneWifiConfigurationPolicyWindows10~Office%20Wi-Fi",
+    "itemId": "IntuneWifiConfigurationPolicyWindows10~Office%20Wi-Fi",
+    "resourceType": "IntuneWifiConfigurationPolicyWindows10",
+    "key": "Office Wi-Fi",
+    "workload": "Intune",
+    "kind": "Unreadable",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": "WiFiPreSharedKey cannot be read back. Not compared.",
+    "firstSeen": null
+  },
+  {
+    "id": "EXOFocusedInbox~",
+    "itemId": null,
+    "resourceType": "EXOFocusedInbox",
+    "key": null,
+    "workload": "Exchange Online",
+    "kind": "NotAvailable",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": "Fails the same way in the blueprint export: feature not licensed in this tenant.",
+    "firstSeen": null
+  },
+  {
+    "id": "TeamsMeetingPolicy~Global",
+    "itemId": "TeamsMeetingPolicy~Global",
+    "resourceType": "TeamsMeetingPolicy",
+    "key": "Global",
+    "workload": "Teams",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "AllowCloudRecording",
+        "blueprint": true,
+        "target": false
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-18T02:00:00Z"
+  },
+  {
+    "id": "TeamsMeetingPolicy~Executives",
+    "itemId": "TeamsMeetingPolicy~Executives",
+    "resourceType": "TeamsMeetingPolicy",
+    "key": "Executives",
+    "workload": "Teams",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "AutoAdmittedUsers",
+        "blueprint": "EveryoneInCompany",
+        "target": "Everyone"
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-20T02:00:00Z"
+  },
+  {
+    "id": "TeamsMessagingPolicy~Students",
+    "itemId": "TeamsMessagingPolicy~Students",
+    "resourceType": "TeamsMessagingPolicy",
+    "key": "Students",
+    "workload": "Teams",
+    "kind": "Missing",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-16T02:00:00Z"
+  },
+  {
+    "id": "TeamsMessagingPolicy~Contractors",
+    "itemId": "TeamsMessagingPolicy~Contractors",
+    "resourceType": "TeamsMessagingPolicy",
+    "key": "Contractors",
+    "workload": "Teams",
+    "kind": "TargetOnly",
+    "state": "Open",
+    "differences": [],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-20T02:00:00Z"
+  },
+  {
+    "id": "TeamsFederationConfiguration~Global",
+    "itemId": "TeamsFederationConfiguration~Global",
+    "resourceType": "TeamsFederationConfiguration",
+    "key": "Global",
+    "workload": "Teams",
+    "kind": "Changed",
+    "state": "Open",
+    "differences": [
+      {
+        "property": "AllowedDomains",
+        "blueprint": [
+          "partner.example"
+        ],
+        "target": [
+          "partner.example",
+          "vendor.example"
+        ]
+      }
+    ],
+    "hint": null,
+    "other": null,
+    "error": null,
+    "firstSeen": "2026-10-21T02:00:00Z"
+  }
+]

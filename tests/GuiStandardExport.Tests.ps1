@@ -94,6 +94,9 @@ Describe 'Standards view models' {
         $location = @($view.rows | Where-Object resourceType -EQ 'AADNamedLocationPolicy')[0]
         $location.kind | Should -Be 'Changed'
         $location.status | Should -Be 'differs'
+        # The Drift review lists these rows like any other drift, so they carry its state and first-seen fields.
+        $location.state | Should -Be 'Open'
+        $location.firstSeen | Should -Be $view.checkedAt
         $location.itemId | Should -Not -BeNullOrEmpty
         $location.differences[0].property | Should -Be 'CountriesAndRegions'
         @($location.differences[0].standard) | Should -Be @('AU')
@@ -142,6 +145,7 @@ Describe 'Standards view models' {
         $view = Read-Json 'tenants/master/standards/asd.json'
         $row = @($view.rows | Where-Object resourceType -EQ 'AADNamedLocationPolicy')[0]
         $row.status | Should -Be 'accepted'
+        $row.state | Should -Be 'Accepted'
         $row.approvedBy | Should -Be 'cio'
         $row.acceptedReason | Should -Be 'NZ staff'
         @($row.allowedActions) | Should -Be @('RemoveRisk')

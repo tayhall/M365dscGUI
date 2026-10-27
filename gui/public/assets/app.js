@@ -342,7 +342,6 @@ function route() {
   if (a === 'queue') return { screen: 'queue' };
   if (a === 'standards' && !b) return { screen: 'standards' };
   if (a === 'standards' && b && c === 'not-covered') return { screen: 'notcovered', name: b, reason: q.get('reason') || 'all' };
-  if (a === 'standards' && b && !c) return { screen: 'standard', name: b, show: q.get('show') || 'decide' };
   if (a === 'activity') return { screen: 'activity', job: b || null };
   return { screen: 'notfound' };
 }
@@ -393,7 +392,7 @@ function contextStrip(t) {
 function topbar(r) {
   const open = findingsOf(curTenant()).filter(isOpenDrift).length;
   const running = D.activity.filter((j) => j.status === 'Queued' || j.status === 'Running').length;
-  const top = { workload: 'overview', type: 'overview', item: 'overview', compare: 'blueprint', version: 'blueprint', standard: 'standards', notcovered: 'standards' }[r.screen] || r.screen;
+  const top = { workload: 'overview', type: 'overview', item: 'overview', compare: 'blueprint', version: 'blueprint', notcovered: 'standards' }[r.screen] || r.screen;
   const nav = [['overview', 'Overview', '/'], ['drift', 'Drift review', '/drift'], ['blueprint', 'Blueprint', '/blueprint'], ['standards', 'Standards', '/standards'], ['exclusions', 'Exclusions', '/exclusions'], ['queue', 'Selection list', '/queue'], ['tenants', 'Tenants', '/tenants'], ['activity', 'Activity', '/activity']]
     .map(([k, label, href]) => `<a href="${href}" data-link class="navb${top === k ? ' on' : ''}"${top === k ? ' aria-current="page"' : ''}>${label}${k === 'drift' && open ? `<span class="badge">${open}</span>` : ''}${k === 'queue' && ui.queue.length ? `<span class="badge">${ui.queue.length}</span>` : ''}</a>`).join('');
   return `<header class="top">
@@ -405,7 +404,7 @@ function topbar(r) {
   </header>`;
 }
 function crumbs(r) {
-  if (r.screen === 'standard' || r.screen === 'notcovered') return standardCrumbs(r);
+  if (r.screen === 'notcovered') return standardCrumbs(r);
   let list = [];
   if (['workload', 'type', 'item'].includes(r.screen) && tenant(r.t)) {
     const wl = r.wl || (D.types[itemType(r)] || {}).workload;
@@ -435,6 +434,7 @@ const ages = (meta) => `<span class="${overdue(meta.lastFullCheck) ? 'overdue' :
 
 function actionButtons(t, f, compact) {
   if (!f) return '';
+  if (f.stdName) return stdDecideHtml({ name: f.stdName }, f);
   if (f.layer) return (f.allowedActions || []).includes('PullDown') ? `<button class="btn sm" data-act="move" data-action="PullDown" data-tenant="${esc(t)}" data-ids="${esc(f.itemId)}">Update tenant blueprint</button>` : '';
   const ids = esc(f.itemId);
   const acts = f.allowedActions || [];
@@ -492,7 +492,7 @@ function detail(f) {
     return plural(f.differences.length, 'setting') + ' differ: ' + f.differences.map((d) => d.property).join(', ')
       + (added.length ? ` · the tenant has ${added.join(', ')}, which the blueprint lacks (probably new in the installed Microsoft365DSC)` : '');
   }
-  if (f.kind === 'Missing') return 'In the blueprint, not in the tenant';
+  if (f.kind === 'Missing') return f.stdName ? 'In the standard, not in the blueprint' : 'In the blueprint, not in the tenant';
   if (f.kind === 'TargetOnly') return 'In the tenant, not in the blueprint';
   if (f.kind === 'PossibleRename') return 'Possibly renamed to “' + f.other + '”';
   if (f.kind === 'Ambiguous') return 'Key is not unique';
@@ -824,9 +824,13 @@ function drift(r) {
   const q = r.q.trim().toLowerCase();
   const lt = r.tenant !== 'all' && tenant(r.tenant) ? r.tenant : null;
   const otherLayers = lt ? (tenant(lt).meta.layers || []).filter((l) => !l.sameAsOwn && l.checked) : [];
-  const viewLayer = lt && r.layer && otherLayers.some((l) => l.name === r.layer) ? r.layer : '';
+  // A standard is offered next to the master blueprint: its rows are the standard check's findings, listed like any other drift.
+  const stdLayers = lt ? stdLayersOf(lt) : [];
+  const stdLayer = stdLayers.find((l) => l.name === r.layer);
+  const viewLayer = lt && r.layer && !stdLayer && otherLayers.some((l) => l.name === r.layer) ? r.layer : '';
   const all = [];
-  if (viewLayer) {
+  if (stdLayer) (stdTenantView(lt, stdLayer.std.name).rows || []).forEach((x) => all.push({ t: lt, f: Object.assign({}, x, { stdName: stdLayer.std.name }) }));
+  else if (viewLayer) {
     const layerRows = D.layerRows[lt + '|' + viewLayer];
     if (!layerRows) loadLayer(lt, viewLayer);
     (layerRows || []).filter(isOpenDrift).forEach((f) => all.push({ t: lt, f }));
@@ -843,24 +847,24 @@ function drift(r) {
     const key = t + '|' + f.itemId;
     const open = ui.expanded.has(key);
     let note = '';
-    if (f.kind === 'Missing') note = `In the blueprint, not in the ${role(t).toLowerCase()}.`;
+    if (f.kind === 'Missing') note = f.stdName ? 'In the standard, not in the blueprint.' : `In the blueprint, not in the ${role(t).toLowerCase()}.`;
     if (f.kind === 'TargetOnly') note = `In the ${role(t).toLowerCase()}, not in the blueprint.`;
     if (f.kind === 'PossibleRename') note = `Blueprint item “${f.key}” is missing; “${f.other}” is new with similar settings. Treated as one pair.`;
     if (f.kind === 'Ambiguous') note = f.hint || '';
-    const lines = f.kind === 'Changed' ? f.differences.map((d) => `<div class="dl"><span class="mono">${esc(d.property)}</span><span class="old">${fv(d.blueprint)}</span><span aria-hidden="true">→</span><span class="new">${fv(d.target)}</span></div>`).join('') : '';
+    const lines = f.kind === 'Changed' ? f.differences.map((d) => `<div class="dl"><span class="mono">${esc(d.property)}</span><span class="old">${fv(f.stdName ? d.standard : d.blueprint)}</span><span aria-hidden="true">→</span><span class="new">${fv(f.stdName ? d.blueprint : d.target)}</span></div>`).join('') : '';
     return `<div class="gr drift">
       <span>${selectBox(t, f)}</span>
-      <span>${link(path.item(t, f.itemId, undefined, viewLayer), f.kind === 'PossibleRename' ? f.key + ' → ' + f.other : f.key, 'lnk strong clamp2')}${pendingChip(t, f.itemId)}<div class="muted sub">${esc(typeName(f.resourceType))}</div></span>
-      <span>${chip(f.kind, f.state)}</span><span class="muted wrap">${esc(detail(f))}</span>
+      <span>${f.stdName ? `<b class="clamp2">${esc(f.key)}</b>` : link(path.item(t, f.itemId, undefined, viewLayer), f.kind === 'PossibleRename' ? f.key + ' → ' + f.other : f.key, 'lnk strong clamp2')}${f.stdName ? '' : pendingChip(t, f.itemId)}<div class="muted sub">${esc(typeName(f.resourceType))}</div></span>
+      <span>${f.stdName ? stdStatusChip(PEStandards.statusOf(f)) : chip(f.kind, f.state)}</span><span class="muted wrap">${esc(detail(f))}</span>
       <span>${actionButtons(t, f, true)}</span>
       <button class="lnk" id="exp-${esc(key)}" data-act="expand" data-key="${esc(key)}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} details for ${esc(f.key)}">${open ? '▾' : '▸'}</button></div>
       ${open ? `<div class="exp">${lines}${note ? `<div>${esc(note)}</div>` : ''}<div class="muted sub">First seen ${esc(f.firstSeen ? f.firstSeen.slice(0, 10) : '—')}</div></div>` : ''}`;
   }).join('')).join('');
-  const layerNote = viewLayer ? `<div class="banner b-grey"><span class="warn">i</span><div>Showing how this tenant differs from the master blueprint “${esc(viewLayer)}”. Only the tenant blueprint can be updated from here; a tenant is only written from its own blueprint.</div></div>` : '';
+  const layerNote = stdLayer ? `<div class="banner b-grey"><span class="warn">i</span><div>Showing where the blueprint of ${esc(tenantLabel(lt))} differs from ${esc(stdLayer.label)}. Nothing is read from the tenant. Adopt copies the standard's setting into the blueprint and Accept risk records the decision; to change the tenant, revert it to its blueprint.</div></div>` : viewLayer ? `<div class="banner b-grey"><span class="warn">i</span><div>Showing how this tenant differs from the master blueprint “${esc(viewLayer)}”. Only the tenant blueprint can be updated from here; a tenant is only written from its own blueprint.</div></div>` : '';
   return `<div class="phead"><div><h1>Drift review</h1><div class="muted">Open drift across ${D.tenantIds.length > 1 ? 'both tenants' : 'the tenant'}. Expand a row to see the differing settings.</div></div></div>
     ${dscBanner(true)}${layerNote}<div class="filters">
       <label class="fl">Tenant<select id="f-tenant" data-filter="tenant">${opt('all', 'All tenants', r.tenant)}${D.tenantIds.map((t) => opt(t, tenantLabel(t), r.tenant)).join('')}</select></label>
-      ${otherLayers.length ? `<label class="fl">Compared with<select id="f-layer" data-filter="layer">${opt('', 'Its own blueprint', viewLayer)}${otherLayers.map((l) => opt(l.name, 'Master blueprint “' + l.name + '”', viewLayer)).join('')}</select></label>` : ''}
+      ${otherLayers.length || stdLayers.length ? `<label class="fl">Compared with<select id="f-layer" data-filter="layer">${opt('', 'Its own blueprint', stdLayer ? stdLayer.name : viewLayer)}${otherLayers.map((l) => opt(l.name, 'Master blueprint “' + l.name + '”', viewLayer)).join('')}${stdLayers.map((l) => opt(l.name, 'Standard “' + l.label + '”', stdLayer ? stdLayer.name : '')).join('')}</select></label>` : ''}
       <label class="fl">Workload<select id="f-workload" data-filter="workload">${opt('all', 'All workloads', r.workload)}${D.index.workloads.map((w) => opt(w, w, r.workload)).join('')}</select></label>
       <label class="fl">Kind<select id="f-kind" data-filter="kind">${opt('all', 'All kinds', r.kind)}${DRIFT.map((k) => opt(k, KIND_LABEL[k], r.kind)).join('')}</select></label>
       <label class="fl">Search<input id="f-q" type="text" data-filter="q" value="${esc(r.q)}" placeholder="Item or type, then Enter"></label>
@@ -1678,7 +1682,7 @@ function render() {
   syncTenantUrl(r);
   const focusId = document.activeElement && document.activeElement.id;
   const hadDialog = !!document.querySelector('.dialog');
-  const screens = { overview, workload, type: typePage, item: itemPage, drift, blueprint, compare, version: versionPage, exclusions, tenants: tenantsPage, queue: queuePage, standards: standardsPage, standard: standardCheckPage, notcovered: notCoveredPage, activity, notfound: notFound };
+  const screens = { overview, workload, type: typePage, item: itemPage, drift, blueprint, compare, version: versionPage, exclusions, tenants: tenantsPage, queue: queuePage, standards: standardsPage, notcovered: notCoveredPage, activity, notfound: notFound };
   const valid = !['workload', 'type', 'item'].includes(r.screen) || tenant(r.t);
   const body = valid ? screens[r.screen](r) : notFound();
   const toast = ui.toast ? `<div class="toast" role="status"><span>${esc(ui.toast.text)}</span>${ui.toast.job ? link(path.activity(ui.toast.job), 'View in Activity') : ''}<button class="lnk" data-act="toast-close" aria-label="Dismiss">✕</button></div>` : '';

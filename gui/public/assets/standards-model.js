@@ -6,17 +6,6 @@
   const STATUSES = ['differs', 'missing', 'lookAgain', 'accepted'];
   const statusOf = (row) => (row && STATUSES.includes(row.status) ? row.status : 'differs');
 
-  // decide: what still needs a person (differs, missing, look again); accepted: risks that were accepted; all: every row.
-  function filterRows(rows, filter) {
-    const list = rows || [];
-    if (filter === 'all') return list.slice();
-    if (filter === 'accepted') return list.filter((r) => statusOf(r) === 'accepted');
-    return list.filter((r) => statusOf(r) !== 'accepted');
-  }
-  function filterCounts(rows) {
-    return { decide: filterRows(rows, 'decide').length, accepted: filterRows(rows, 'accepted').length, all: (rows || []).length };
-  }
-
   const headlineText = (h) => `Compared ${h.checked} of ${h.total} settings`;
   const subText = (h) => `${h.match} match, ${h.differ} differ, ${h.accepted} ${h.accepted === 1 ? 'is an accepted risk' : 'are accepted risks'}`;
 
@@ -76,7 +65,7 @@
     return differing.length > 1 && ticked.length < differing.length ? ticked.slice() : [];
   }
 
-  const api = { statusOf, filterRows, filterCounts, headlineText, subText, barSegments, reasonLabel, valueText, queueIdentity, riskItems, groupStandardEntries, riskDialogProblem, riskProperties };
+  const api = { statusOf, headlineText, subText, barSegments, reasonLabel, valueText, queueIdentity, riskItems, groupStandardEntries, riskDialogProblem, riskProperties };
   root.PEStandards = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

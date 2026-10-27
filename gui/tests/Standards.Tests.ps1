@@ -18,17 +18,6 @@ Describe 'PEStandards rows' -Skip:(-not (Get-Command node -ErrorAction SilentlyC
         Invoke-Model "S.statusOf({})" | Should -Be '"differs"'
     }
 
-    It 'puts differing, missing and look-again rows in decide, accepted rows only in accepted, and every row in all' {
-        Invoke-Model "S.filterRows($($script:Rows), 'decide').map(r => r.status)" | Should -Be '["differs","missing","lookAgain"]'
-        Invoke-Model "S.filterRows($($script:Rows), 'accepted').map(r => r.status)" | Should -Be '["accepted","accepted"]'
-        Invoke-Model "S.filterRows($($script:Rows), 'all').length" | Should -Be '5'
-        Invoke-Model "S.filterRows($($script:Rows), 'nonsense').length" | Should -Be '3'
-    }
-
-    It 'counts each filter' {
-        Invoke-Model "S.filterCounts($($script:Rows))" | Should -Be '{"decide":3,"accepted":2,"all":5}'
-        Invoke-Model "S.filterCounts([])" | Should -Be '{"decide":0,"accepted":0,"all":0}'
-    }
 }
 
 Describe 'PEStandards headline' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -144,7 +133,29 @@ Describe 'The server serves the Standards pages and routes' {
 
     It 'serves the app shell for each standards page, so a bookmark or a reload works' {
         $script:Server | Should -Match "'/standards'"
-        $script:Server | Should -Match "'/standards/:name'"
         $script:Server | Should -Match "'/standards/:name/not-covered'"
+    }
+}
+
+Describe 'Standards use the Drift review' {
+    BeforeAll {
+        $script:App = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\public\assets\app.js') -Raw
+        $script:Std = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\public\assets\standards.js') -Raw
+    }
+
+    It 'offers a compared standard in the Compared with list of the Drift review' {
+        $script:App | Should -Match 'stdLayersOf\(lt\)'
+        $script:Std | Should -Match 'const stdLayersOf'
+    }
+
+    It 'links each workload and the See the differences button to the Drift review of the standard' {
+        $script:Std | Should -Match "layer: 'standard:' \+ name"
+        $script:Std | Should -Match 'link\(stdDrift\(view\.tenantId, view\.standard, w\.workload\)'
+        $script:Std | Should -Match "link\(stdDrift\(t, std\.name\), 'See the differences'"
+    }
+
+    It 'has no page of its own for the differences' {
+        $script:App | Should -Not -Match 'standardCheckPage'
+        $script:Std | Should -Not -Match 'function standardCheckPage'
     }
 }

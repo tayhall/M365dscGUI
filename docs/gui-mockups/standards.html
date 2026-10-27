@@ -1,0 +1,345 @@
+<title>Standards Mock-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a sticky screen switcher above one framed copy of the existing GUI; each screen swaps inside the frame. */
+:root{
+  --bg:#eef0f2;--surface:#ffffff;--ink:#1d2125;--muted:#5b6168;--line:#e1e3e6;--line2:#c9ced4;
+  --bar:#1d2733;--bar2:#2c3846;--bar-on:#34465a;--bar-ink:#cfd6df;
+  --link:#2457c5;--primary:#2c5fd1;--primary-ink:#ffffff;
+  --ok:#2f7d4f;--ok-bg:#e3f3ea;
+  --warn:#9a5b00;--warn-bg:#fdf0d5;
+  --person:#6b3fa8;--person-bg:#efe6fa;
+  --grey:#5b6168;--grey-bg:#eceef0;
+  --accept:#0f6f78;--accept-bg:#dcf1f3;
+  --new:#e8a33a;
+  --shade:rgba(29,33,37,.45);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161b;--surface:#1b2128;--ink:#e6e9ed;--muted:#9aa4af;--line:#2b333c;--line2:#3a444f;
+  --bar:#0e1318;--bar2:#1f2832;--bar-on:#2a3947;--bar-ink:#b7c1cc;
+  --link:#7fa6f2;--primary:#3d6fdc;--primary-ink:#ffffff;
+  --ok:#6cc690;--ok-bg:#183327;
+  --warn:#e8b45c;--warn-bg:#3a2d12;
+  --person:#bb9ae8;--person-bg:#2c2040;
+  --grey:#9aa4af;--grey-bg:#262d35;
+  --accept:#69c6cf;--accept-bg:#10343a;
+  --shade:rgba(0,0,0,.6);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161b;--surface:#1b2128;--ink:#e6e9ed;--muted:#9aa4af;--line:#2b333c;--line2:#3a444f;
+  --bar:#0e1318;--bar2:#1f2832;--bar-on:#2a3947;--bar-ink:#b7c1cc;
+  --link:#7fa6f2;--primary:#3d6fdc;--primary-ink:#ffffff;
+  --ok:#6cc690;--ok-bg:#183327;
+  --warn:#e8b45c;--warn-bg:#3a2d12;
+  --person:#bb9ae8;--person-bg:#2c2040;
+  --grey:#9aa4af;--grey-bg:#262d35;
+  --accept:#69c6cf;--accept-bg:#10343a;
+  --shade:rgba(0,0,0,.6);
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--link);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+.muted{color:var(--muted)}
+
+.intro h1{font-size:20px;margin:0 0 4px;font-weight:600}
+.intro p{margin:0;max-width:72ch;color:var(--muted)}
+.switcher{display:flex;flex-wrap:wrap;gap:8px}
+.sw{border:1px solid var(--line2);background:var(--surface);border-radius:6px;padding:8px 12px;cursor:pointer;min-height:40px;text-align:left}
+.sw b{display:block;font-weight:600}
+.sw span{font-size:12px;color:var(--muted)}
+.sw.on{background:var(--bar);border-color:var(--bar);color:#fff}
+.sw.on span{color:var(--bar-ink)}
+
+/* the existing app, framed */
+.frame{border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--bg)}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:6px 20px;padding:8px 16px;background:var(--bar);color:#fff}
+.brand{font-weight:600;font-size:15px}
+.nav{display:flex;flex-wrap:wrap;gap:2px;flex:1 1 auto}
+.navb{background:none;border:0;color:var(--bar-ink);padding:8px 10px;border-radius:6px;display:flex;align-items:center;gap:6px;cursor:default}
+.navb.on{background:var(--bar-on);color:#fff}
+.newtag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--new);color:#1d2125;border-radius:8px;padding:0 6px}
+.badge{background:var(--new);color:#1d2125;border-radius:10px;padding:0 7px;font-size:12px;font-weight:600}
+.topr{display:flex;gap:8px;align-items:center;color:var(--bar-ink);font-size:13px}
+.chip{background:var(--bar2);border:1px solid #46566a;color:#fff;border-radius:6px;padding:5px 10px}
+.screen{padding:20px 20px 28px;max-width:100%}
+.crumbs{font-size:13px;margin-bottom:8px;color:var(--muted)}
+.crumbs a{color:var(--link)}
+h2{font-size:20px;margin:0 0 2px;font-weight:600}
+h3{font-size:15px;margin:0 0 8px;font-weight:600}
+.phead{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.stack{display:flex;flex-direction:column;gap:16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px}
+
+.btn{border:1px solid var(--line2);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;min-height:34px}
+.btn:hover{border-color:var(--link)}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:var(--primary-ink)}
+.btn.sm{padding:3px 10px;min-height:30px;font-size:13px}
+.btn.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.btn.acc.on{background:var(--accept);border-color:var(--accept);color:#fff}
+
+.pill{display:inline-block;border-radius:10px;padding:1px 9px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-bg);color:var(--ok)}
+.p-warn{background:var(--warn-bg);color:var(--warn)}
+.p-person{background:var(--person-bg);color:var(--person)}
+.p-grey{background:var(--grey-bg);color:var(--grey)}
+.p-accept{background:var(--accept-bg);color:var(--accept)}
+
+/* coverage bar */
+.cbar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--grey-bg)}
+.cbar i{display:block;height:100%}
+.s-ok{background:var(--ok)}.s-warn{background:var(--new)}.s-accept{background:var(--accept)}.s-read{background:var(--person)}.s-nc{background:var(--line2)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:13px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+.big{font-size:26px;font-weight:600;line-height:1.15}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:13px;margin:12px 0 0}
+.kv dt{color:var(--muted)}.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.acc td{background:color-mix(in srgb,var(--accept-bg) 45%,transparent)}
+.val{display:block;font-size:12.5px}
+.val b{font-weight:600}
+.hint{display:block;font-size:12px;color:var(--person);margin-top:2px}
+.actions{display:flex;flex-wrap:wrap;gap:6px}
+.banner{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;background:var(--warn-bg);color:var(--ink);border:1px solid var(--new);border-radius:8px;padding:10px 14px;margin-bottom:16px}
+.note{font-size:13px;color:var(--muted);margin:10px 0 0}
+.selbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-top:14px;padding:10px 14px;border:1px dashed var(--line2);border-radius:8px;font-size:13px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tab{border:1px solid var(--line2);background:var(--surface);border-radius:6px;padding:5px 12px;cursor:pointer}
+.tab.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+
+.reason{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+.reason .card{flex:1 1 280px}
+
+/* dialog */
+.stage{position:relative}
+.shade{position:absolute;inset:0;background:var(--shade);display:grid;place-items:start center;padding:28px 16px;z-index:5}
+.dialog{width:min(540px,100%);background:var(--surface);border:1px solid var(--line2);border-radius:10px;padding:20px;box-shadow:0 12px 32px rgba(0,0,0,.25)}
+.dialog label{display:block;font-weight:600;margin:12px 0 4px}
+.dialog input,.dialog textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line2);border-radius:6px;background:var(--surface);color:var(--ink)}
+.dialog textarea{min-height:76px;resize:vertical}
+.cmp{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;background:var(--grey-bg);border-radius:6px;padding:10px 12px;font-size:13px}
+.cmp dt{color:var(--muted)}.cmp dd{margin:0}
+.dfoot{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:16px}
+[hidden]{display:none!important}
+@media (max-width:640px){.screen{padding:14px 12px 20px}}
+</style>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>Standards in the GUI: mock-ups</h1>
+    <p>Four screens for the Standards page, drawn inside the existing GUI. The data is example data and nothing here is connected. Buttons and the dialog work so you can see the flow.</p>
+  </div>
+
+  <div class="switcher" role="tablist" aria-label="Mock-up screens">
+    <button class="sw on" role="tab" data-s="s1"><b>1 Standards</b><span>what is loaded, how much is checked</span></button>
+    <button class="sw" role="tab" data-s="s2"><b>2 Check against ASD</b><span>differences, Adopt, Accept risk</span></button>
+    <button class="sw" role="tab" data-s="s3"><b>3 Not covered</b><span>what could not be checked, and why</span></button>
+    <button class="sw" role="tab" data-s="s4"><b>4 Accept risk</b><span>the sign-off dialog</span></button>
+  </div>
+
+  <div class="frame">
+    <div class="top">
+      <div class="brand">Policy engine</div>
+      <div class="nav" aria-hidden="true">
+        <span class="navb">Overview</span><span class="navb">Drift review</span><span class="navb">Blueprint</span>
+        <span class="navb on">Standards <span class="newtag">new</span></span>
+        <span class="navb">Exclusions</span><span class="navb">Tenants</span><span class="navb">Activity</span>
+      </div>
+      <div class="topr"><span>Tenant</span><span class="chip">master</span><span class="chip">Selection list <span class="badge" id="selcount">0</span></span></div>
+    </div>
+
+    <div class="screen stage">
+
+      <!-- 1: Standards -->
+      <section id="s1" aria-label="Standards">
+        <div class="phead"><div><h2>Standards</h2><div class="muted">Published security standards. Read-only: check a tenant against one, adopt settings into a blueprint.</div></div>
+          <button class="btn" type="button">Import a standard</button></div>
+        <div class="banner"><div><b>ASD Blueprint v1.5.0 is available.</b> You have v1.4.0. Import it to see what changed and which accepted risks need another look.</div><button class="btn pri sm" type="button">Import v1.5.0</button></div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="muted" style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:600">Standard</div>
+            <h3 style="font-size:17px;margin:2px 0 0">ASD Blueprint for Secure Cloud</h3>
+            <dl class="kv">
+              <dt>Version</dt><dd>v1.4.0 (blueprint version 1), imported 27 Oct 2026</dd>
+              <dt>Source</dt><dd class="mono">github.com/ASD-Blueprint/ASD-Blueprint-for-Secure-Cloud</dd>
+              <dt>Licence</dt><dd>CC BY 4.0. Australian Signals Directorate.</dd>
+              <dt>Settings</dt><dd>133 in the standard, 91 can be checked here</dd>
+              <dt>Adopted</dt><dd>12 of 91 are in blueprint <b>master</b></dd>
+            </dl>
+            <div class="actions" style="margin-top:14px"><button class="btn pri sm" type="button" data-go="s2">Check master against it</button><button class="btn sm" type="button" data-go="s3">What is not covered</button></div>
+          </div>
+
+          <div class="card">
+            <h3>master, last checked 27 Oct 14:32</h3>
+            <div class="big">Checked 87 of 133 settings</div>
+            <div class="muted" style="margin:2px 0 12px">68 match, 13 differ, 6 are accepted risks</div>
+            <div class="cbar" role="img" aria-label="68 match, 13 differ, 6 accepted, 4 not readable, 42 not covered">
+              <i class="s-ok" style="width:51.1%"></i><i class="s-warn" style="width:9.8%"></i><i class="s-accept" style="width:4.5%"></i><i class="s-read" style="width:3%"></i><i class="s-nc" style="width:31.6%"></i>
+            </div>
+            <div class="legend">
+              <span style="--c:var(--ok)">68 match</span><span style="--c:var(--new)">13 differ</span><span style="--c:var(--accept)">6 accepted</span>
+              <span style="--c:var(--person)">4 not readable</span><span style="--c:var(--line2)">42 not covered</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h3>By workload</h3>
+          <div class="tablewrap"><table>
+            <thead><tr><th>Workload</th><th class="num">In standard</th><th class="num">Checked</th><th class="num">Match</th><th class="num">Differ</th><th class="num">Accepted</th><th class="num">Not readable</th><th class="num">Not covered</th></tr></thead>
+            <tbody>
+              <tr><td>Entra ID</td><td class="num">22</td><td class="num">6</td><td class="num">4</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td class="num">16</td></tr>
+              <tr><td>Intune</td><td class="num">12</td><td class="num">11</td><td class="num">8</td><td class="num">3</td><td class="num">0</td><td class="num">0</td><td class="num">1</td></tr>
+              <tr><td>Exchange Online</td><td class="num">4</td><td class="num">2</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="num">2</td></tr>
+              <tr><td>Teams</td><td class="num">40</td><td class="num">30</td><td class="num">24</td><td class="num">4</td><td class="num">2</td><td class="num">3</td><td class="num">7</td></tr>
+              <tr><td>Security and Compliance</td><td class="num">51</td><td class="num">38</td><td class="num">31</td><td class="num">4</td><td class="num">3</td><td class="num">0</td><td class="num">13</td></tr>
+              <tr><td>SharePoint and other</td><td class="num">4</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="num">3</td></tr>
+            </tbody>
+          </table></div>
+          <p class="note">Not readable means the last export could not read that type in this tenant (a permission or a failed component). Those settings are never reported as missing.</p>
+        </div>
+      </section>
+
+      <!-- 2: Check -->
+      <section id="s2" aria-label="Check against ASD" hidden>
+        <div class="crumbs"><a href="#s1" data-go="s1">Standards</a> / ASD Blueprint v1.4.0 / master</div>
+        <div class="phead"><div><h2>master against ASD Blueprint</h2><div class="muted">Checked 87 of 133 settings, 27 Oct 14:32. Only what the standard states is compared.</div></div>
+          <button class="btn" type="button">Check again</button></div>
+
+        <div class="card">
+          <div class="pills" role="group" aria-label="Filter">
+            <button class="tab on" type="button">Needs a decision <b>14</b></button><button class="tab" type="button">Accepted <b>6</b></button><button class="tab" type="button">All differences <b>20</b></button>
+          </div>
+          <div class="tablewrap"><table>
+            <thead><tr><th>Setting</th><th>Standard says</th><th>Tenant has</th><th>Status</th><th>Decide</th></tr></thead>
+            <tbody>
+              <tr data-row="1"><td><b>Allowed Countries</b><span class="val muted mono">AADNamedLocationPolicy</span><span class="val muted">Entra ID</span></td>
+                <td><span class="val mono">CountriesAndRegions</span><b>AU</b></td><td><span class="val mono">CountriesAndRegions</span><b>AU, NZ</b></td>
+                <td><span class="pill p-warn">Differs</span></td>
+                <td><div class="actions"><button class="btn sm" type="button" data-act="adopt">Adopt</button><button class="btn sm acc" type="button" data-act="risk">Accept risk</button></div></td></tr>
+              <tr data-row="2"><td><b>PROTECTED information</b><span class="val muted mono">AADAuthenticationContextClassReference</span><span class="val muted">Entra ID</span></td>
+                <td>Present</td><td class="muted">Not in this tenant</td>
+                <td><span class="pill p-person">Missing</span></td>
+                <td><div class="actions"><button class="btn sm" type="button" data-act="adopt">Adopt</button><button class="btn sm acc" type="button" data-act="risk">Accept risk</button></div></td></tr>
+              <tr data-row="3"><td><b>Global</b><span class="val muted mono">TeamsMessagingPolicy</span><span class="val muted">Teams</span></td>
+                <td><span class="val mono">AllowGiphy</span><b>False</b></td><td><span class="val mono">AllowGiphy</span><b>True</b></td>
+                <td><span class="pill p-warn">Differs</span></td>
+                <td><div class="actions"><button class="btn sm" type="button" data-act="adopt">Adopt</button><button class="btn sm acc" type="button" data-act="risk">Accept risk</button></div></td></tr>
+              <tr data-row="4"><td><b>Windows ASR rules</b><span class="val muted mono">IntuneSettingCatalogASRRulesPolicyWindows10</span><span class="val muted">Intune</span></td>
+                <td><span class="val mono">Block credential stealing</span><b>Block</b></td><td><span class="val mono">Block credential stealing</span><b>Audit</b></td>
+                <td><span class="pill p-warn">Differs</span></td>
+                <td><div class="actions"><button class="btn sm" type="button" data-act="adopt">Adopt</button><button class="btn sm acc" type="button" data-act="risk">Accept risk</button></div></td></tr>
+              <tr data-row="5"><td><b>OFFICIAL: Sensitive</b><span class="val muted mono">SCSensitivityLabel</span><span class="val muted">Security and Compliance (check only)</span></td>
+                <td><span class="val mono">Priority</span><b>2</b></td><td><span class="val mono">Priority</span><b>4</b></td>
+                <td><span class="pill p-person">Look again</span><span class="hint">The standard changed in v1.5.0 after this was accepted.</span></td>
+                <td><div class="actions"><button class="btn sm" type="button" data-act="adopt">Adopt</button><button class="btn sm acc" type="button" data-act="risk">Accept risk</button></div></td></tr>
+              <tr class="acc"><td><b>Global</b><span class="val muted mono">TeamsMessagingPolicy</span><span class="val muted">Teams</span></td>
+                <td><span class="val mono">AllowUserEditMessage</span><b>False</b></td><td><span class="val mono">AllowUserEditMessage</span><b>True</b></td>
+                <td><span class="pill p-accept">Accepted</span><span class="val muted" style="margin-top:2px">by J. Citizen, 21 Oct</span></td>
+                <td><span class="val">Needed for the legal hold workflow.</span><button class="btn sm" type="button" style="margin-top:4px">Remove</button></td></tr>
+            </tbody>
+          </table></div>
+
+          <div class="selbar"><div><b id="selline">Nothing selected.</b> <span class="muted">Adopt copies the standard's setting into blueprint <b>master</b>. To change the tenant, Revert it afterwards on Drift review.</span></div>
+            <div class="actions"><button class="btn sm" type="button">Add to selection list</button></div></div>
+          <p class="note">Adopt and Accept risk follow the same rule as Revert, Promote and Exclude: clicking adds to the Selection list, and nothing changes until you run it.</p>
+        </div>
+      </section>
+
+      <!-- 3: Not covered -->
+      <section id="s3" aria-label="Not covered" hidden>
+        <div class="crumbs"><a href="#s1" data-go="s1">Standards</a> / ASD Blueprint v1.4.0 / not covered</div>
+        <div class="phead"><div><h2>Not covered</h2><div class="muted">42 of 133 settings cannot be checked in this tool yet. They are never counted as passing.</div></div></div>
+        <div class="reason">
+          <div class="card"><span class="pill p-person">Placeholder</span><div class="big" style="margin:6px 0 2px">25</div><div class="muted">The standard leaves a value for each organisation to fill in (for example the break-glass group of a Conditional Access policy). Checking these needs per-tenant values. Left out for now.</div></div>
+          <div class="card"><span class="pill p-grey">Unknown property</span><div class="big" style="margin:6px 0 2px">17</div><div class="muted">The standard uses a setting name that the Microsoft365DSC version we run does not have, mostly renamed or retired. Not guessed.</div></div>
+        </div>
+        <div class="card">
+          <div class="pills"><button class="tab on" type="button">All <b>42</b></button><button class="tab" type="button">Placeholder <b>25</b></button><button class="tab" type="button">Unknown property <b>17</b></button></div>
+          <div class="tablewrap"><table>
+            <thead><tr><th>Setting</th><th>Workload</th><th>Reason</th><th>Detail</th></tr></thead>
+            <tbody>
+              <tr><td><b>GST - B - Block guests</b><span class="val muted mono">AADConditionalAccessPolicy</span></td><td>Entra ID</td><td><span class="pill p-person">Placeholder</span></td><td class="mono">ExcludeGroups = $ConditionalExclude</td></tr>
+              <tr><td><b>GST - B - Strong authentication</b><span class="val muted mono">AADConditionalAccessPolicy</span></td><td>Entra ID</td><td><span class="pill p-person">Placeholder</span></td><td class="mono">ExcludeGroups = $ConditionalExclude</td></tr>
+              <tr><td><b>AADAuthorizationPolicy</b><span class="val muted mono">AADAuthorizationPolicy</span></td><td>Entra ID</td><td><span class="pill p-grey">Unknown property</span></td><td class="mono">Not in the pinned Microsoft365DSC: DefaultUserRoleAllowedToCreateApps, DefaultUserRoleAllowedToCreateTenants</td></tr>
+              <tr><td><b>Global</b><span class="val muted mono">TeamsMeetingConfiguration</span></td><td>Teams</td><td><span class="pill p-grey">Unknown property</span></td><td class="mono">Not in the pinned Microsoft365DSC: Identity</td></tr>
+              <tr><td><b>Standard labels policy</b><span class="val muted mono">SCAutoSensitivityLabelPolicy</span></td><td>Security and Compliance</td><td><span class="pill p-person">Placeholder</span></td><td class="mono">ExchangeLocation = $PrivUsers</td></tr>
+            </tbody>
+          </table></div>
+          <p class="note">Showing 5 of 42. When the product supports per-tenant values, the placeholder group is the first to move into "checked".</p>
+        </div>
+      </section>
+
+      <!-- 4: Dialog (drawn over the check screen) -->
+      <section id="s4" aria-label="Accept risk dialog" hidden>
+        <div class="phead"><div><h2>master against ASD Blueprint</h2><div class="muted">Accept risk opens this dialog from the row.</div></div></div>
+        <div class="card" style="opacity:.55" aria-hidden="true"><div class="tablewrap"><table>
+          <tbody><tr><td><b>Global</b><span class="val muted mono">TeamsMessagingPolicy</span></td><td><span class="val mono">AllowGiphy</span><b>False</b></td><td><span class="val mono">AllowGiphy</span><b>True</b></td><td><span class="pill p-warn">Differs</span></td><td><div class="actions"><button class="btn sm" type="button">Adopt</button><button class="btn sm acc on" type="button">Accept risk</button></div></td></tr></tbody></table></div></div>
+        <div class="shade" id="dlgshade" style="position:relative;inset:auto;margin-top:-90px;background:transparent;padding:0 0 4px">
+          <div class="dialog" role="dialog" aria-labelledby="dtitle">
+            <h3 id="dtitle" style="font-size:17px">Accept this difference</h3>
+            <dl class="cmp">
+              <dt>Setting</dt><dd><b>Global</b> <span class="mono">TeamsMessagingPolicy</span>, property <span class="mono">AllowGiphy</span></dd>
+              <dt>Standard says</dt><dd><b>False</b></dd>
+              <dt>Tenant has</dt><dd><b>True</b></dd>
+              <dt>Tenant</dt><dd>master</dd>
+            </dl>
+            <label for="appr">Approved by</label>
+            <input id="appr" type="text" value="J. Citizen">
+            <label for="why">Why</label>
+            <textarea id="why">Marketing runs a customer channel that uses GIFs. Reviewed with the security team.</textarea>
+            <p class="note">This is a note kept next to the check so the difference is not raised again. It is not your risk register. If a newer version of the standard changes this setting, it comes back as "Look again".</p>
+            <div class="dfoot"><button class="btn" type="button" data-go="s2">Cancel</button><button class="btn pri" type="button" data-go="s2">Add to selection list</button></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var screens = ['s1', 's2', 's3', 's4'];
+  function show(id) {
+    screens.forEach(function (s) { document.getElementById(s).hidden = (s !== id); });
+    document.querySelectorAll('.sw').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-s') === id); });
+  }
+  document.querySelectorAll('.sw').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-s')); }); });
+  document.querySelectorAll('[data-go]').forEach(function (b) {
+    b.addEventListener('click', function (e) { e.preventDefault(); show(b.getAttribute('data-go')); });
+  });
+
+  var chosen = {};
+  function refresh() {
+    var keys = Object.keys(chosen), n = keys.length;
+    document.getElementById('selcount').textContent = String(n);
+    var adopt = keys.filter(function (k) { return chosen[k] === 'adopt'; }).length;
+    var risk = n - adopt;
+    document.getElementById('selline').textContent = n === 0 ? 'Nothing selected.' : (adopt + ' to adopt, ' + risk + ' to accept as risk.');
+  }
+  document.querySelectorAll('tr[data-row]').forEach(function (row) {
+    var id = row.getAttribute('data-row');
+    row.querySelectorAll('[data-act]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var act = btn.getAttribute('data-act');
+        if (act === 'risk') { show('s4'); return; }
+        if (chosen[id] === act) { delete chosen[id]; } else { chosen[id] = act; }
+        row.querySelectorAll('[data-act="adopt"]').forEach(function (x) { x.classList.toggle('on', chosen[id] === 'adopt'); });
+        refresh();
+      });
+    });
+  });
+})();
+</script>

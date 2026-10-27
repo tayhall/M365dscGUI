@@ -41,7 +41,10 @@ function Invoke-PEGuiRequest
         [scriptblock]$RecheckScript,
 
         # Test seam for Recheck: replaces the Reader-app export of Invoke-PEFullCheck.
-        [scriptblock]$ExportScript
+        [scriptblock]$ExportScript,
+
+        # Test seam for ImportStandard and CheckStandardRelease: replaces git (called with [string[]]$Arguments, returns ExitCode and Output).
+        [scriptblock]$GitScript
     )
 
     $root = Get-PEDataRoot -Override $DataRoot
@@ -154,7 +157,7 @@ function Invoke-PEGuiRequest
             $request = & $readJson "requests\$($job.requestId).json"
             if ($null -eq $request) { throw "Request $($job.requestId) not found." }
             $role = [string](@((& $readJson 'index.json').tenants | Where-Object { $_.tenantId -ceq [string]$request.tenantId }) | Select-Object -First 1).role
-            $outcome = Invoke-PEGuiRequestAction -Request $request -Job $job -BlueprintName $BlueprintName -DataRoot $root -GuiRoot $GuiRoot -Role $role -ApplyScript $ApplyScript -RecheckScript $RecheckScript -ExportScript $ExportScript -Progress $progress
+            $outcome = Invoke-PEGuiRequestAction -Request $request -Job $job -BlueprintName $BlueprintName -DataRoot $root -GuiRoot $GuiRoot -Role $role -ApplyScript $ApplyScript -RecheckScript $RecheckScript -ExportScript $ExportScript -GitScript $GitScript -Progress $progress
             $job.status = $outcome.Status
             $job.result = $outcome.Result
             if ($outcome.Config) { $job.config = $outcome.Config }

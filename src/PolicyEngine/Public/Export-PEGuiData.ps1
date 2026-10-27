@@ -393,6 +393,10 @@ function Export-PEGuiData
         }
     }
     & $write 'exclusions.json' ([ordered]@{ unmanaged = @($unmanagedAll); noise = @($noise); propertyExclusions = @($propertyExclusions) })
+    # Standards: the standards index, each standard's coverage and each tenant's latest check against it.
+    try { Export-PEGuiStandardData -Tenant $registered -MasterBlueprint $BlueprintName -DataRoot $root -Write $write }
+    catch { Write-Warning "Standards were not exported: $($_.Exception.Message)" }
+
     # Index.
     $latest = $versions[-1]
     $workloadNames = @('Entra ID', 'Intune', 'Exchange Online', 'Teams', 'Security and Compliance', 'Other')

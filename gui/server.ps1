@@ -57,7 +57,8 @@ Start-PodeServer -Threads 4 -ScriptBlock {
     foreach ($path in '/api/index', '/api/resource-types', '/api/blueprint', '/api/blueprint/compare', '/api/exclusions',
         '/api/activity', '/api/activity/active', '/api/tenant-setup',
         '/api/tenants/:tenantId/status', '/api/tenants/:tenantId/findings', '/api/tenants/:tenantId/layer-findings', '/api/tenants/:tenantId/items',
-        '/api/tenants/:tenantId/item', '/api/jobs/:jobId/config/:file') {
+        '/api/tenants/:tenantId/item', '/api/jobs/:jobId/config/:file',
+        '/api/standards', '/api/standards/:name/coverage', '/api/tenants/:tenantId/standards/:name') {
         Add-PodeRoute -Method Get -Path $path -ScriptBlock $api
     }
     foreach ($path in '/api/requests/preview', '/api/requests', '/api/jobs/:jobId/cancel') {
@@ -69,7 +70,8 @@ Start-PodeServer -Threads 4 -ScriptBlock {
     $shell = { Write-PodeFileResponse -Path (Get-PodeState -Name 'IndexPage') -ContentType 'text/html' }
     foreach ($path in '/', '/tenants', '/drift', '/blueprint', '/blueprint/compare', '/blueprint/versions/:version', '/exclusions', '/queue',
         '/activity', '/activity/:jobId', '/tenants/:tenantId/workloads/:workload',
-        '/tenants/:tenantId/workloads/:workload/types/:resourceType', '/tenants/:tenantId/items/:itemId') {
+        '/tenants/:tenantId/workloads/:workload/types/:resourceType', '/tenants/:tenantId/items/:itemId',
+        '/standards', '/standards/:name', '/standards/:name/not-covered') {
         Add-PodeRoute -Method Get -Path $path -ScriptBlock $shell
     }
 

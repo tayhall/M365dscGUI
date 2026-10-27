@@ -1,0 +1,307 @@
+{
+  "standard": "asd",
+  "version": 1,
+  "sourceVersion": "v1.4.0",
+  "total": 133,
+  "covered": 91,
+  "byReason": {
+    "Placeholder": 25,
+    "UnknownProperty": 17
+  },
+  "rows": [
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Block guests",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Strong authentication",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Compliant devices",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Block legacy authentication",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Block high risk sign-ins",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Block high risk users",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Limit admin sessions",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Limit user sessions",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Block unapproved countries",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Block unapproved devices",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Register security info",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Intune enrolment",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Guest application access",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Reauthentication for risky sign-ins",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADConditionalAccessPolicy",
+      "key": "GST - B - Agree to terms of use",
+      "workload": "Entra ID",
+      "reason": "Placeholder",
+      "detail": "ExcludeGroups = $ConditionalExclude"
+    },
+    {
+      "resourceType": "AADAuthorizationPolicy",
+      "key": "AADAuthorizationPolicy",
+      "workload": "Entra ID",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: DefaultUserRoleAllowedToCreateApps, DefaultUserRoleAllowedToCreateTenants"
+    },
+    {
+      "resourceType": "IntuneDeviceConfigurationPolicyiOS",
+      "key": "iOS restrictions",
+      "workload": "Intune",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: SupportsScopeTags"
+    },
+    {
+      "resourceType": "EXOTransportRule",
+      "key": "Disclaimer",
+      "workload": "Exchange Online",
+      "reason": "Placeholder",
+      "detail": "ExceptIfFrom = $PrivUsers"
+    },
+    {
+      "resourceType": "EXOOwaMailboxPolicy",
+      "key": "OwaMailboxPolicy-Default",
+      "workload": "Exchange Online",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: ApplyOME"
+    },
+    {
+      "resourceType": "TeamsMeetingConfiguration",
+      "key": "Global",
+      "workload": "Teams",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: Identity"
+    },
+    {
+      "resourceType": "TeamsClientConfiguration",
+      "key": "Global",
+      "workload": "Teams",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: Identity"
+    },
+    {
+      "resourceType": "TeamsFederationConfiguration",
+      "key": "Global",
+      "workload": "Teams",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: Identity"
+    },
+    {
+      "resourceType": "TeamsGuestCallingConfiguration",
+      "key": "Global",
+      "workload": "Teams",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: Identity"
+    },
+    {
+      "resourceType": "TeamsGuestMeetingConfiguration",
+      "key": "Global",
+      "workload": "Teams",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: Identity"
+    },
+    {
+      "resourceType": "TeamsGuestMessagingConfiguration",
+      "key": "Global",
+      "workload": "Teams",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: Identity"
+    },
+    {
+      "resourceType": "TeamsAcsFederationConfiguration",
+      "key": "Global",
+      "workload": "Teams",
+      "reason": "Placeholder",
+      "detail": "AllowedAcsResources = $PrivUsers"
+    },
+    {
+      "resourceType": "SCAutoSensitivityLabelPolicy",
+      "key": "Auto label policy 1",
+      "workload": "Security and Compliance",
+      "reason": "Placeholder",
+      "detail": "ExchangeLocation = $PrivUsers"
+    },
+    {
+      "resourceType": "SCAutoSensitivityLabelPolicy",
+      "key": "Auto label policy 2",
+      "workload": "Security and Compliance",
+      "reason": "Placeholder",
+      "detail": "ExchangeLocation = $PrivUsers"
+    },
+    {
+      "resourceType": "SCAutoSensitivityLabelPolicy",
+      "key": "Auto label policy 3",
+      "workload": "Security and Compliance",
+      "reason": "Placeholder",
+      "detail": "ExchangeLocation = $PrivUsers"
+    },
+    {
+      "resourceType": "SCAutoSensitivityLabelPolicy",
+      "key": "Auto label policy 4",
+      "workload": "Security and Compliance",
+      "reason": "Placeholder",
+      "detail": "ExchangeLocation = $PrivUsers"
+    },
+    {
+      "resourceType": "SCAutoSensitivityLabelPolicy",
+      "key": "Auto label policy 5",
+      "workload": "Security and Compliance",
+      "reason": "Placeholder",
+      "detail": "ExchangeLocation = $PrivUsers"
+    },
+    {
+      "resourceType": "SCAutoSensitivityLabelPolicy",
+      "key": "Auto label policy 6",
+      "workload": "Security and Compliance",
+      "reason": "Placeholder",
+      "detail": "ExchangeLocation = $PrivUsers"
+    },
+    {
+      "resourceType": "SCAutoSensitivityLabelPolicy",
+      "key": "Auto label policy 7",
+      "workload": "Security and Compliance",
+      "reason": "Placeholder",
+      "detail": "ExchangeLocation = $PrivUsers"
+    },
+    {
+      "resourceType": "SCAutoSensitivityLabelPolicy",
+      "key": "Auto label policy 8",
+      "workload": "Security and Compliance",
+      "reason": "Placeholder",
+      "detail": "ExchangeLocation = $PrivUsers"
+    },
+    {
+      "resourceType": "SCSensitivityLabel",
+      "key": "Label 1",
+      "workload": "Security and Compliance",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: DynamicScopeLocation"
+    },
+    {
+      "resourceType": "SCSensitivityLabel",
+      "key": "Label 2",
+      "workload": "Security and Compliance",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: DynamicScopeLocation"
+    },
+    {
+      "resourceType": "SCSensitivityLabel",
+      "key": "Label 3",
+      "workload": "Security and Compliance",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: DynamicScopeLocation"
+    },
+    {
+      "resourceType": "SCSensitivityLabel",
+      "key": "Label 4",
+      "workload": "Security and Compliance",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: DynamicScopeLocation"
+    },
+    {
+      "resourceType": "SCSensitivityLabel",
+      "key": "Label 5",
+      "workload": "Security and Compliance",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: DynamicScopeLocation"
+    },
+    {
+      "resourceType": "SPOTenantSettings",
+      "key": "Global",
+      "workload": "Other",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: Ensure"
+    },
+    {
+      "resourceType": "SPOSharingSettings",
+      "key": "Global",
+      "workload": "Other",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: NotifyOwnersWhenInvitationsAccepted"
+    },
+    {
+      "resourceType": "ODSettings",
+      "key": "Global",
+      "workload": "Other",
+      "reason": "UnknownProperty",
+      "detail": "Not in the pinned Microsoft365DSC: Ensure"
+    }
+  ]
+}

@@ -375,7 +375,7 @@ function Compare-PEState
             }
             if ($differences.Count -gt 0 -or $excludedDifferences.Count -gt 0 -or $acceptedDifferences.Count -gt 0)
             {
-                $findings.Add((New-PEFinding -Kind 'Changed' -ResourceType $first.ResourceType -Key $first.Key -Workload (Get-PERecordWorkload -Record $first) -Differences $differences -ExcludedDifferences $excludedDifferences -AcceptedDifferences $acceptedDifferences -Hint $changedHint -BlueprintRecord $first -TargetRecord $other))
+                $findings.Add((New-PEFinding -Kind 'Changed' -ResourceType $first.ResourceType -Key $first.Key -Workload (Get-PERecordWorkload -Record $first) -Differences $differences -ExcludedDifferences $excludedDifferences -AcceptedDifferences $acceptedDifferences -Hint $changedHint -AcceptanceStale ($null -ne $changedHint) -BlueprintRecord $first -TargetRecord $other))
             }
         }
         else
@@ -570,6 +570,7 @@ function Compare-PEState
             if ($null -ne $itemRule -and $itemRule.Hash -and $itemRule.Hash -ne (Get-PEDecisionHash -Record $finding.BlueprintRecord))
             {
                 $finding.Hint = $staleHint
+                $finding.AcceptanceStale = $true
                 $itemRule = $null
             }
             if ($null -eq $itemRule -and $finding.Kind -eq 'Changed' -and @($finding.Differences).Count -eq 0 -and @($finding.AcceptedDifferences).Count -gt 0)

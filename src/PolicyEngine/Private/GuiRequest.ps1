@@ -27,6 +27,9 @@ function Invoke-PEGuiRequestAction
 
         [scriptblock]$ExportScript,
 
+        # Test seam for the standards requests that talk to git: called with [string[]]$Arguments, returns ExitCode and Output.
+        [scriptblock]$GitScript,
+
         # Called with a text while a long job runs (the device-code prompt of Connect tenant); the worker writes it into the job.
         [scriptblock]$Progress
     )
@@ -442,6 +445,111 @@ function Invoke-PEGuiRequestAction
             }
             $what = if ($oneItem) { "item '$($items[0].key)' of v$target" } else { "v$target" }
             return (& $done "Blueprint '$BlueprintName' v$($restored.Version) recorded as a copy of $what. The versions in between are kept. No tenant was changed.$(if ($recompared) { ' The changed items were compared with the latest master snapshot again.' } else { ' The drift list updates at the next snapshot.' })")
+        }
+        'StandardCheck'
+        {
+            # Reads the tenant (Reader app) for the workloads the standard covers and compares only what the standard states.
+            $standard = [string]$Request.standard
+            if ((Get-PETenant -Slug $tenant -DataRoot $DataRoot).Offline) { throw "Tenant '$tenant' is offline: a standard check reads the tenant." }
+            $arguments = @{ StandardName = $standard; Tenant = $tenant; DataRoot = $DataRoot }
+            if ($ExportScript) { $arguments.ExportScript = $ExportScript }
+            $result = Invoke-PEStandardCheck @arguments
+            $c = $result.Coverage
+            $notCovered = (@($c.NotCovered.Values) | Measure-Object -Sum).Sum
+            return (& $done "Checked $($c.Checked) of $($c.Total) settings of '$standard' (check $($result.CheckId)): $($c.NotReadable) not readable in this tenant, $([int]$notCovered) not covered.")
+        }
+        'Adopt'
+        {
+            # Copies the standard's settings into the tenant's own blueprint (a new version, provenance kept). No tenant is written to.
+            if ($items.Count -eq 0) { throw 'No items in the request.' }
+            $standard = [string]$Request.standard
+            $own = & $ownBlueprint
+            $writesMaster = $own -ieq $BlueprintName
+            if ($writesMaster -and $tenant -ne 'master')
+            {
+                throw "Replica '$tenant' has no blueprint of its own, so Adopt would change the master blueprint. Give it one first (Initialize-PETenantBlueprint)."
+            }
+            if ($writesMaster -and -not [bool]$Request.confirmedMasterWrite)
+            {
+                throw 'Adopt writes to the master blueprint and needs the master-write confirmation.'
+            }
+            # What is reviewed is the standard's value, which Adopt overwrites with its own; the blueprint's latest version is read now and
+            # Copy-PEStandardItem still refuses if the blueprint moves while it writes.
+            $latest = @(Get-PEBlueprintVersionNumber -Directory (Get-PEBlueprintDirectory -Name $own -DataRoot $DataRoot))[-1]
+            $picked = @($items | ForEach-Object { [pscustomobject]@{ ResourceType = [string]$_.resourceType; Key = [string]$_.key } })
+            $version = Copy-PEStandardItem -Standard $standard -To $own -Item $picked -Reason $reason -ExpectedVersion $latest -DataRoot $DataRoot
+            $refreshed = $false
+            try { $null = Update-PEStandardCheck -Tenant $tenant -StandardName $standard -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The standard check was not updated: $($_.Exception.Message)" }
+            return (& $done "Blueprint v$version recorded in '$own' from '$standard'. No tenant was changed. Revert the items on Drift review to change the tenant.$(if ($refreshed) { ' The check shows them as adopted.' })")
+        }
+        'AcceptRisk'
+        {
+            # A note, per item, of who accepted leaving the tenant different from the standard and why (for the whole item, or per property).
+            if ($items.Count -eq 0) { throw 'No items in the request.' }
+            $standard = [string]$Request.standard
+            $check = Get-PECheck -Latest -Kind Standard -Standard $standard -Tenant $tenant -DataRoot $DataRoot
+            $count = 0
+            foreach ($item in $items)
+            {
+                $finding = @($check.Findings | Where-Object { [string]$_.ResourceType -ieq [string]$item.resourceType -and [string]$_.Key -ieq [string]$item.key -and [string]$_.Kind -in 'Missing', 'Changed' }) | Select-Object -First 1
+                if ($null -eq $finding) { throw "No difference for $($item.resourceType) '$($item.key)' in check $($check.CheckId); check again." }
+                $by = ([string]$item.approvedBy).Trim()
+                $why = ([string]$item.why).Trim()
+                if (-not $by) { throw "Accept risk needs 'approved by' for '$($item.key)'." }
+                if (-not $why) { throw "Accept risk needs 'why' for '$($item.key)'." }
+                $properties = @(@($item.properties) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+                $differing = @(@($finding.Differences) + @($finding.AcceptedDifferences) | Where-Object { $_ } | ForEach-Object { [string]$_.Property })
+                foreach ($property in $properties)
+                {
+                    if ($differing -inotcontains $property) { throw "'$property' does not differ on '$($item.key)'." }
+                }
+                $arguments = @{ Standard = $standard; Tenant = $tenant; ResourceType = [string]$item.resourceType; Key = [string]$item.key; ApprovedBy = $by; Reason = $why; DataRoot = $DataRoot }
+                if ($properties.Count -eq 0) { Set-PERiskAcceptance @arguments | Out-Null; $count++ }
+                else { foreach ($property in $properties) { Set-PERiskAcceptance @arguments -Property $property | Out-Null; $count++ } }
+            }
+            $refreshed = $false
+            try { $null = Update-PEStandardCheck -Tenant $tenant -StandardName $standard -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The standard check was not updated: $($_.Exception.Message)" }
+            return (& $done "Accepted risk recorded ($count note$(if ($count -ne 1) { 's' })). No tenant or blueprint was changed.$(if ($refreshed) { ' The check shows it.' })")
+        }
+        'RemoveRisk'
+        {
+            if ($items.Count -eq 0) { throw 'No items in the request.' }
+            $standard = [string]$Request.standard
+            $removed = 0
+            foreach ($item in $items)
+            {
+                $found = @(Get-PEDecision -Kind RiskAccepted -Tenant $tenant -DataRoot $DataRoot | Where-Object {
+                        [string]$_.Tenant -ceq $tenant -and [string]$_.Standard -ceq $standard -and [string]$_.ResourceType -ieq [string]$item.resourceType -and [string]$_.Key -ieq [string]$item.key })
+                if ($found.Count -eq 0) { throw "No accepted risk for $($item.resourceType) '$($item.key)' in tenant '$tenant' against '$standard'." }
+                foreach ($decision in $found)
+                {
+                    Remove-PEDecision -Kind RiskAccepted -ResourceType ([string]$decision.ResourceType) -Key ([string]$decision.Key) -Property ([string]$decision.Property) -Tenant $tenant -DataRoot $DataRoot
+                    $removed++
+                }
+            }
+            $refreshed = $false
+            try { $null = Update-PEStandardCheck -Tenant $tenant -StandardName $standard -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The standard check was not updated: $($_.Exception.Message)" }
+            return (& $done "Accepted risk removed ($removed note$(if ($removed -ne 1) { 's' })). The differences count again.$(if ($refreshed) { ' The check shows them.' })")
+        }
+        'ImportStandard'
+        {
+            # Fetches a release (the latest when no tag is given) and imports it as a new version of the standard. No tenant is involved.
+            $arguments = @{ Standard = [string]$Request.standard; DataRoot = $DataRoot }
+            if ($Request.PSObject.Properties['tag'] -and $Request.tag) { $arguments.Tag = [string]$Request.tag }
+            if ($GitScript) { $arguments.Git = $GitScript }
+            $summary = Import-PEStandardRelease @arguments -WarningAction SilentlyContinue 6>$null
+            $changes = if ($summary.Version -gt 1) { " Since the previous version: $($summary.Added) added, $($summary.Changed) changed, $($summary.Removed) removed." } else { '' }
+            return (& $done "Imported '$($summary.Name)' version $($summary.Version) from $($summary.SourceVersion): $($summary.Covered) of $($summary.Total) settings stored, $($summary.NotCovered) not covered.$changes")
+        }
+        'CheckStandardRelease'
+        {
+            # Asks the repository for its newest release tag (git ls-remote only, nothing is downloaded) and notes it for the page.
+            $standard = [string]$Request.standard
+            $arguments = @{ Standard = $standard }
+            if ($GitScript) { $arguments.Git = $GitScript }
+            $tag = Get-PEStandardLatestTag @arguments
+            Write-PEJson -Path (Join-Path (Get-PEDataRoot -Override $DataRoot) "sources\$standard-latest.json") -InputObject ([ordered]@{ tag = $tag; checkedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ') })
+            return (& $done "The latest release of '$standard' is $tag.")
         }
         default
         {

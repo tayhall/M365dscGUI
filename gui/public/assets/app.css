@@ -230,3 +230,25 @@ a.chip{text-decoration:none}a.chip:hover{filter:brightness(.95)}a.chip:focus-vis
 .gap{margin:8px 0 4px}
 .tilepick{font-size:inherit;padding:0 2px}
 .tilepick[aria-pressed="true"]{font-weight:700;text-decoration:none;color:inherit}
+
+/* Standards pages (standards.js). Status colours follow the rest of the GUI; accepted has its own teal. */
+.std-chip{display:inline-block;border-radius:10px;padding:1px 9px;font-size:12px;font-weight:600;white-space:nowrap}
+.std-chip.ok{background:#e3f3ea;color:#2f7d4f}.std-chip.warn{background:#fdf0d5;color:#9a5b00}.std-chip.person{background:#efe6fa;color:#6b3fa8}.std-chip.grey{background:#eceef0;color:#5b6168}.std-chip.accept{background:#dcf1f3;color:#0f6f78}
+.std-bar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:#eceef0}.std-bar i{display:block;height:100%}
+.b-ok{background:#2f7d4f}.b-warn{background:#e8a33a}.b-accept{background:#0f6f78}.b-person{background:#6b3fa8}.b-nc{background:#c9ced4}
+.std-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:13px}
+.std-legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+.k-ok{--c:#2f7d4f}.k-warn{--c:#e8a33a}.k-accept{--c:#0f6f78}.k-person{--c:#6b3fa8}.k-nc{--c:#c9ced4}
+.big{font-size:26px;font-weight:600;line-height:1.15}
+.std-kv{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:13px;margin:12px 0 0}.std-kv dt{color:#5b6168}.std-kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.std-scroll{overflow-x:auto}
+.std-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.std-table th{text-align:left;font-weight:600;color:#5b6168;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid #e1e3e6;white-space:nowrap}
+.std-table td{padding:9px 10px;border-top:1px solid #e1e3e6;vertical-align:top}
+.std-table td.num,.std-table th.num{text-align:right;font-variant-numeric:tabular-nums}
+.std-table tr.std-acc td{background:#eef8f9}
+.std-sub{display:block;font-size:12px;color:#5b6168;margin-top:2px}.std-look{color:#6b3fa8}
+.std-val{display:block;font-size:12.5px}
+.std-note{font-size:13px;margin:10px 0 0}
+.std-reasons{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px}.std-reasons .card{flex:1 1 280px}
+.std-source{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:6px 0}.std-chips{display:flex;flex-wrap:wrap;gap:4px}

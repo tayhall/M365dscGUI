@@ -61,6 +61,9 @@ Secrets and certificates live outside the repo, in `~\.m365dsc-policy\`.
 - `Start-PEGui` serves the interface; `Start-PEGuiWorker` runs the checks and reverts it requests. Pages: Overview (the selected tenant against the blueprints it follows), Drift review, Blueprint, Exclusions, Tenants (connect, rename), Activity. The tenant is chosen once, in the top bar.
 - `tools/Initialize-PETenantBlueprints.ps1`: gives every replica its own blueprint (use `-WhatIf` first). A replica without one cannot promote (it would change the master blueprint).
 
+**Standards in the GUI**
+- A Standards page (nav item), a check page per standard and a Not covered page, as in `docs/gui-mockups/standards.html`. The page shows the selected tenant's headline (`Checked N of M settings`), a coverage bar, a per-workload table and the differences with what the standard says and what the tenant has. **Adopt** copies a setting into the tenant's own blueprint, **Accept risk** records who approved leaving it and why, **Remove** brings a difference back; Adopt and Accept risk go through the Selection list. A standard check, an import of a release and a look for a newer one are worker requests. See `gui/README.md`, "Standards". `tools/PEDemoStandards.ps1` seeds a folder to try it without a tenant.
+
 **Verification**
 - `Invoke-PERoundTrip`, `Measure-PEKeyCoverage`: check that a blueprint exports and compares cleanly, and how well its keys are covered.
 

@@ -128,3 +128,22 @@ function Get-PEStandardItemClass
     }
     return $null
 }
+
+function Get-PEStandardDecision
+{
+    # The tenant's decisions for a check against one standard: a risk accepted against another standard is left out.
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param
+    (
+        [Parameter(Mandatory)]
+        [string]$Tenant,
+
+        [Parameter(Mandatory)]
+        [string]$StandardName,
+
+        [string]$DataRoot
+    )
+
+    return @(Get-PEDecision -DataRoot $DataRoot -Tenant $Tenant | Where-Object { $_.Kind -ne 'RiskAccepted' -or [string]$_.Standard -ceq $StandardName })
+}

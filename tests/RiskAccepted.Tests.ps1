@@ -115,6 +115,19 @@ Describe 'RiskAccepted decisions' {
         $stale = @(Compare-PEState -Blueprint $newer -Target $script:Tenant -Subset -Decisions @(Get-PEDecision -Tenant master -DataRoot $script:Temp) | Where-Object Key -EQ 'g1')[0]
         $stale.State | Should -Be 'Open'
         $stale.Hint | Should -Be 'Accepted risk needs another look: the standard has changed.'
+        $stale.AcceptanceStale | Should -BeTrue
+        $unchanged.AcceptanceStale | Should -BeFalse
+    }
+
+    It 'flags a stale property-level acceptance, and only that' {
+        $oldHash = Get-TestHash -Record $script:Standard.Records[0]
+        Set-PEDecision -Kind RiskAccepted -ResourceType AADGroup -Key g1 -Property Description -Tenant master -ApprovedBy 'cio' -Reason 'ok' -StandardHash $oldHash -DataRoot $script:Temp | Out-Null
+        $decisions = @(Get-PEDecision -Tenant master -DataRoot $script:Temp)
+        $newer = New-TestState -Records @((New-TestRecord -Key 'g1' -Props @{ Description = 'a2'; Visibility = 'Private' }))
+        $stale = @(Compare-PEState -Blueprint $newer -Target $script:Tenant -Subset -Decisions $decisions | Where-Object Key -EQ 'g1')[0]
+        $stale.AcceptanceStale | Should -BeTrue
+        $plain = @(Compare-PEState -Blueprint $script:Standard -Target $script:Tenant -Subset | Where-Object Key -EQ 'g1')[0]
+        $plain.AcceptanceStale | Should -BeFalse
     }
 }
 

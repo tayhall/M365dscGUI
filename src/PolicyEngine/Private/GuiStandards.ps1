@@ -43,8 +43,9 @@ function ConvertTo-PEGuiStandardRow
         workload            = [string]$Finding.Workload
         kind                = [string]$Finding.Kind
         status              = $status
-        differences         = & $values $Finding.Differences
-        acceptedDifferences = & $values $Finding.AcceptedDifferences
+        # @(): a scriptblock's single result would be unrolled into an object, and an empty one into null; the page needs arrays.
+        differences         = @(& $values $Finding.Differences)
+        acceptedDifferences = @(& $values $Finding.AcceptedDifferences)
         approvedBy          = & $property 'ApprovedBy'
         acceptedReason      = & $property 'AcceptedReason'
         acceptedAt          = & $property 'AcceptedAt'

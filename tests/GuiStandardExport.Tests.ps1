@@ -99,6 +99,22 @@ Describe 'Standards view models' {
         (@($view.byWorkload | Where-Object workload -EQ 'Teams')[0]).total | Should -Be 2
     }
 
+    It 'always writes the lists of a row as arrays, also with one or no entry' {
+        Invoke-TestCheck | Out-Null
+        Export-TestGui
+        $raw = Get-Content -LiteralPath (Join-Path $script:Gui 'tenants/master/standards/asd.json') -Raw
+        $view = $raw | ConvertFrom-Json
+        $changed = @($view.rows | Where-Object kind -EQ 'Changed')[0]
+        $missing = @($view.rows | Where-Object kind -EQ 'Missing')[0]
+        # One difference must still be a JSON array, or the page cannot loop over it.
+        $raw | Should -Match '"differences":\s*\['
+        $changed.differences -is [array] | Should -BeTrue
+        $missing.differences -is [array] | Should -BeTrue
+        $missing.acceptedDifferences -is [array] | Should -BeTrue
+        $changed.allowedActions -is [array] | Should -BeTrue
+        $view.byWorkload -is [array] | Should -BeTrue
+        $view.rows -is [array] | Should -BeTrue
+    }
     It 'never counts not covered or not readable items as matching' {
         Invoke-TestCheck -TeamsFails | Out-Null
         Export-TestGui

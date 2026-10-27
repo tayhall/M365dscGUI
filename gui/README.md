@@ -111,3 +111,27 @@ Each tenant in `index.json` has `layers`: the blueprints it follows, master blue
 list has one layer, the master blueprint. `tenants/<id>/findings.json` holds the findings against the tenant's own
 blueprint; for every other layer `tenants/<id>/layers/<blueprint>/findings.json` holds the same rows, each with its
 `layer`. A tenant never checked, or a layer whose blueprint cannot be read, has `checked: false`.
+
+## Standards
+
+The Standards pages (design: `docs/superpowers/specs/2026-10-27-standards-gui-design.md`; mock-ups: `docs/gui-mockups/standards.html`) show how a tenant compares with a published standard (the ASD Blueprint for Secure Cloud first). They only read what the engine exports; the server decides what each row allows.
+
+**View models** (written by `Export-PEGuiData`, camelCase JSON):
+- `standards/index.json`: the standards (source, licence, attribution, imported `versions`, `latestRelease` from `data\sources\<name>-latest.json` when the worker looked).
+- `standards/<name>/coverage.json`: what could not be covered in the latest version (`byReason`, `rows` with `reason` and `detail`).
+- `tenants/<id>/standards/<name>.json`: the tenant's latest check: `headline` (`total`, `covered`, `checked`, `match`, `differ`, `accepted`, `lookAgain`, `notReadable`, `notCovered`), `byWorkload`, `adoption`, and `rows` (`status` differs, missing, lookAgain or accepted; `differences` as `property`, `standard`, `tenant`; `adopted`; `allowedActions`). `{ checked: false }` when there is no check yet.
+
+**Routes** (GET): `/api/standards`, `/api/standards/:name/coverage`, `/api/tenants/:tenantId/standards/:name`. Page URLs: `/standards`, `/standards/:name` (`?show=decide|accepted|all`), `/standards/:name/not-covered` (`?reason=`).
+
+**Request actions** (`POST /api/requests`, run by the worker; none writes a tenant):
+- `StandardCheck` (`tenantId`, `standard`): `Invoke-PEStandardCheck`, a live read with the Reader app. Not for an offline tenant.
+- `Adopt` (`tenantId`, `standard`, `reason`, `items`): `Copy-PEStandardItem` into the tenant's own blueprint, one version per request; the master blueprint needs the master-write confirmation; a replica with no blueprint of its own is refused.
+- `AcceptRisk` (`tenantId`, `standard`, `items` of `{ itemId, approvedBy, why, properties? }`): `Set-PERiskAcceptance`, for the whole item or one decision per listed property.
+- `RemoveRisk` (`tenantId`, `standard`, `items`): removes the item's accepted risks.
+- `ImportStandard` (`standard`, optional `tag` vX.Y.Z; default the latest): `Import-PEStandardRelease`.
+- `CheckStandardRelease` (`standard`): `git ls-remote` only; writes the latest tag for the banner.
+After Adopt, Accept risk and Remove the worker saves a patched Standard check (`Update-PEStandardCheck`, `Meta.PatchedFrom`), so the page shows the result without reading the tenant. Adopt and Accept risk are added to the Selection list like Revert, Promote and Exclude (entries carry their `standard`, so they never replace a Drift review pick of the same item); Remove acts at once.
+
+**Try it.** `Start-PEGui.ps1 -Mock` shows the example numbers of the mock-ups. For real engine data without a tenant: `pwsh -NoProfile -File tools/PEDemoStandards.ps1 -DataRoot data/demo-standards` (add `-NewVersion` to see "Look again"), then start the GUI on `<DataRoot>\gui` and the worker with `-DataRoot <DataRoot>`.
+
+**Tests.** `gui/tests/Standards.Tests.ps1` runs node on `standards-model.js` (filters, headline words, bar segments, queue identity and grouping, the dialog's checks) and checks the server routes; `gui/tests/StandardsApi.Tests.ps1` covers the routes, previews and the mock data; `tests/GuiStandardExport.Tests.ps1` and `tests/GuiStandardRequest.Tests.ps1` cover the export and the worker. `standards.js` itself is verified in a browser.

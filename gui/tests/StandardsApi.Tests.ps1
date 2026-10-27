@@ -189,3 +189,52 @@ Describe 'Standards requests are queued' {
         (Get-Content -LiteralPath (Join-Path $root "activity/$($r.jobId).json") -Raw | ConvertFrom-Json).result | Should -BeLike '*(mock)*'
     }
 }
+
+Describe 'Mock standards data' {
+    BeforeAll {
+        $script:Views = @(Get-ChildItem -Path (Join-Path $script:MockData 'tenants') -Recurse -Filter '*.json' | Where-Object { $_.DirectoryName -like '*standards' } |
+                ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json } | Where-Object { $_.checked })
+        $script:Coverage = Get-Content -LiteralPath (Join-Path $script:MockData 'standards/asd/coverage.json') -Raw | ConvertFrom-Json
+    }
+
+    It 'has at least one checked tenant to show' {
+        @($script:Views).Count | Should -BeGreaterThan 0
+    }
+
+    It 'adds up: every setting is in exactly one of match, differ, accepted, not readable and not covered' {
+        foreach ($view in $script:Views)
+        {
+            $h = $view.headline
+            ($h.match + $h.differ + $h.accepted + $h.notReadable + $h.notCovered) | Should -Be $h.total
+            ($h.match + $h.differ + $h.accepted) | Should -Be $h.checked
+            foreach ($w in @($view.byWorkload))
+            {
+                ($w.match + $w.differ + $w.accepted + $w.notReadable + $w.notCovered) | Should -Be $w.total -Because $w.workload
+            }
+            (@($view.byWorkload | Measure-Object -Property total -Sum).Sum) | Should -Be $h.total
+        }
+    }
+
+    It 'agrees with its own rows and with the coverage list' {
+        foreach ($view in $script:Views)
+        {
+            @($view.rows | Where-Object status -NE 'accepted').Count | Should -Be $view.headline.differ
+            @($view.rows | Where-Object status -EQ 'accepted').Count | Should -Be $view.headline.accepted
+            @($view.rows | Where-Object status -EQ 'lookAgain').Count | Should -Be $view.headline.lookAgain
+            $view.headline.notCovered | Should -Be ($script:Coverage.total - $script:Coverage.covered)
+            $view.headline.covered | Should -Be $script:Coverage.covered
+        }
+        @($script:Coverage.rows).Count | Should -Be ($script:Coverage.total - $script:Coverage.covered)
+        (($script:Coverage.byReason.PSObject.Properties | Measure-Object -Property Value -Sum).Sum) | Should -Be @($script:Coverage.rows).Count
+    }
+
+    It 'gives every row the item id the page and the server derive' {
+        foreach ($view in $script:Views)
+        {
+            foreach ($row in @($view.rows))
+            {
+                $row.itemId | Should -Be (ConvertTo-PEGuiItemId -ResourceType $row.resourceType -Key $row.key)
+            }
+        }
+    }
+}

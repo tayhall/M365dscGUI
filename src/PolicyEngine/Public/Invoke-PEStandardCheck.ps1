@@ -63,7 +63,7 @@ function Invoke-PEStandardCheck
     $exported = Get-PETenantExportState -Blueprint $standard -Workloads @($prefixes) -CheckId $checkId -Tenant $Tenant -Root $root -ExportScript $ExportScript -TargetTenantId $TargetTenantId
     $state = $exported.State
     # A risk accepted against another standard does not apply here.
-    $decisions = @(Get-PEDecision -DataRoot $root -Tenant $Tenant | Where-Object { $_.Kind -ne 'RiskAccepted' -or [string]$_.Standard -ceq $StandardName })
+    $decisions = @(Get-PEStandardDecision -Tenant $Tenant -StandardName $StandardName -DataRoot $root)
     $findings = @(Compare-PEState -Blueprint $standard -Target $state -Decisions $decisions -Subset)
 
     # Coverage of this run: items of types the export could not read are NotReadable, never Missing.

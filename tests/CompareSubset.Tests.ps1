@@ -65,4 +65,11 @@ Describe 'Compare-PEState -Subset' {
         $target = New-TestState -Records @((New-TestRecord -Key 'g1'))
         @(Compare-PEState -Blueprint $blueprint -Target $target -Subset).Count | Should -Be 0
     }
+
+    It 'accepts a target state read back from JSON, whose Meta is an object' {
+        $blueprint = New-TestState -Records @((New-TestRecord -Key 'g1' -Props @{ Description = 'a' }))
+        $saved = New-TestState -Records @((New-TestRecord -Key 'g1' -Props @{ Description = 'b' })) | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+        $saved.Meta.GetType().Name | Should -Be 'PSCustomObject'
+        @(Compare-PEState -Blueprint $blueprint -Target $saved -Subset)[0].Kind | Should -Be 'Changed'
+    }
 }

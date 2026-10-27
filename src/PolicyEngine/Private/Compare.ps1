@@ -976,7 +976,17 @@ function Select-PESubsetTarget
         }
     }
 
-    New-PEState -Records @($kept) -NotChecked @($Target.NotChecked) -Meta $Target.Meta
+    # A state read back from JSON has an object for Meta; New-PEState wants a hashtable.
+    $meta = @{}
+    if ($Target.Meta -is [System.Collections.IDictionary])
+    {
+        foreach ($name in $Target.Meta.get_Keys()) { $meta[$name] = $Target.Meta[$name] }
+    }
+    elseif ($null -ne $Target.Meta)
+    {
+        foreach ($property in $Target.Meta.PSObject.Properties) { $meta[$property.Name] = $property.Value }
+    }
+    New-PEState -Records @($kept) -NotChecked @($Target.NotChecked) -Meta $meta
 }
 
 function Get-PEDecisionHash

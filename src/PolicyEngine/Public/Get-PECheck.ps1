@@ -27,6 +27,9 @@ function Get-PECheck
         [ValidatePattern('(?-i)\A[a-z0-9][a-z0-9-]{0,39}\z')]
         [string]$Tenant = 'master',
 
+        # With -Kind Standard: only checks against this standard (its StandardName).
+        [string]$Standard,
+
         [string]$DataRoot
     )
 
@@ -53,10 +56,10 @@ function Get-PECheck
     {
         $document = Read-PEJson -Path (Join-Path $folder.FullName 'result.json')
         $documentTenant = if ($null -ne $document -and $document.PSObject.Properties['TenantSlug'] -and $document.TenantSlug) { [string]$document.TenantSlug } else { 'master' }
-        if ($null -ne $document -and (-not $Kind -or $document.Kind -eq $Kind) -and $documentTenant -ceq $Tenant)
+        if ($null -ne $document -and (-not $Kind -or $document.Kind -eq $Kind) -and $documentTenant -ceq $Tenant -and (-not $Standard -or ([string]$document.StandardName) -ceq $Standard))
         {
             return $document
         }
     }
-    throw "No $(if ($Kind) { "$Kind " })check found under $checksRoot (tenant '$Tenant')."
+    throw "No $(if ($Kind) { "$Kind " })check found$(if ($Standard) { " for standard '$Standard'" }) under $checksRoot (tenant '$Tenant')."
 }

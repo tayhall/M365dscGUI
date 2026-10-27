@@ -1,0 +1,575 @@
+{
+  "standard": "asd",
+  "tenantId": "master",
+  "checked": true,
+  "checkId": "20261027-143200",
+  "checkedAt": "2026-10-27T14:32:00Z",
+  "standardVersion": 1,
+  "sourceVersion": "v1.4.0",
+  "patched": false,
+  "newerVersionImported": false,
+  "headline": {
+    "total": 133,
+    "covered": 91,
+    "checked": 87,
+    "match": 68,
+    "differ": 13,
+    "accepted": 6,
+    "lookAgain": 1,
+    "notReadable": 4,
+    "notCovered": 42
+  },
+  "notCoveredByReason": {
+    "Placeholder": 25,
+    "UnknownProperty": 17
+  },
+  "byWorkload": [
+    {
+      "workload": "Entra ID",
+      "total": 22,
+      "checked": 6,
+      "match": 4,
+      "differ": 1,
+      "accepted": 1,
+      "notReadable": 0,
+      "notCovered": 16
+    },
+    {
+      "workload": "Intune",
+      "total": 12,
+      "checked": 11,
+      "match": 8,
+      "differ": 3,
+      "accepted": 0,
+      "notReadable": 0,
+      "notCovered": 1
+    },
+    {
+      "workload": "Exchange Online",
+      "total": 4,
+      "checked": 2,
+      "match": 1,
+      "differ": 1,
+      "accepted": 0,
+      "notReadable": 0,
+      "notCovered": 2
+    },
+    {
+      "workload": "Teams",
+      "total": 40,
+      "checked": 30,
+      "match": 24,
+      "differ": 4,
+      "accepted": 2,
+      "notReadable": 3,
+      "notCovered": 7
+    },
+    {
+      "workload": "Security and Compliance",
+      "total": 51,
+      "checked": 38,
+      "match": 31,
+      "differ": 4,
+      "accepted": 3,
+      "notReadable": 0,
+      "notCovered": 13
+    },
+    {
+      "workload": "Other",
+      "total": 4,
+      "checked": 0,
+      "match": 0,
+      "differ": 0,
+      "accepted": 0,
+      "notReadable": 1,
+      "notCovered": 3
+    }
+  ],
+  "adoption": {
+    "blueprint": "prod",
+    "adopted": 12,
+    "covered": 91
+  },
+  "rows": [
+    {
+      "itemId": "AADNamedLocationPolicy~Allowed%20Countries",
+      "resourceType": "AADNamedLocationPolicy",
+      "key": "Allowed Countries",
+      "workload": "Entra ID",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "CountriesAndRegions",
+          "standard": [
+            "AU"
+          ],
+          "tenant": [
+            "AU",
+            "NZ"
+          ]
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "AADNamedLocationPolicy~Trusted%20IPs",
+      "resourceType": "AADNamedLocationPolicy",
+      "key": "Trusted IPs",
+      "workload": "Entra ID",
+      "kind": "Changed",
+      "status": "accepted",
+      "differences": [
+        {
+          "property": "IsTrusted",
+          "standard": true,
+          "tenant": false
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": "J. Citizen",
+      "acceptedReason": "Branch office ranges are managed by the network team.",
+      "acceptedAt": "2026-10-21T09:12:00Z",
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "RemoveRisk"
+      ]
+    },
+    {
+      "itemId": "IntuneSettingCatalogASRRulesPolicyWindows10~Windows%20ASR%20rules",
+      "resourceType": "IntuneSettingCatalogASRRulesPolicyWindows10",
+      "key": "Windows ASR rules",
+      "workload": "Intune",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "Block credential stealing",
+          "standard": "Block",
+          "tenant": "Audit"
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": true,
+      "adoptedFrom": "v1.4.0",
+      "allowedActions": [
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "IntuneDeviceCompliancePolicyWindows10~Windows%20compliance",
+      "resourceType": "IntuneDeviceCompliancePolicyWindows10",
+      "key": "Windows compliance",
+      "workload": "Intune",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "PasswordRequired",
+          "standard": true,
+          "tenant": false
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "IntuneSettingCatalogCustomPolicyWindows10~Edge%20hardening",
+      "resourceType": "IntuneSettingCatalogCustomPolicyWindows10",
+      "key": "Edge hardening",
+      "workload": "Intune",
+      "kind": "Missing",
+      "status": "missing",
+      "differences": [],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "EXOTransportConfig~Default",
+      "resourceType": "EXOTransportConfig",
+      "key": "Default",
+      "workload": "Exchange Online",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "ExternalDelayDsnEnabled",
+          "standard": false,
+          "tenant": true
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "TeamsMessagingPolicy~Global",
+      "resourceType": "TeamsMessagingPolicy",
+      "key": "Global",
+      "workload": "Teams",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "AllowGiphy",
+          "standard": false,
+          "tenant": true
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": true,
+      "adoptedFrom": "v1.4.0",
+      "allowedActions": [
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "TeamsMeetingPolicy~Global",
+      "resourceType": "TeamsMeetingPolicy",
+      "key": "Global",
+      "workload": "Teams",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "AllowAnonymousUsersToJoinMeeting",
+          "standard": false,
+          "tenant": true
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "TeamsAppPermissionPolicy~Global",
+      "resourceType": "TeamsAppPermissionPolicy",
+      "key": "Global",
+      "workload": "Teams",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "DefaultCatalogAppsType",
+          "standard": "AllowedAppList",
+          "tenant": "BlockedAppList"
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "TeamsUpdateManagementPolicy~Global",
+      "resourceType": "TeamsUpdateManagementPolicy",
+      "key": "Global",
+      "workload": "Teams",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "AllowPreview",
+          "standard": false,
+          "tenant": true
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "TeamsChannelsPolicy~Global",
+      "resourceType": "TeamsChannelsPolicy",
+      "key": "Global",
+      "workload": "Teams",
+      "kind": "Changed",
+      "status": "accepted",
+      "differences": [
+        {
+          "property": "AllowPrivateChannelCreation",
+          "standard": false,
+          "tenant": true
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": "J. Citizen",
+      "acceptedReason": "Needed for the legal hold workflow.",
+      "acceptedAt": "2026-10-21T09:12:00Z",
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "RemoveRisk"
+      ]
+    },
+    {
+      "itemId": "TeamsCallingPolicy~Global",
+      "resourceType": "TeamsCallingPolicy",
+      "key": "Global",
+      "workload": "Teams",
+      "kind": "Changed",
+      "status": "accepted",
+      "differences": [
+        {
+          "property": "AllowPrivateCalling",
+          "standard": false,
+          "tenant": true
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": "J. Citizen",
+      "acceptedReason": "Front desk uses private calling.",
+      "acceptedAt": "2026-10-21T09:12:00Z",
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "RemoveRisk"
+      ]
+    },
+    {
+      "itemId": "SCSensitivityLabel~OFFICIAL%3A%20Sensitive",
+      "resourceType": "SCSensitivityLabel",
+      "key": "OFFICIAL: Sensitive",
+      "workload": "Security and Compliance",
+      "kind": "Changed",
+      "status": "lookAgain",
+      "differences": [
+        {
+          "property": "Priority",
+          "standard": 2,
+          "tenant": 4
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": "Accepted risk needs another look: the standard has changed.",
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk",
+        "RemoveRisk"
+      ]
+    },
+    {
+      "itemId": "SCDLPCompliancePolicy~Protect%20PROTECTED",
+      "resourceType": "SCDLPCompliancePolicy",
+      "key": "Protect PROTECTED",
+      "workload": "Security and Compliance",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "Mode",
+          "standard": "Enable",
+          "tenant": "TestWithNotifications"
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "SCRetentionCompliancePolicy~Mail%207%20years",
+      "resourceType": "SCRetentionCompliancePolicy",
+      "key": "Mail 7 years",
+      "workload": "Security and Compliance",
+      "kind": "Changed",
+      "status": "differs",
+      "differences": [
+        {
+          "property": "Enabled",
+          "standard": true,
+          "tenant": false
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "SCSensitivityLabel~PROTECTED",
+      "resourceType": "SCSensitivityLabel",
+      "key": "PROTECTED",
+      "workload": "Security and Compliance",
+      "kind": "Missing",
+      "status": "missing",
+      "differences": [],
+      "acceptedDifferences": [],
+      "approvedBy": null,
+      "acceptedReason": null,
+      "acceptedAt": null,
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "Adopt",
+        "AcceptRisk"
+      ]
+    },
+    {
+      "itemId": "SCAutoSensitivityLabelPolicy~Auto%20OFFICIAL",
+      "resourceType": "SCAutoSensitivityLabelPolicy",
+      "key": "Auto OFFICIAL",
+      "workload": "Security and Compliance",
+      "kind": "Changed",
+      "status": "accepted",
+      "differences": [
+        {
+          "property": "Mode",
+          "standard": "Enable",
+          "tenant": "TestWithoutNotifications"
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": "J. Citizen",
+      "acceptedReason": "Waiting for the label rollout.",
+      "acceptedAt": "2026-10-21T09:12:00Z",
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "RemoveRisk"
+      ]
+    },
+    {
+      "itemId": "SCRetentionComplianceRule~Mail%207%20years%20rule",
+      "resourceType": "SCRetentionComplianceRule",
+      "key": "Mail 7 years rule",
+      "workload": "Security and Compliance",
+      "kind": "Changed",
+      "status": "accepted",
+      "differences": [
+        {
+          "property": "RetentionDuration",
+          "standard": 2555,
+          "tenant": 1825
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": "J. Citizen",
+      "acceptedReason": "Records team is reviewing the period.",
+      "acceptedAt": "2026-10-21T09:12:00Z",
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "RemoveRisk"
+      ]
+    },
+    {
+      "itemId": "SCDLPCompliancePolicy~Email%20DLP",
+      "resourceType": "SCDLPCompliancePolicy",
+      "key": "Email DLP",
+      "workload": "Security and Compliance",
+      "kind": "Changed",
+      "status": "accepted",
+      "differences": [
+        {
+          "property": "Mode",
+          "standard": "Enable",
+          "tenant": "TestWithNotifications"
+        }
+      ],
+      "acceptedDifferences": [],
+      "approvedBy": "J. Citizen",
+      "acceptedReason": "Tuning false positives first.",
+      "acceptedAt": "2026-10-21T09:12:00Z",
+      "hint": null,
+      "adopted": false,
+      "adoptedFrom": null,
+      "allowedActions": [
+        "RemoveRisk"
+      ]
+    }
+  ]
+}

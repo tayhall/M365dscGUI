@@ -5,7 +5,10 @@ Set-StrictMode -Version Latest
 
 $script:ResourceTypes = Get-Content (Join-Path $PSScriptRoot 'ResourceTypes.json') -Raw | ConvertFrom-Json -AsHashtable
 $script:ActionableKinds = @('Missing', 'Changed', 'TargetOnly', 'PossibleRename')
-$script:ReasonRequired = @('Promote', 'Exclude', 'ExcludeProperty', 'ExcludePropertyForTenant', 'RevertBlueprint', 'PromoteUp', 'PullDown')
+$script:ReasonRequired = @('Promote', 'Exclude', 'ExcludeProperty', 'ExcludePropertyForTenant', 'RevertBlueprint', 'PromoteUp', 'PullDown', 'Adopt')
+# Standards: the request actions, and the shape a standard name must have (it becomes part of a path).
+$script:StandardActions = 'StandardCheck', 'Adopt', 'AcceptRisk', 'RemoveRisk', 'ImportStandard', 'CheckStandardRelease'
+$script:StandardNamePattern = '^[A-Za-z0-9][A-Za-z0-9._-]*$'
 $script:ItemIdPattern = '^[A-Za-z0-9]+~[A-Za-z0-9_.%-]+$'
 $script:TenantIdPattern = '^[a-z0-9-]{1,40}$'
 
@@ -363,6 +366,142 @@ function Get-PEGuiProperty {
     if ($p) { $p.Value } else { $null }
 }
 
+function Assert-PEGuiStandardName {
+    param([string]$Name)
+    if ($Name -cnotmatch $script:StandardNamePattern) { throw "Invalid standard name '$Name'." }
+}
+
+function Get-PEGuiStandardIndex {
+    param([Parameter(Mandatory)][string]$DataRoot)
+    $list = Read-PEGuiFile -DataRoot $DataRoot -RelativePath 'standards/index.json'
+    if ($null -eq $list) { @() } else { @($list) }
+}
+
+function Get-PEGuiStandardCoverage {
+    param([Parameter(Mandatory)][string]$DataRoot, [Parameter(Mandatory)][string]$Name)
+    Assert-PEGuiStandardName -Name $Name
+    $file = Read-PEGuiFile -DataRoot $DataRoot -RelativePath "standards/$Name/coverage.json"
+    if ($null -eq $file) { throw "Unknown standard '$Name'." }
+    $file
+}
+
+function Get-PEGuiTenantStandard {
+    # One tenant's latest check against one standard (tenants/<id>/standards/<name>.json).
+    param([Parameter(Mandatory)][string]$DataRoot, [Parameter(Mandatory)][string]$TenantId, [Parameter(Mandatory)][string]$Name)
+    $null = Get-PEGuiTenant -DataRoot $DataRoot -TenantId $TenantId
+    Assert-PEGuiStandardName -Name $Name
+    $file = Read-PEGuiFile -DataRoot $DataRoot -RelativePath "tenants/$TenantId/standards/$Name.json"
+    if ($null -eq $file) { throw "Unknown standard '$Name'." }
+    $file
+}
+
+function Get-PEGuiStandardRequestPreview {
+    <#
+        Validates the standards requests (StandardCheck, Adopt, AcceptRisk, RemoveRisk, ImportStandard, CheckStandardRelease) and says
+        what they would do; the same shape as Get-PEGuiRequestPreview returns. The rows come from the tenant's standard view model, so
+        a request the page should not have offered (the row's allowedActions) is refused here. None of them writes a tenant.
+    #>
+    param([Parameter(Mandatory)][string]$DataRoot, [Parameter(Mandatory)]$Request)
+    $errors = [Collections.Generic.List[string]]::new()
+    $items = [Collections.Generic.List[object]]::new()
+    $action = [string](Get-PEGuiProperty $Request 'action')
+    $standard = [string](Get-PEGuiProperty $Request 'standard')
+    $tenantId = [string](Get-PEGuiProperty $Request 'tenantId')
+    $reason = [string](Get-PEGuiProperty $Request 'reason')
+    $tag = [string](Get-PEGuiProperty $Request 'tag')
+    $reqItems = @(Get-PEGuiProperty $Request 'items' | Where-Object { $null -ne $_ })
+    $index = Get-PEGuiIndex -DataRoot $DataRoot
+    $writesMaster = $false
+    $role = $null
+    $own = $null
+    $versionAfter = $null
+
+    if ($standard -cnotmatch $script:StandardNamePattern) {
+        $errors.Add("Invalid standard name '$standard'.")
+    } else {
+        $known = if ($action -in 'ImportStandard', 'CheckStandardRelease') {
+            @((Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot '..\src\PolicyEngine\Data\StandardSources.psd1')).Keys)
+        } else { @(Get-PEGuiStandardIndex -DataRoot $DataRoot | ForEach-Object { [string]$_.name }) }
+        if ($standard -cnotin $known) { $errors.Add("Unknown standard '$standard'.") }
+    }
+    if ($action -in $script:ReasonRequired -and -not $reason.Trim()) { $errors.Add("A reason is required for $action.") }
+
+    $tenant = $null
+    if ($action -in 'StandardCheck', 'Adopt', 'AcceptRisk', 'RemoveRisk') {
+        try { $tenant = Get-PEGuiTenant -DataRoot $DataRoot -TenantId $tenantId } catch { $errors.Add($_.Exception.Message) }
+        if ($tenant) { $role = [string]$tenant.role }
+    }
+
+    if ($action -eq 'StandardCheck') {
+        if ($tenant -and [bool](Get-PEGuiProperty $tenant 'offline')) { $errors.Add("Tenant '$tenantId' is offline: a standard check reads the tenant.") }
+        if (@(Get-PEGuiActiveJob -DataRoot $DataRoot | Where-Object { $_.action -eq 'StandardCheck' -and [string]$_.tenantId -ceq $tenantId }).Count) { $errors.Add('A standard check is already running for this tenant.') }
+    } elseif ($action -eq 'ImportStandard') {
+        if ($tag -and $tag -cnotmatch '^v\d+\.\d+\.\d+$') { $errors.Add("Release tag '$tag' is not of the form vX.Y.Z.") }
+        if (@(Get-PEGuiActiveJob -DataRoot $DataRoot | Where-Object { $_.action -eq 'ImportStandard' }).Count) { $errors.Add('A standard import is already running.') }
+    } elseif ($action -in 'Adopt', 'AcceptRisk', 'RemoveRisk') {
+        if ($reqItems.Count -eq 0) { $errors.Add('A request needs at least one item.') }
+        $view = $null
+        if ($tenant -and $standard -cmatch $script:StandardNamePattern) { $view = Read-PEGuiFile -DataRoot $DataRoot -RelativePath "tenants/$tenantId/standards/$standard.json" }
+        if ($tenant -and (-not $view -or -not [bool](Get-PEGuiProperty $view 'checked'))) { $errors.Add("Tenant '$tenantId' has no check against standard '$standard' yet.") }
+        if ($action -eq 'Adopt' -and $tenant) {
+            $own = Get-PEGuiOwnBlueprint -DataRoot $DataRoot -TenantId $tenantId
+            $writesMaster = $own.name -ceq [string]$index.blueprint.name
+            # A replica with no blueprint of its own would resolve to the master blueprint: never write that from a replica.
+            if ($role -eq 'Replica' -and $writesMaster) { $errors.Add("Replica '$tenantId' has no blueprint of its own, so Adopt would change the master blueprint. Give it one first (Initialize-PETenantBlueprint).") }
+            $versionAfter = Get-PEGuiNextBlueprintVersion -DataRoot $DataRoot -TenantId $tenantId
+        }
+        if ($view -and [bool](Get-PEGuiProperty $view 'checked')) {
+            $allowed = @{ Adopt = 'Adopt'; AcceptRisk = 'AcceptRisk'; RemoveRisk = 'RemoveRisk' }[$action]
+            foreach ($ri in $reqItems) {
+                $itemId = [string](Get-PEGuiProperty $ri 'itemId')
+                $row = @($view.rows) | Where-Object { $_.itemId -ceq $itemId } | Select-Object -First 1
+                if (-not $row) { $errors.Add("No row for '$itemId' in the check of tenant '$tenantId' against '$standard'."); continue }
+                if ($allowed -notin @($row.allowedActions)) { $errors.Add("$action is not allowed on '$($row.key)' ($($row.status))."); continue }
+                $label = "$(Get-PEGuiTypeName $row.resourceType) · $($row.key)"
+                $resolved = [ordered]@{ itemId = $itemId; resourceType = [string]$row.resourceType; key = [string]$row.key; label = $label; effect = '' }
+                if ($action -eq 'Adopt') {
+                    $resolved.effect = "Copies the standard's setting into blueprint $($own.name). The tenant is not changed."
+                } elseif ($action -eq 'RemoveRisk') {
+                    $resolved.effect = 'The difference counts again.'
+                } else {
+                    $by = ([string](Get-PEGuiProperty $ri 'approvedBy')).Trim()
+                    $why = ([string](Get-PEGuiProperty $ri 'why')).Trim()
+                    if (-not $by) { $errors.Add("Accept risk needs 'approved by' for '$($row.key)'.") }
+                    if (-not $why) { $errors.Add("Accept risk needs 'why' for '$($row.key)'.") }
+                    $properties = @(@(Get-PEGuiProperty $ri 'properties') | Where-Object { $_ } | ForEach-Object { [string]$_ })
+                    $differing = @(@($row.differences) | ForEach-Object { [string]$_.property })
+                    foreach ($property in $properties) { if ($property -cnotin $differing) { $errors.Add("'$property' does not differ on '$($row.key)'.") } }
+                    $resolved.approvedBy = $by
+                    $resolved.why = $why
+                    $resolved.properties = $properties
+                    $resolved.effect = "Records that $by accepted this difference: $why."
+                    if ($properties.Count) { $resolved.label = "$label · $($properties -join ', ')" }
+                }
+                $items.Add([pscustomobject]$resolved)
+            }
+        }
+    }
+    if ($writesMaster -and -not [bool](Get-PEGuiProperty $Request 'confirmedMasterWrite')) { $errors.Add('This writes to the master tenant and needs confirmedMasterWrite.') }
+    [pscustomobject]@{
+        valid                 = $errors.Count -eq 0
+        errors                = @($errors)
+        action                = $action
+        tenantId              = $(if ($tenantId) { $tenantId } else { $null })
+        standard              = $standard
+        tag                   = $(if ($tag) { $tag } else { $null })
+        role                  = $role
+        items                 = @($items)
+        writesMaster          = $writesMaster
+        destructive           = $writesMaster
+        reasonRequired        = $action -in $script:ReasonRequired
+        blueprintName         = $(if ($own) { [string]$own.name } else { $null })
+        blueprintVersionAfter = $versionAfter
+        targetBlueprint       = $null
+        targetVersion         = $null
+        sourceVersion         = $null
+        config                = $null
+    }
+}
 function Get-PEGuiRequestPreview {
     <#
         Validates a draft request and says what it would do. The same checks run again in New-PEGuiRequest, so a
@@ -371,6 +510,7 @@ function Get-PEGuiRequestPreview {
                     confirmedMasterWrite; targetVersion }
     #>
     param([Parameter(Mandatory)][string]$DataRoot, [Parameter(Mandatory)]$Request)
+    if ([string](Get-PEGuiProperty $Request 'action') -in $script:StandardActions) { return Get-PEGuiStandardRequestPreview -DataRoot $DataRoot -Request $Request }
     $errors = [Collections.Generic.List[string]]::new()
     $items = [Collections.Generic.List[object]]::new()
     $entries = [Collections.Generic.List[object]]::new()
@@ -630,7 +770,7 @@ function Add-PEGuiRequest {
     # The part of New-PEGuiRequest that runs under the lock: numbers the job, claims a blueprint version and writes.
     param([string]$DataRoot, $Request, $Preview, [datetime]$Now)
     $preview = $Preview
-    if ($preview.blueprintVersionAfter) { $preview.blueprintVersionAfter = Get-PEGuiNextBlueprintVersion -DataRoot $DataRoot -TenantId $(if ($preview.action -in 'Promote', 'PullDown') { $preview.tenantId } else { '' }) }
+    if ($preview.blueprintVersionAfter) { $preview.blueprintVersionAfter = Get-PEGuiNextBlueprintVersion -DataRoot $DataRoot -TenantId $(if ($preview.action -in 'Promote', 'PullDown', 'Adopt') { $preview.tenantId } else { '' }) }
     $requestId = $Now.ToString('yyyy-MM-ddTHH-mm-ss') + '-' + ([guid]::NewGuid().ToString('N').Substring(0, 4))
     $dir = Get-PEGuiPath -DataRoot $DataRoot -RelativePath 'activity'
     # @(if ...) keeps an empty folder an empty array; "$x = if ... { @() }" would assign $null and fail on .Count.
@@ -672,6 +812,10 @@ function Add-PEGuiRequest {
         $saved.completeWorkloads = @(@(Get-PEGuiProperty $Request 'completeWorkloads') | Where-Object { $_ } | ForEach-Object { [string]$_ })
         $saved.saveAsBlueprint = [bool](Get-PEGuiProperty $Request 'saveAsBlueprint')
         $saved.newTenant = $(if ($nt) { [ordered]@{ slug = [string](Get-PEGuiProperty $nt 'slug'); displayName = ([string](Get-PEGuiProperty $nt 'displayName')).Trim() } } else { $null })
+    }
+    if ($preview.action -in $script:StandardActions) {
+        $saved.standard = [string]$preview.standard
+        if ($preview.action -eq 'ImportStandard' -and $preview.tag) { $saved.tag = [string]$preview.tag }
     }
     if ($preview.action -eq 'RenameTenant') { $saved.displayName = ([string](Get-PEGuiProperty $Request 'displayName')).Trim() }
     Write-PEGuiFile -DataRoot $DataRoot -RelativePath "requests/$requestId.json" -InputObject $saved
@@ -771,6 +915,12 @@ function Step-PEGuiMockJob {
                 'ExcludePropertyForTenant' { 'Property exclusion recorded (mock).' }
                 'IncludePropertyForTenant' { 'Property enforced again (mock).' }
                 'Unexclude' { 'Back under management (mock).' }
+                'StandardCheck' { 'Standard check finished (mock). The data is unchanged.' }
+                'Adopt' { "Applied (mock). Blueprint v$($job.blueprintVersionAfter) recorded. No tenant was changed." }
+                'AcceptRisk' { 'Accepted risk recorded (mock).' }
+                'RemoveRisk' { 'Accepted risk removed (mock).' }
+                'ImportStandard' { 'Standard imported (mock).' }
+                'CheckStandardRelease' { 'Latest release found (mock).' }
                 'Recheck' { 'Snapshot finished (mock). The data is unchanged.' }
                 'ConnectTenant' { 'Tenant registered (mock).' }
                 'UploadSnapshot' { 'Snapshot uploaded (mock).' }
@@ -845,6 +995,9 @@ function Invoke-PEGuiApi {
                     $versions = Get-PEGuiBlueprintVersion -DataRoot $DataRoot -Name ([string](Get-PEGuiProperty $Query 'name'))
                     return & $reply 200 (& $json (Compare-PEGuiBlueprintVersion -Versions $versions -From ([int]$from) -To ([int]$to)) $true)
                 }
+                '^/api/standards$' { return & $reply 200 (& $json (Get-PEGuiStandardIndex -DataRoot $DataRoot) $true) }
+                '^/api/standards/([^/]+)/coverage$' { return & $reply 200 (& $json (Get-PEGuiStandardCoverage -DataRoot $DataRoot -Name $Matches[1])) }
+                '^/api/tenants/([^/]+)/standards/([^/]+)$' { return & $reply 200 (& $json (Get-PEGuiTenantStandard -DataRoot $DataRoot -TenantId $Matches[1] -Name $Matches[2])) }
                 '^/api/tenants/([^/]+)/status$' { return & $reply 200 (& $json (Get-PEGuiTenantStatus -DataRoot $DataRoot -TenantId $Matches[1])) }
                 '^/api/tenants/([^/]+)/findings$' { return & $reply 200 (& $json (Get-PEGuiFinding -DataRoot $DataRoot -TenantId $Matches[1]) $true) }
                 '^/api/tenants/([^/]+)/layer-findings$' { return & $reply 200 (& $json (Get-PEGuiLayerFinding -DataRoot $DataRoot -TenantId $Matches[1] -Layer ([string](Get-PEGuiProperty $Query 'layer'))) $true) }

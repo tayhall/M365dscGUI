@@ -57,77 +57,11 @@ function Invoke-PEFullCheck
     }
     $checkId = $moment.ToString('yyyyMMdd-HHmmss')
 
-    $outputPath = Join-Path $root ('exports\' + $checkId)
-    if ($ExportScript)
-    {
-        $exportPath = [string](@(& $ExportScript @{ Workloads = $Workloads; OutputPath = $outputPath })[-1])
-    }
-    else
-    {
-        $exportArguments = Get-PEExportToolArgument -Workloads $Workloads -OutputPath $outputPath -Tenant $Tenant
-        Invoke-PEExportToolProcess -ArgumentList $exportArguments
-        $exportPath = $outputPath
-    }
-
-    $exportFile = Find-PEExportFile -Path $exportPath
-    $exportedAt = (Get-Item -LiteralPath $exportFile).LastWriteTimeUtc.ToString('yyyy-MM-ddTHH:mm:ssZ')
-
-    # The target's tenant id never comes from the blueprint.
-    $tenantId = $TargetTenantId
-    if (-not $tenantId -and -not $ExportScript)
-    {
-        $tenantId = Get-PEReaderTenantId -Tenant $Tenant
-    }
-    if (-not $tenantId)
-    {
-        $tenantId = 'unknown'
-    }
-    $records = @(Read-PEExport -Path $exportFile -TenantId $tenantId | ForEach-Object { ConvertTo-PENormalizedRecord -Record $_ -ExportedAt $exportedAt })
-
-    $logPath = Join-Path $exportPath 'export.log'
-    $hasLog = Test-Path -LiteralPath $logPath -PathType Leaf
-    $logWarnings = [System.Collections.Generic.List[string]]::new()
-    $entries = @(Read-PEExportLog -Path $logPath -Warnings $logWarnings)
-
-    $notChecked = [System.Collections.Generic.List[object]]::new()
-    $named = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    $failed = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($entry in $entries)
-    {
-        [void]$named.Add($entry.ResourceType)
-        if ($entry.Status -in 'Failed', 'Incomplete')
-        {
-            # Incomplete: the component started but never finished, so its (partial) records cannot be trusted.
-            [void]$failed.Add($entry.ResourceType)
-            $notChecked.Add([pscustomobject]@{ ResourceType = $entry.ResourceType; Reason = $entry.Reason })
-        }
-    }
-
-    # Blueprint types with nothing in the export and no Ok log entry cannot be judged Missing.
-    $present = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($record in $records)
-    {
-        [void]$present.Add([string]$record.ResourceType)
-    }
-    $gapReason = if ($hasLog) { 'not in export log' } else { 'no export log' }
-    foreach ($type in @($blueprint.Records | ForEach-Object { [string]$_.ResourceType } | Sort-Object -Unique))
-    {
-        if ($present.Contains($type) -or $failed.Contains($type) -or $named.Contains($type))
-        {
-            continue
-        }
-        $notChecked.Add([pscustomobject]@{ ResourceType = $type; Reason = $gapReason })
-    }
-
-    $meta = @{
-        TenantId   = $tenantId
-        ExportedAt = $exportedAt
-        Source     = $exportPath
-        ExportLog  = $(if ($hasLog) { 'present' } else { 'missing' })
-        ModuleVersion = (Get-PEPinnedVersion -Name Microsoft365DSC)
-        TenantSlug = $Tenant
-    }
-    $state = New-PEState -Records $records -NotChecked @($notChecked) -Meta $meta
+    $exported = Get-PETenantExportState -Blueprint $blueprint -Workloads $Workloads -CheckId $checkId -Tenant $Tenant -Root $root -ExportScript $ExportScript -TargetTenantId $TargetTenantId
+    $state = $exported.State
+    $exportPath = $exported.ExportPath
+    $tenantId = $exported.TenantId
+    $logWarnings = $exported.LogWarnings
 
     $decisions = @(Get-PEDecision -DataRoot $root -Tenant $Tenant)
     $findings = @(Compare-PEState -Blueprint $blueprint -Target $state -Decisions $decisions)

@@ -215,13 +215,14 @@ function Compare-PEState
         $excludedPropertiesByType[$excludedType].Add([pscustomobject]@{ Key = [string]$decision.Key; Property = [string]$decision.Property })
     }
 
-    # Accepted risks (RiskAccepted decisions, already limited to the tenant by the caller; one without a tenant or a key is ignored): an item
+    # Accepted risks apply only when comparing with a standard (-Subset), so one accepted against a standard never hides drift in a blueprint check.
+    # (RiskAccepted decisions, already limited to the tenant and the standard by the caller; one without a tenant or a key is ignored): an item
     # (no Property) or one property of an item whose difference from the standard was approved. A decision that remembers a StandardHash only
     # holds while the standard's record still has that hash; otherwise the finding stays open with a hint.
     $riskByType = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($decision in @($Decisions))
     {
-        if ($null -eq $decision -or $decision.Kind -ne 'RiskAccepted' -or [string]::IsNullOrWhiteSpace([string]$decision.ResourceType) -or
+        if (-not $Subset -or $null -eq $decision -or $decision.Kind -ne 'RiskAccepted' -or [string]::IsNullOrWhiteSpace([string]$decision.ResourceType) -or
             [string]::IsNullOrWhiteSpace([string]$decision.Key) -or [string]::IsNullOrWhiteSpace([string]$decision.Tenant))
         {
             continue

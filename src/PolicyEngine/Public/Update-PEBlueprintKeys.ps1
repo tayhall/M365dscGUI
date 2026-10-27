@@ -33,6 +33,7 @@ function Update-PEBlueprintKeys
     )
 
     $root = Get-PEDataRoot -Override $DataRoot
+    Assert-PEBlueprintNotStandard -Name $Name -Action 're-key it' -DataRoot $root
     $directory = Get-PEBlueprintDirectory -Name $Name -DataRoot $root
     $lock = Enter-PEBlueprintLock -Directory $directory
     try

@@ -70,4 +70,12 @@ Describe 'A standard is a read-only blueprint' {
         { Set-PETenant -Slug 'dev' -Blueprints @('prod', 'asd') -DataRoot $script:Temp } | Should -Throw '*is a standard (read-only)*'
         { Set-PETenant -Slug 'dev' -Blueprints @('prod') -DataRoot $script:Temp } | Should -Not -Throw
     }
+
+    It 'refuses Update-PEBlueprintKeys' {
+        { Update-PEBlueprintKeys -Name 'asd' -Reason 'x' -DataRoot $script:Temp } | Should -Throw '*is a standard (read-only)*'
+    }
+
+    It 'refuses Set-PEBlueprintModule' {
+        { Set-PEBlueprintModule -Name 'asd' -Reason 'x' -DataRoot $script:Temp } | Should -Throw '*is a standard (read-only)*'
+    }
 }

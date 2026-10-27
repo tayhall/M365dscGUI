@@ -46,6 +46,7 @@ function Set-PEBlueprintModule
         [string]$DataRoot
     )
 
+    Assert-PEBlueprintNotStandard -Name $Name -Action 'change the module version it records' -DataRoot $DataRoot
     $null = Get-PEBlueprint -Name $Name -Version 'latest' -DataRoot $DataRoot
     $state = Get-PEModuleState -BlueprintName $Name -DataRoot $DataRoot
     $record = [ordered]@{

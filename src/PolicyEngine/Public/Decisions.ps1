@@ -30,6 +30,9 @@ function Set-PEDecision
 
         [string]$StandardHash,
 
+        # RiskAccepted only: the standard the risk was accepted against; a check against another standard ignores it.
+        [string]$Standard,
+
         [string]$DataRoot
     )
 
@@ -96,6 +99,7 @@ function Set-PEDecision
     {
         $decision['ApprovedBy'] = $ApprovedBy
         $decision['StandardHash'] = $(if ($StandardHash) { $StandardHash } else { $null })
+        $decision['Standard'] = $(if ($Standard) { $Standard } else { $null })
     }
 
     $path = Get-PEDecisionPath -DataRoot $DataRoot

@@ -62,6 +62,7 @@ function Set-PERiskAcceptance
         ApprovedBy   = $ApprovedBy
         Reason       = $Reason
         StandardHash = (Get-PEDecisionHash -Record $record)
+        Standard     = $Standard
         DataRoot     = $DataRoot
     }
     if ($Property)

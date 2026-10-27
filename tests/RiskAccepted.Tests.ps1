@@ -93,6 +93,19 @@ Describe 'RiskAccepted decisions' {
         $finding.State | Should -Be 'Open'
     }
 
+    It 'is applied only when comparing with a standard (-Subset), never in a blueprint check' {
+        Set-PEDecision -Kind RiskAccepted -ResourceType AADGroup -Key g1 -Tenant master -ApprovedBy 'cio' -Reason 'ok' -DataRoot $script:Temp | Out-Null
+        $decisions = @(Get-PEDecision -Tenant master -DataRoot $script:Temp)
+        @(Compare-PEState -Blueprint $script:Standard -Target $script:Tenant -Decisions $decisions | Where-Object Key -EQ 'g1')[0].State | Should -Be 'Open'
+        @(Compare-PEState -Blueprint $script:Standard -Target $script:Tenant -Subset -Decisions $decisions | Where-Object Key -EQ 'g1')[0].State | Should -Be 'Accepted'
+    }
+
+    It 'belongs to the standard it was accepted against' {
+        Set-PEDecision -Kind RiskAccepted -ResourceType AADGroup -Key g1 -Tenant master -ApprovedBy 'cio' -Reason 'ok' -Standard 'other' -DataRoot $script:Temp | Out-Null
+        $decision = @(Get-PEDecision -Kind RiskAccepted -DataRoot $script:Temp)[0]
+        $decision.Standard | Should -Be 'other'
+    }
+
     It 'reopens an acceptance when the standard value changed' {
         $oldHash = Get-TestHash -Record $script:Standard.Records[0]
         Set-PEDecision -Kind RiskAccepted -ResourceType AADGroup -Key g1 -Tenant master -ApprovedBy 'cio' -Reason 'ok' -StandardHash $oldHash -DataRoot $script:Temp | Out-Null

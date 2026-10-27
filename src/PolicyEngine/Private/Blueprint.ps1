@@ -113,7 +113,10 @@ function Write-PEBlueprintVersion
         $MasterState,
         [object[]]$Accepted,
         [string]$Reason,
-        [string]$DataRoot
+        [string]$DataRoot,
+
+        # Meta values to set on the new version (a standard records its SourceVersion this way).
+        [hashtable]$MetaOverride = @{}
     )
 
     $directory = Get-PEBlueprintDirectory -Name $Name -DataRoot $DataRoot
@@ -230,6 +233,10 @@ function Write-PEBlueprintVersion
         {
             $meta[$metaName] = $metaValue
         }
+    }
+    foreach ($pair in $MetaOverride.GetEnumerator())
+    {
+        $meta[$pair.Key] = $pair.Value
     }
     $meta['Version'] = $number
     $newState = New-PEState -Records $records.ToArray() -NotChecked $notChecked -Meta $meta

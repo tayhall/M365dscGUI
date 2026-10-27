@@ -1,0 +1,116 @@
+﻿# Generated with Microsoft365DSC version 1.24.717.1
+# For additional information on how to use Microsoft365DSC, please visit https://aka.ms/M365DSC
+param (
+    [parameter(Mandatory)]
+    [System.String]
+    $ConditionalExclude,
+    [parameter(Mandatory)]
+    [System.String]
+    $PrivUsers,
+    [parameter(Mandatory)]
+    [System.String]
+    $TermsOfUse
+)
+
+Configuration M365TenantConfig
+{
+    param (
+        [parameter()]
+        [System.String]
+        $ConditionalExclude,
+        [parameter()]
+        [System.String]
+        $PrivUsers,
+        [parameter()]
+        [System.String]
+        $TermsOfUse
+    )
+
+    $OrganizationName = $ConfigurationData.NonNodeData.OrganizationName
+
+    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '1.24.717.1'
+
+    Node localhost
+    {
+        AADNamedLocationPolicy "AADNamedLocationPolicy-Allowed Countries"
+        {
+            ApplicationId                     = $ConfigurationData.NonNodeData.ApplicationId;
+            CertificateThumbprint             = $ConfigurationData.NonNodeData.CertificateThumbprint;
+            CountriesAndRegions               = @("AU");
+            CountryLookupMethod               = "clientIpAddress";
+            DisplayName                       = "Allowed Countries";
+            Ensure                            = "Present";
+            Id                                = "1f663ad7-2b7d-4534-850f-66b20f6e5c0d";
+            IncludeUnknownCountriesAndRegions = $False;
+            OdataType                         = "#microsoft.graph.countryNamedLocation";
+            TenantId                          = $OrganizationName;
+        }
+        AADConditionalAccessPolicy "AADConditionalAccessPolicy-DEV - B - Block unapproved devices"
+        {
+            ApplicationEnforcedRestrictionsIsEnabled = $False;
+            ApplicationId                            = $ConfigurationData.NonNodeData.ApplicationId;
+            AuthenticationContexts                   = @();
+            BuiltInControls                          = @("block");
+            CertificateThumbprint                    = $ConfigurationData.NonNodeData.CertificateThumbprint;
+            ClientAppTypes                           = @("all");
+            CloudAppSecurityIsEnabled                = $False;
+            CloudAppSecurityType                     = "";
+            CustomAuthenticationFactors              = @();
+            DeviceFilterRule                         = "";
+            DisplayName                              = "DEV - B - Block unapproved devices";
+            Ensure                                   = "Present";
+            ExcludeApplications                      = @();
+            ExcludeExternalTenantsMembers            = @();
+            ExcludeExternalTenantsMembershipKind     = "";
+            ExcludeGroups                            = @($ConditionalExclude);
+            ExcludeLocations                         = @();
+            ExcludePlatforms                         = @();
+            ExcludeRoles                             = @();
+            ExcludeUsers                             = @();
+            GrantControlOperator                     = "OR";
+            Id                                       = "f3d11622-6e28-4736-bd82-04b1727cee96";
+            IncludeApplications                      = @("All");
+            IncludeExternalTenantsMembers            = @();
+            IncludeExternalTenantsMembershipKind     = "";
+            IncludeGroups                            = @();
+            IncludeLocations                         = @();
+            IncludePlatforms                         = @("android","windowsPhone","macOS","linux");
+            IncludeRoles                             = @();
+            IncludeUserActions                       = @();
+            IncludeUsers                             = @("All");
+            PersistentBrowserIsEnabled               = $False;
+            PersistentBrowserMode                    = "";
+            SignInFrequencyIsEnabled                 = $False;
+            SignInFrequencyType                      = "";
+            SignInRiskLevels                         = @();
+            State                                    = "enabledForReportingButNotEnforced";
+            TenantId                                 = $OrganizationName;
+            #TransferMethods                          = "";
+            UserRiskLevels                           = @();
+        }
+        AADAuthorizationPolicy "AADAuthorizationPolicy"
+        {
+            AllowedToSignUpEmailBasedSubscriptions                  = $True;
+            AllowedToUseSSPR                                        = $True;
+            AllowEmailVerifiedUsersToJoinOrganization               = $True;
+            AllowInvitesFrom                                        = "none";
+            ApplicationId                                           = $ConfigurationData.NonNodeData.ApplicationId;
+            BlockMsolPowerShell                                     = $False;
+            CertificateThumbprint                                   = $ConfigurationData.NonNodeData.CertificateThumbprint;
+            DefaultUserRoleAllowedToCreateApps                      = $False;
+            DefaultUserRoleAllowedToCreateSecurityGroups            = $False;
+            DefaultUserRoleAllowedToCreateTenants                   = $False;
+            DefaultUserRoleAllowedToReadBitlockerKeysForOwnedDevice = $True;
+            DefaultUserRoleAllowedToReadOtherUsers                  = $True;
+            Description                                             = "Used to manage authorization related settings across the company.";
+            DisplayName                                             = "Authorization Policy";
+            Ensure                                                  = "Present";
+            GuestUserRole                                           = "RestrictedGuest";
+            IsSingleInstance                                        = "Yes";
+            PermissionGrantPolicyIdsAssignedToDefaultUserRole       = @("ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-chat","ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-team");
+            TenantId                                                = $OrganizationName;
+        }
+    }
+}
+
+M365TenantConfig -ConfigurationData .\ConfigurationData.psd1 -ConditionalExclude $ConditionalExclude -PrivUsers $PrivUsers -TermsOfUse $TermsOfUse

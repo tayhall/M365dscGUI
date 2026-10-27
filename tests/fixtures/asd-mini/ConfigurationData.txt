@@ -1,0 +1,30 @@
+﻿@{
+    AllNodes = @(
+        @{
+            NodeName                    = 'localhost'
+            PSDscAllowPlainTextPassword = $true;
+            PSDscAllowDomainUser        = $true;
+            #region Parameters
+            # Default value used to ensure a configuration data file is generated
+            ServerNumber = '0'
+
+        }
+    )
+    NonNodeData = @(
+        @{
+            # Your Entra tenant ID
+            TenantId = '<GUID>'
+
+            # Your Entra tenant's primary domain name
+            OrganizationName = '<organisation>.onmicrosoft.com'
+
+            # The application ID of your registered app
+            ApplicationId = '<GUID>'
+
+            # The thumbprint of the certificate used to authenticate with your registered app
+            # This can be found in the certificates and secrets section of your app or in the
+            #     details tab of the exported CER file.
+            CertificateThumbprint = '<thumbprint hash>'
+        }
+    )
+}

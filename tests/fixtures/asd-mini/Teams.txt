@@ -1,0 +1,68 @@
+﻿# Generated with Microsoft365DSC version 1.25.611.1
+# For additional information on how to use Microsoft365DSC, please visit https://aka.ms/M365DSC
+param (
+)
+
+Configuration M365TenantConfig
+{
+    param (
+    )
+
+    $OrganizationName = $ConfigurationData.NonNodeData.OrganizationName
+
+    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '1.25.611.1'
+
+    Node localhost
+    {
+        TeamsMeetingConfiguration "TeamsMeetingConfiguration-Global"
+        {
+            ApplicationId               = $ConfigurationData.NonNodeData.ApplicationId;
+            CertificateThumbprint       = $ConfigurationData.NonNodeData.CertificateThumbprint;
+            ClientAppSharingPort        = 50040;
+            ClientAppSharingPortRange   = 20;
+            ClientAudioPort             = 50000;
+            ClientAudioPortRange        = 20;
+            ClientMediaPortRangeEnabled = $True;
+            ClientVideoPort             = 50020;
+            ClientVideoPortRange        = 20;
+            CustomFooterText            = "";
+            DisableAnonymousJoin        = $True;
+            EnableQoS                   = $False;
+            Identity                    = "Global";
+            TenantId                    = $OrganizationName;
+        }
+        TeamsMessagingPolicy "TeamsMessagingPolicy-Global"
+        {
+            AllowCommunicationComplianceEndUserReporting = $True;
+            AllowFluidCollaborate                        = $False;
+            AllowGiphy                                   = $False;
+            AllowImmersiveReader                         = $True;
+            AllowMemes                                   = $False;
+            AllowOwnerDeleteMessage                      = $True;
+            AllowPriorityMessages                        = $True;
+            AllowRemoveUser                              = $True;
+            AllowSecurityEndUserReporting                = $True;
+            AllowSmartCompose                            = $True;
+            AllowSmartReply                              = $False;
+            AllowStickers                                = $False;
+            AllowUrlPreviews                             = $False;
+            AllowUserChat                                = $True;
+            AllowUserDeleteChat                          = $True;
+            AllowUserDeleteMessage                       = $True;
+            AllowUserEditMessage                         = $True;
+            AllowUserTranslation                         = $False;
+            AllowVideoMessages                           = $True;
+            ApplicationId                                = $ConfigurationData.NonNodeData.ApplicationId;
+            AudioMessageEnabledType                      = "ChatsAndChannels";
+            CertificateThumbprint                        = $ConfigurationData.NonNodeData.CertificateThumbprint;
+            ChannelsInChatListEnabledType                = "DisabledUserOverride";
+            Ensure                                       = "Present";
+            GiphyRatingType                              = "Strict";
+            Identity                                     = "Global";
+            ReadReceiptsEnabledType                      = "UserPreference";
+            TenantId                                     = $OrganizationName;
+        }
+    }
+}
+
+M365TenantConfig -ConfigurationData .\ConfigurationData.psd1

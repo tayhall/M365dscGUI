@@ -22,6 +22,22 @@ Export, comparison inputs, permissions and applying are done by Microsoft365DSC'
 
 The aim was to explore how far a small policy layer on top of Microsoft365DSC can go towards "configuration as policy" for M365 tenants: define what a tenant should look like once, see when a tenant drifts from it, and decide, item by item, whether to put the tenant back or accept the change, without writing a second implementation of DSC. The principles are in `CLAUDE.md`, the folder map in `docs/overview.md`, and status, decisions and open items in `docs/handover.md`.
 
+## What it looks like
+
+Screenshots of the GUI running on its built-in fake data set (`./gui/Start-PEGui.ps1 -Mock`).
+
+**Overview:** how far each tenant has drifted from the master blueprint and from its own blueprint, by workload.
+
+![Overview page: alignment rings and workload heat cells for a master and a replica tenant](docs/images/overview.png)
+
+**Drift review:** every difference between a tenant and a blueprint, each with Revert, Promote and Exclude.
+
+![Drift review page: a table of drifted items with Changed, Missing, Target-only and Possible rename kinds](docs/images/drift-review.png)
+
+**Blueprint:** what the approved state holds and its version history, with view changes and restore.
+
+![Blueprint page: what the master blueprint holds, how the tenant differs, and the version history](docs/images/blueprint.png)
+
 ## Requirements
 
 - Windows with **PowerShell 7.6 or later** (`winget install Microsoft.PowerShell`)

@@ -135,6 +135,16 @@ Describe 'Invoke-PEStandardCheck' {
         @($result.Findings | Where-Object Kind -EQ 'Changed').Count | Should -Be 0
     }
 
+    It 'shows an accepted risk as Accepted on the next check, with who approved it' {
+        $folder = New-TenantExport -Root $script:Temp -Countries '@("AU","NZ")'
+        $export = { $folder }.GetNewClosure()
+        Set-PERiskAcceptance -Standard 'asd' -Tenant master -ResourceType AADNamedLocationPolicy -Key 'Allowed Countries' -ApprovedBy 'cio' -Reason 'NZ staff' -DataRoot $script:Temp | Out-Null
+        $result = Invoke-PEStandardCheck -StandardName 'asd' -ExportScript $export -TargetTenantId 'tenant-1' -DataRoot $script:Temp
+        $finding = @($result.Findings | Where-Object ResourceType -EQ 'AADNamedLocationPolicy')[0]
+        $finding.State | Should -Be 'Accepted'
+        $finding.ApprovedBy | Should -Be 'cio'
+    }
+
     It 'refuses a name that is not a standard' {
         Initialize-PEBlueprint -Name 'prod' -State (& (Get-Module PolicyEngine) { New-PEState -Records @() -NotChecked @() -Meta @{ TenantId = 't' } }) -DataRoot $script:Temp | Out-Null
         { Invoke-PEStandardCheck -StandardName 'prod' -ExportScript { 'x' } -DataRoot $script:Temp } | Should -Throw "*'prod' is not a standard*"

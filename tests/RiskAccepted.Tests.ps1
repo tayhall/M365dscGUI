@@ -104,3 +104,44 @@ Describe 'RiskAccepted decisions' {
         $stale.Hint | Should -Be 'Accepted risk needs another look: the standard has changed.'
     }
 }
+
+Describe 'Set-PERiskAcceptance' {
+    BeforeEach {
+        $script:Temp = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-riskset-' + [guid]::NewGuid())
+        $state = New-TestState -Records @((New-TestRecord -Key 'g1' -Props @{ Description = 'a' }))
+        Initialize-PEBlueprint -Name 'asd' -State $state -DataRoot $script:Temp | Out-Null
+        $directory = & (Get-Module PolicyEngine) { Get-PEBlueprintDirectory -Name 'asd' -DataRoot $args[0] } $script:Temp
+        ([ordered]@{ Kind = 'Standard'; Name = 'asd' } | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $directory 'standard.json')
+    }
+
+    AfterEach {
+        if (Test-Path $script:Temp) { Remove-Item $script:Temp -Recurse -Force }
+    }
+
+    It 'records the acceptance with the hash of the standard record' {
+        Set-PERiskAcceptance -Standard 'asd' -Tenant master -ResourceType AADGroup -Key g1 -ApprovedBy 'cio' -Reason 'legacy app' -DataRoot $script:Temp | Out-Null
+        $decision = @(Get-PEDecision -Kind RiskAccepted -DataRoot $script:Temp)[0]
+        $decision.ApprovedBy | Should -Be 'cio'
+        $decision.Reason | Should -Be 'legacy app'
+        $decision.Tenant | Should -Be 'master'
+        $decision.StandardHash | Should -Be (Get-TestHash -Record (Get-PEBlueprint -Name 'asd' -DataRoot $script:Temp).Records[0])
+    }
+
+    It 'can be limited to one property the standard states' {
+        Set-PERiskAcceptance -Standard 'asd' -Tenant master -ResourceType AADGroup -Key g1 -Property Description -ApprovedBy 'cio' -Reason 'ok' -DataRoot $script:Temp | Out-Null
+        @(Get-PEDecision -Kind RiskAccepted -DataRoot $script:Temp)[0].Property | Should -Be 'Description'
+    }
+
+    It 'throws for an item the standard does not have' {
+        { Set-PERiskAcceptance -Standard 'asd' -Tenant master -ResourceType AADGroup -Key nope -ApprovedBy 'cio' -Reason 'ok' -DataRoot $script:Temp } | Should -Throw "*has no item*"
+    }
+
+    It 'throws for a property the standard does not state' {
+        { Set-PERiskAcceptance -Standard 'asd' -Tenant master -ResourceType AADGroup -Key g1 -Property Visibility -ApprovedBy 'cio' -Reason 'ok' -DataRoot $script:Temp } | Should -Throw "*does not state*"
+    }
+
+    It 'refuses a name that is not a standard' {
+        Initialize-PEBlueprint -Name 'prod' -State (New-TestState -Records @((New-TestRecord -Key 'g1'))) -DataRoot $script:Temp | Out-Null
+        { Set-PERiskAcceptance -Standard 'prod' -Tenant master -ResourceType AADGroup -Key g1 -ApprovedBy 'cio' -Reason 'ok' -DataRoot $script:Temp } | Should -Throw "*is not a standard*"
+    }
+}

@@ -35,7 +35,7 @@ Describe 'PEStandards headline' -Skip:(-not (Get-Command node -ErrorAction Silen
     BeforeAll { $script:H = '{total:133,covered:91,checked:87,match:68,differ:13,accepted:6,lookAgain:1,notReadable:4,notCovered:42}' }
 
     It 'writes the headline and the sub line in the words of the mock-up' {
-        Invoke-Model "S.headlineText($($script:H))" | Should -Be '"Checked 87 of 133 settings"'
+        Invoke-Model "S.headlineText($($script:H))" | Should -Be '"Compared 87 of 133 settings"'
         Invoke-Model "S.subText($($script:H))" | Should -Be '"68 match, 13 differ, 6 are accepted risks"'
         Invoke-Model "S.subText({match:1,differ:0,accepted:1})" | Should -Be '"1 match, 0 differ, 1 is an accepted risk"'
     }

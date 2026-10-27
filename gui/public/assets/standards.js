@@ -13,7 +13,7 @@ const REASON_TEXT = {
 const STATUS_LABEL = { differs: 'Differs', missing: 'Missing', lookAgain: 'Look again', accepted: 'Accepted' };
 const STATUS_CLASS = { differs: 'warn', missing: 'person', lookAgain: 'person', accepted: 'accept' };
 const BAR_CLASS = { match: 'ok', differ: 'warn', accepted: 'accept', notReadable: 'person', notCovered: 'nc' };
-const BAR_LABEL = { match: 'match', differ: 'differ', accepted: 'accepted', notReadable: 'not readable', notCovered: 'not covered' };
+const BAR_LABEL = { match: 'match', differ: 'differ', accepted: 'accepted', notReadable: 'no blueprint data', notCovered: 'not covered' };
 
 const stdPath = {
   list: () => '/standards',
@@ -54,33 +54,29 @@ function stdBar(headline) {
 }
 
 function stdCheckButton(name, t, label) {
-  const meta = tenant(t).meta;
   const busy = stdJobRunning('StandardCheck', (j) => j.tenantId === t);
-  const offline = !!meta.offline;
-  const title = offline ? 'This tenant is offline: a standard check reads the tenant.' : '';
-  return `<button class="btn sm pri" data-act="std-check" data-standard="${esc(name)}" data-tenant="${esc(t)}"${busy || offline ? ' disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${busy ? 'Checking…' : esc(label)}</button>${offline ? `<span class="muted" style="margin-left:8px">${esc(title)}</span>` : ''}`;
+  return `<button class="btn sm pri" data-act="std-check" data-standard="${esc(name)}" data-tenant="${esc(t)}"${busy ? ' disabled' : ''}>${busy ? 'Comparing…' : esc(label)}</button>`;
 }
 
 function stdWorkloadTable(view) {
   const rows = view.byWorkload || [];
   if (!rows.length) return '';
   const num = (n) => `<td class="num">${n}</td>`;
-  return `<div class="card"><h2>By workload</h2><div class="std-scroll"><table class="std-table"><thead><tr><th>Workload</th><th class="num">In standard</th><th class="num">Checked</th><th class="num">Match</th><th class="num">Differ</th><th class="num">Accepted</th><th class="num">Not readable</th><th class="num">Not covered</th></tr></thead><tbody>${rows.map((w) => `<tr><td>${esc(w.workload)}</td>${num(w.total)}${num(w.checked)}${num(w.match)}${num(w.differ)}${num(w.accepted)}${num(w.notReadable)}${num(w.notCovered)}</tr>`).join('')}</tbody></table></div><p class="muted std-note">Not readable means the last export could not read that type in this tenant (a permission or a failed component). Those settings are never reported as missing.</p></div>`;
+  return `<div class="card"><h2>By workload</h2><div class="std-scroll"><table class="std-table"><thead><tr><th>Workload</th><th class="num">In standard</th><th class="num">Compared</th><th class="num">Match</th><th class="num">Differ</th><th class="num">Accepted</th><th class="num">No data</th><th class="num">Not covered</th></tr></thead><tbody>${rows.map((w) => `<tr><td>${esc(w.workload)}</td>${num(w.total)}${num(w.checked)}${num(w.match)}${num(w.differ)}${num(w.accepted)}${num(w.notReadable)}${num(w.notCovered)}</tr>`).join('')}</tbody></table></div><p class="muted std-note">No data means the blueprint holds nothing for that type (it was not read when the blueprint was made). Those settings are never reported as missing.</p></div>`;
 }
 
 function stdTenantCard(std, t) {
   const view = stdTenantView(t, std.name);
-  const head = `<h2>${esc(tenantLabel(t))}${view.checked ? `, last checked ${esc(shortDate(view.checkedAt))}` : ''}</h2>`;
+  const head = `<h2>${esc(tenantLabel(t))}${view.checked ? `, last compared ${esc(shortDate(view.checkedAt))}` : ''}</h2>`;
   if (view.loading) return `<div class="card">${head}<p class="muted">Loading…</p></div>`;
   if (view.error) return `<div class="card">${head}<p class="err">${esc(view.error)}</p></div>`;
   if (!view.checked) {
-    return `<div class="card">${head}<div class="big">Not checked yet</div><p class="muted">${esc(tenantLabel(t))} has not been checked against ${esc(std.sourceName)}. The check reads the tenant for the workloads the standard covers.</p><div class="btns">${stdCheckButton(std.name, t, `Check ${tenantLabel(t)} against it`)}</div></div>`;
+    return `<div class="card">${head}<div class="big">Not compared yet</div><p class="muted">The blueprint of ${esc(tenantLabel(t))} has not been compared with ${esc(std.sourceName)}. Nothing is read from the tenant: the comparison uses its blueprint.</p><div class="btns">${stdCheckButton(std.name, t, `Compare ${tenantLabel(t)} with it`)}</div></div>`;
   }
   const h = view.headline;
   const notes = [];
-  if (view.patched) notes.push('Updated after your decisions; check again to read the tenant.');
-  if (view.newerVersionImported) notes.push('A newer version of the standard is imported. Check again to compare with it.');
-  return `<div class="card">${head}<div class="big">${esc(PEStandards.headlineText(h))}</div><div class="muted" style="margin:2px 0 12px">${esc(PEStandards.subText(h))}</div>${stdBar(h)}${notes.map((n) => `<p class="muted std-note">${esc(n)}</p>`).join('')}<div class="btns" style="margin-top:12px">${stdCheckButton(std.name, t, 'Check again')}${link(stdPath.check(std.name), 'See the differences', 'btn sm')}</div></div>`;
+  if (view.newerVersionImported) notes.push('A newer version of the standard is imported. Compare again to use it.');
+  return `<div class="card">${head}<div class="big">${esc(PEStandards.headlineText(h))}</div><div class="muted" style="margin:2px 0 12px">${esc(PEStandards.subText(h))}</div>${stdBar(h)}${notes.map((n) => `<p class="muted std-note">${esc(n)}</p>`).join('')}<div class="btns" style="margin-top:12px">${stdCheckButton(std.name, t, 'Compare again')}${link(stdPath.check(std.name), 'See the differences', 'btn sm')}</div></div>`;
 }
 
 function stdInfoCard(std, t) {
@@ -93,7 +89,7 @@ function stdInfoCard(std, t) {
     <dl class="std-kv"><dt>Version</dt><dd>${esc(latest.sourceVersion || '—')} (blueprint version ${esc(latest.version)}), imported ${esc(shortDate(latest.importedAt))}</dd>
     <dt>Source</dt><dd class="mono">${esc(String(std.sourceUrl).replace(/^https?:\/\//, ''))}</dd>
     <dt>Licence</dt><dd>${esc(std.license)}. ${esc(std.attribution)}</dd>
-    <dt>Settings</dt><dd>${latest.total} in the standard, ${latest.covered} can be checked here</dd>${adoption}</dl>
+    <dt>Settings</dt><dd>${latest.total} in the standard, ${latest.covered} can be compared here</dd>${adoption}</dl>
     <div class="btns" style="margin-top:12px">${link(stdPath.notCovered(std.name), 'What is not covered', 'btn sm')}
       <button class="btn sm" data-act="std-release" data-standard="${esc(std.name)}"${looking ? ' disabled' : ''}>${looking ? 'Looking…' : 'Look for a new release'}</button>
       <button class="btn sm" data-act="std-import" data-standard="${esc(std.name)}"${importing ? ' disabled' : ''}>${importing ? 'Importing…' : 'Import latest release'}</button></div></div>`;
@@ -114,7 +110,7 @@ function standardsPage() {
   const importPanel = ui.stdImport
     ? `<div class="card" style="margin-bottom:16px"><h2>Standards you can import</h2>${STANDARD_SOURCES.map((s) => `<div class="std-source"><span>${esc(s.label)}</span><button class="btn sm pri" data-act="std-import" data-standard="${esc(s.name)}"${stdJobRunning('ImportStandard') ? ' disabled' : ''}>Import latest release</button></div>`).join('')}<p class="muted std-note">The files are downloaded from the publisher and only read, never run. Settings that need a value from each organisation, or that this tool cannot read yet, are listed as not covered.</p></div>`
     : '';
-  const head = `<div class="phead"><div><h1>Standards</h1><div class="muted">Published security standards. Read-only: check a tenant against one, adopt settings into a blueprint.</div></div><button class="btn" data-act="std-import-toggle">${ui.stdImport ? 'Close' : 'Import a standard'}</button></div>`;
+  const head = `<div class="phead"><div><h1>Standards</h1><div class="muted">Published security standards. Read-only: compare a tenant blueprint with one, adopt settings into the blueprint.</div></div><button class="btn" data-act="std-import-toggle">${ui.stdImport ? 'Close' : 'Import a standard'}</button></div>`;
   if (!list.length) {
     return head + importPanel + `<div class="card"><h2>No standard imported yet</h2><p class="muted">Import the ASD Blueprint for Secure Cloud to see how a tenant compares with it.</p><div class="btns"><button class="btn pri" data-act="std-import" data-standard="asd"${stdJobRunning('ImportStandard') ? ' disabled' : ''}>Import the ASD Blueprint</button></div></div>`;
   }
@@ -138,7 +134,7 @@ function stdRowHtml(std, row) {
   const diffs = row.differences || [];
   const accepted = row.acceptedDifferences || [];
   const standard = row.kind === 'Missing' ? '<b>Present</b>' : values(diffs, 'standard') + values(accepted, 'standard');
-  const tenantSide = row.kind === 'Missing' ? '<span class="muted">Not in this tenant</span>' : values(diffs, 'tenant') + values(accepted, 'tenant');
+  const tenantSide = row.kind === 'Missing' ? '<span class="muted">Not in the blueprint</span>' : values(diffs, 'blueprint') + values(accepted, 'blueprint');
   let state = `<div class="std-chips">${stdStatusChip(status)}${row.adopted ? stdChip('ok', 'Adopted' + (row.adoptedFrom ? ' (' + row.adoptedFrom + ')' : '')) : ''}</div>`;
   if (status === 'accepted' || accepted.length) state += `<span class="std-sub">${accepted.length && status !== 'accepted' ? 'Accepted for ' + esc(accepted.map((d) => d.property).join(', ')) + ' · ' : ''}by ${esc(row.approvedBy || 'someone')}${row.acceptedAt ? ', ' + esc(shortDate(row.acceptedAt)) : ''}</span>${row.acceptedReason ? `<span class="std-sub">${esc(row.acceptedReason)}</span>` : ''}`;
   if (status === 'lookAgain') state += `<span class="std-sub std-look">${esc(row.hint || 'The standard changed after this was accepted.')}</span>`;
@@ -150,17 +146,17 @@ function standardCheckPage(r) {
   if (!std) return notFound();
   const t = curTenant();
   const view = stdTenantView(t, std.name);
-  const head = `<div class="phead"><div><h1>${esc(tenantLabel(t))} against ${esc(std.sourceName)}</h1>${view.checked ? `<div class="muted">${esc(PEStandards.headlineText(view.headline))}, ${esc(shortDate(view.checkedAt))}. Only what the standard states is compared.</div>` : ''}</div><div class="btns">${stdCheckButton(std.name, t, view.checked ? 'Check again' : `Check ${tenantLabel(t)} against it`)}</div></div>`;
+  const head = `<div class="phead"><div><h1>${esc(tenantLabel(t))} against ${esc(std.sourceName)}</h1>${view.checked ? `<div class="muted">${esc(PEStandards.headlineText(view.headline))} of blueprint “${esc(view.blueprint.name)}” v${esc(view.blueprint.version)}, ${esc(shortDate(view.checkedAt))}. Only what the standard states is compared. Nothing is read from the tenant.</div>` : ''}</div><div class="btns">${stdCheckButton(std.name, t, view.checked ? 'Compare again' : `Compare ${tenantLabel(t)} with it`)}</div></div>`;
   if (view.loading) return head + '<div class="card"><p class="muted">Loading…</p></div>';
   if (view.error) return head + `<div class="card"><p class="err">${esc(view.error)}</p></div>`;
-  if (!view.checked) return head + `<div class="card"><h2>Not checked yet</h2><p class="muted">${esc(tenantLabel(t))} has not been checked against this standard.</p></div>`;
+  if (!view.checked) return head + `<div class="card"><h2>Not compared yet</h2><p class="muted">The blueprint of ${esc(tenantLabel(t))} has not been compared with this standard.</p></div>`;
   const show = ['decide', 'accepted', 'all'].includes(r.show) ? r.show : 'decide';
   const counts = PEStandards.filterCounts(view.rows);
   const rows = PEStandards.filterRows(view.rows, show);
   const pill = (key, label) => `<button class="tab${show === key ? ' on' : ''}" data-act="std-filter" data-standard="${esc(std.name)}" data-show="${key}" aria-pressed="${show === key}">${label} <b>${counts[key]}</b></button>`;
-  const empty = show === 'accepted' ? 'No accepted risks.' : show === 'decide' ? 'Nothing needs a decision. Every checked setting matches or has an accepted risk.' : 'No differences.';
+  const empty = show === 'accepted' ? 'No accepted risks.' : show === 'decide' ? 'Nothing needs a decision. Every compared setting matches or has an accepted risk.' : 'No differences.';
   return head + `<div class="card"><div class="pills" role="group" aria-label="Show">${pill('decide', 'Needs a decision')}${pill('accepted', 'Accepted')}${pill('all', 'All differences')}</div>
-    ${rows.length ? `<div class="std-scroll"><table class="std-table"><thead><tr><th>Setting</th><th>Standard says</th><th>Tenant has</th><th>Status</th><th>Decide</th></tr></thead><tbody>${rows.map((r) => stdRowHtml(std, r)).join('')}</tbody></table></div>` : `<p class="muted">${esc(empty)}</p>`}</div>`;
+    ${rows.length ? `<div class="std-scroll"><table class="std-table"><thead><tr><th>Setting</th><th>Standard says</th><th>Blueprint has</th><th>Status</th><th>Decide</th></tr></thead><tbody>${rows.map((r) => stdRowHtml(std, r)).join('')}</tbody></table></div>` : `<p class="muted">${esc(empty)}</p>`}</div>`;
 }
 
 function notCoveredPage(r) {
@@ -265,14 +261,14 @@ function riskDialogView() {
   if (!d) return '';
   const row = d.row;
   const problem = PEStandards.riskDialogProblem(d);
-  const values = (side) => (row.differences || []).map((x) => `<div><span class="mono">${esc(x.property)}</span> <b>${esc(PEStandards.valueText(x[side]))}</b></div>`).join('') || (side === 'standard' ? '<b>Present</b>' : '<span class="muted">Not in this tenant</span>');
+  const values = (side) => (row.differences || []).map((x) => `<div><span class="mono">${esc(x.property)}</span> <b>${esc(PEStandards.valueText(x[side]))}</b></div>`).join('') || (side === 'standard' ? '<b>Present</b>' : '<span class="muted">Not in the blueprint</span>');
   const props = d.differing.length > 1
     ? `<fieldset style="border:0;padding:0;margin:0"><legend class="lab">Settings to accept</legend>${d.differing.map((p, i) => `<label style="display:flex;gap:8px;align-items:center;min-height:32px"><input type="checkbox" id="rk-p-${i}" data-rkprop="${esc(p)}"${d.ticked.includes(p) ? ' checked' : ''}> <span class="mono">${esc(p)}</span></label>`).join('')}</fieldset>`
     : '';
   return `<div class="overlay"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="rk-title">
     <div class="dh"><h2 id="rk-title" style="font-size:19px;margin:0">Accept this difference</h2><div class="muted" style="margin-top:4px">${esc(ACTION_SUB.AcceptRisk)}</div></div>
     <div class="db">
-      <dl class="std-kv"><dt>Setting</dt><dd><b>${esc(row.key)}</b> <span class="mono">${esc(row.resourceType)}</span></dd><dt>Standard says</dt><dd>${values('standard')}</dd><dt>Tenant has</dt><dd>${values('tenant')}</dd><dt>Tenant</dt><dd>${esc(tenantLabel(d.t))}</dd></dl>
+      <dl class="std-kv"><dt>Setting</dt><dd><b>${esc(row.key)}</b> <span class="mono">${esc(row.resourceType)}</span></dd><dt>Standard says</dt><dd>${values('standard')}</dd><dt>Blueprint has</dt><dd>${values('blueprint')}</dd><dt>Tenant</dt><dd>${esc(tenantLabel(d.t))}</dd></dl>
       ${props}
       <div><label class="lab" for="rk-by">Approved by</label><input id="rk-by" type="text" value="${esc(d.approvedBy)}" autocomplete="off" style="width:100%"></div>
       <div><label class="lab" for="rk-why">Why</label><textarea id="rk-why" placeholder="Why is it acceptable to leave this as it is?">${esc(d.why)}</textarea></div>
@@ -326,7 +322,7 @@ async function stdRequest(body, queued) {
 function standardsClick(el) {
   const act = el.dataset.act;
   const name = el.dataset.standard;
-  if (act === 'std-check') stdRequest({ action: 'StandardCheck', tenantId: el.dataset.tenant, standard: name }, 'Standard check {job} queued. This page updates when it finishes.');
+  if (act === 'std-check') stdRequest({ action: 'StandardCheck', tenantId: el.dataset.tenant, standard: name }, 'Comparison {job} queued. This page updates when it finishes.');
   else if (act === 'std-import') stdRequest(Object.assign({ action: 'ImportStandard', standard: name }, el.dataset.tag ? { tag: el.dataset.tag } : {}), 'Import {job} queued. This page updates when it finishes.');
   else if (act === 'std-release') stdRequest({ action: 'CheckStandardRelease', standard: name }, 'Looking for a new release ({job}).');
   else if (act === 'std-import-toggle') { ui.stdImport = !ui.stdImport; render(); }

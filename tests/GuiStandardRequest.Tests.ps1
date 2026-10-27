@@ -41,15 +41,14 @@ BeforeAll {
 
     function Invoke-Check
     {
-        param ([string]$Tenant = 'master', [string]$Countries = '@("AU","NZ")', [switch]$SecondDifference)
-        $folder = New-TenantExport -Root $script:Temp -Countries $Countries
+        # The master blueprint compared with the standard; -SecondDifference first remakes it so a second property differs.
+        param ([string]$Tenant = 'master', [switch]$SecondDifference)
         if ($SecondDifference)
         {
-            $file = Join-Path $folder 'export.ps1'
-            (Get-Content -LiteralPath $file -Raw).Replace('clientIpAddress', 'authenticatorAppGps') | Set-Content -LiteralPath $file
+            Remove-Item -LiteralPath (Join-Path $script:Temp 'blueprints\main') -Recurse -Force
+            New-TestTenantBlueprint -Root $script:Temp -Name 'main' -SecondDifference
         }
-        $export = { $folder }.GetNewClosure()
-        Invoke-PEStandardCheck -StandardName 'asd' -Tenant $Tenant -ExportScript $export -TargetTenantId 'tenant-1' -DataRoot $script:Temp
+        Invoke-PEStandardCheck -StandardName 'asd' -BlueprintName 'main' -Tenant $Tenant -DataRoot $script:Temp
     }
 
     function Invoke-Action
@@ -68,7 +67,7 @@ Describe 'Standards requests in the worker' {
         $script:Temp = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-guistdreq-' + [guid]::NewGuid())
         $script:Gui = Join-Path $script:Temp 'gui'
         $state = & (Get-Module PolicyEngine) { New-PEState -Records @() -NotChecked @() -Meta @{ TenantId = 't'; ExportedAt = '2026-10-21T01:02:03Z' } }
-        Initialize-PEBlueprint -Name 'main' -State $state -DataRoot $script:Temp | Out-Null
+        New-TestTenantBlueprint -Root $script:Temp -Name 'main'
         $directory = Join-Path $script:Temp 'checks\20261021-020000'
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
         [ordered]@{ CheckId = '20261021-020000'; Kind = 'Full'; BlueprintName = 'main'; BlueprintVersion = 1; Findings = @(); State = $state } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $directory 'result.json') -Encoding utf8
@@ -82,15 +81,16 @@ Describe 'Standards requests in the worker' {
     }
 
     Context 'Adopt' {
-        It 'records the next version of the tenant''s own blueprint with provenance, and the row shows as adopted' {
+        It 'records the next version of the tenant''s own blueprint with provenance, and the setting then matches' {
             $row = Get-Row 'TeamsMessagingPolicy'
             $job = Invoke-Worker (Send-Request @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; reason = 'adopt messaging'; confirmedMasterWrite = $true; items = @(@{ itemId = $row.itemId }) })
             $job.status | Should -Be 'Succeeded' -Because $job.result
             $job.result | Should -BeLike "*Blueprint v2 recorded in 'main'*No tenant was changed*"
             $record = @((Get-PEBlueprint -Name 'main' -DataRoot $script:Temp).Records | Where-Object ResourceType -EQ 'TeamsMessagingPolicy')[0]
             $record.Provenance.Standard | Should -Be 'asd'
-            (Get-Row 'TeamsMessagingPolicy').adopted | Should -BeTrue
-            (Get-PECheck -Latest -Kind Standard -Standard asd -DataRoot $script:Temp).State.Meta.PatchedFrom | Should -Be $script:First.CheckId
+            (Get-PECheck -Latest -Kind Standard -Standard asd -DataRoot $script:Temp).CheckId | Should -Not -Be $script:First.CheckId
+            @((Read-Json 'tenants/master/standards/asd.json').rows | Where-Object resourceType -EQ 'TeamsMessagingPolicy').Count | Should -Be 0
+            (Read-Json 'tenants/master/standards/asd.json').blueprint.version | Should -Be 2
         }
 
         It 'refuses the master blueprint without the master-write confirmation, and a replica with no blueprint of its own' {
@@ -98,7 +98,7 @@ Describe 'Standards requests in the worker' {
             { Invoke-Action @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; reason = 'x'; confirmedMasterWrite = $false; items = @(@{ resourceType = $row.resourceType; key = $row.key }) } } | Should -Throw '*master-write confirmation*'
             Set-PETenant -Slug 'dev' -DisplayName 'Dev' -TenantId 'dev.onmicrosoft.com' -DataRoot $script:Temp | Out-Null
             { Invoke-Action @{ action = 'Adopt'; tenantId = 'dev'; standard = 'asd'; reason = 'x'; items = @(@{ resourceType = $row.resourceType; key = $row.key }) } } | Should -Throw '*no blueprint of its own*'
-            @(Get-PEBlueprint -Name 'main' -DataRoot $script:Temp).Records.Count | Should -Be 0
+            (Get-PEBlueprint -Name 'main' -DataRoot $script:Temp).Meta.Version | Should -Be 1
         }
     }
 
@@ -149,14 +149,20 @@ Describe 'Standards requests in the worker' {
     }
 
     Context 'Standard check' {
-        It 'reads the tenant again and saves a new Standard check' {
-            $folder = New-TenantExport -Root $script:Temp -Countries '@("AU")'
-            $export = { $folder }.GetNewClosure()
-            $job = Invoke-Worker (Send-Request @{ action = 'StandardCheck'; tenantId = 'master'; standard = 'asd' }) -ExportScript $export
+        It 'compares the blueprint again and saves a new Standard check, without reading the tenant' {
+            $job = Invoke-Worker (Send-Request @{ action = 'StandardCheck'; tenantId = 'master'; standard = 'asd' })
             $job.status | Should -Be 'Succeeded' -Because $job.result
-            $job.result | Should -BeLike '*Checked 2 of 5 settings*'
+            $job.result | Should -BeLike "*Compared 2 of 5 settings*blueprint 'main' v1*Nothing was read from the tenant*"
             (Get-PECheck -Latest -Kind Standard -Standard asd -DataRoot $script:Temp).CheckId | Should -Not -Be $script:First.CheckId
-            (Read-Json 'tenants/master/standards/asd.json').headline.differ | Should -Be 1
+            Test-Path (Join-Path $script:Temp 'exports') | Should -BeFalse
+        }
+
+        It 'works for an offline tenant' {
+            Set-PETenant -Slug 'off' -DisplayName 'Offline' -TenantId 'off.onmicrosoft.com' -Offline -DataRoot $script:Temp | Out-Null
+            Export-TestGui
+            $job = Invoke-Worker (Send-Request @{ action = 'StandardCheck'; tenantId = 'off'; standard = 'asd' })
+            $job.status | Should -Be 'Succeeded' -Because $job.result
+            (Read-Json 'tenants/off/standards/asd.json').checked | Should -BeTrue
         }
     }
 

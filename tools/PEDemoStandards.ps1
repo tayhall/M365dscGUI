@@ -3,16 +3,16 @@
 Seeds a data folder so the Standards pages of the GUI can be tried on real engine data, without a tenant.
 
 .DESCRIPTION
-Thin wrapper over the engine commands. It creates a blueprint 'main', imports the small ASD sample in tests\fixtures\asd-mini as version
-v1.4.0 of the standard 'asd', runs a standard check of the master tenant against a fake export (a named location that differs and a Teams
-policy that is missing), and exports the GUI view models. Nothing talks to a tenant. The folder must not exist yet; remove it yourself to start over.
+Thin wrapper over the engine commands. It creates a blueprint 'main' (named location with AU and NZ, no Teams policy), imports the small ASD sample in tests\fixtures\asd-mini as version
+v1.4.0 of the standard 'asd', compares the master tenant's blueprint with the standard (a named location that differs and a Teams
+policy that is missing), and exports the GUI view models. Nothing talks to a tenant: the check compares the blueprint. The folder must not exist yet; remove it yourself to start over.
 
 With -NewVersion it also accepts the named-location risk, imports a changed copy of the sample as v1.5.0 and checks again, so that
 accepted risk shows as "Look again".
 
 Then: pwsh -NoProfile -File gui\Start-PEGui.ps1 -DataRoot <DataRoot>\gui   and, in another window,
       pwsh -NoProfile -File tools\Start-PEGuiWorker.ps1 -BlueprintName main -DataRoot <DataRoot>
-The worker does Adopt, Accept risk and Remove (local files only). A standard check needs a connected tenant and is not offered here.
+The worker does the comparison, Adopt, Accept risk and Remove (local files only; nothing is read from a tenant).
 
 .EXAMPLE
 pwsh -NoProfile -File tools\PEDemoStandards.ps1 -DataRoot data\demo-standards
@@ -43,20 +43,17 @@ New-Item -ItemType Directory -Path $DataRoot -Force | Out-Null
 $DataRoot = Convert-Path -LiteralPath $DataRoot
 $gui = Join-Path $DataRoot 'gui'
 
-# The master blueprint (empty: the standard is what is being looked at) and the one Full check the GUI export starts from.
-$state = & (Get-Module PolicyEngine) { New-PEState -Records @() -NotChecked @() -Meta @{ TenantId = 'demo'; ExportedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ') } }
-Initialize-PEBlueprint -Name 'main' -State $state -DataRoot $DataRoot | Out-Null
+# The master blueprint: a named location with AU and NZ and no Teams policy, so the standard differs on one setting and lacks another.
+# The GUI export also starts from one Full check (a stub).
+New-TestTenantBlueprint -Root $DataRoot -Name 'main'
+$state = Get-PEBlueprint -Name 'main' -DataRoot $DataRoot
 $checks = Join-Path $DataRoot 'checks\20261021-020000'
 New-Item -ItemType Directory -Path $checks -Force | Out-Null
 [ordered]@{ CheckId = '20261021-020000'; Kind = 'Full'; BlueprintName = 'main'; BlueprintVersion = 1; Findings = @(); State = $state } |
     ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $checks 'result.json') -Encoding utf8
 
 Import-PEStandardRelease -Standard asd -Tag v1.4.0 -Path $script:Fixture -DataRoot $DataRoot -WarningAction SilentlyContinue | Out-Null
-$check = {
-    $folder = New-TenantExport -Root $DataRoot -Countries '@("AU","NZ")'
-    $export = { $folder }.GetNewClosure()
-    Invoke-PEStandardCheck -StandardName asd -ExportScript $export -TargetTenantId 'demo-tenant' -DataRoot $DataRoot
-}
+$check = { Invoke-PEStandardCheck -StandardName asd -BlueprintName main -DataRoot $DataRoot }
 $result = & $check
 
 if ($NewVersion)
@@ -73,6 +70,6 @@ if ($NewVersion)
 
 Export-PEGuiData -BlueprintName main -DataRoot $DataRoot -GuiRoot $gui -WarningAction SilentlyContinue | Out-Null
 $c = $result.Coverage
-"Seeded ${DataRoot}: checked $($c.Checked) of $($c.Total) settings of the sample standard$(if ($NewVersion) { ' (v1.5.0, with an accepted risk to look at again)' } else { ' (v1.4.0)' })."
+"Seeded ${DataRoot}: compared $($c.Checked) of $($c.Total) settings of the sample standard$(if ($NewVersion) { ' (v1.5.0, with an accepted risk to look at again)' } else { ' (v1.4.0)' })."
 "  Start the GUI:    pwsh -NoProfile -File gui\Start-PEGui.ps1 -DataRoot `"$gui`""
 "  Start the worker: pwsh -NoProfile -File tools\Start-PEGuiWorker.ps1 -BlueprintName main -DataRoot `"$DataRoot`""

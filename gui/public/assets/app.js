@@ -9,7 +9,7 @@ const KIND_LABEL = {
   NotChecked: 'Not read', NotAvailable: 'Not available', Unkeyed: 'Unkeyed', Unreadable: 'Unreadable', Aligned: 'Aligned', Checked: 'Checked'
 };
 const KIND_COLOR = { Missing: '#9a4f00', Changed: '#e39a25', TargetOnly: '#f2cf8b', PossibleRename: '#8b5cf6', Ambiguous: '#4c2a99' };
-const ACTION_LABEL = { Accept: 'Revert tenant', RevertBlueprint: 'Restore blueprint version', FullCheck: 'Snapshot', Adopt: 'Adopt', AcceptRisk: 'Accept risk', RemoveRisk: 'Remove accepted risk', StandardCheck: 'Standard check', ImportStandard: 'Import standard', CheckStandardRelease: 'Look for a new release', Recheck: 'Snapshot or refresh',ExcludeProperty: 'Noise rule', ExcludePropertyForTenant: 'Property exclusion', IncludePropertyForTenant: 'Property enforced again', Unexclude: 'Bring back', GenerateConfig: 'Generate configuration' };
+const ACTION_LABEL = { Accept: 'Revert tenant', RevertBlueprint: 'Restore blueprint version', FullCheck: 'Snapshot', Adopt: 'Adopt', AcceptRisk: 'Accept risk', RemoveRisk: 'Remove accepted risk', StandardCheck: 'Compare with standard', ImportStandard: 'Import standard', CheckStandardRelease: 'Look for a new release', Recheck: 'Snapshot or refresh',ExcludeProperty: 'Noise rule', ExcludePropertyForTenant: 'Property exclusion', IncludePropertyForTenant: 'Property enforced again', Unexclude: 'Bring back', GenerateConfig: 'Generate configuration' };
 const actionLabel = (a) => ACTION_LABEL[a] || a;
 // What a blueprint version records as its source, in the words of the buttons: a version made by Promote is stored as 'Accept', one made by Revert as 'Revert'.
 const SOURCE_LABEL = { Accept: 'Promote', Revert: 'Restore' };

@@ -3,7 +3,7 @@
 
 function ConvertTo-PEGuiStandardRow
 {
-    # One row per Missing or Changed finding of a Standard check. Other kinds (NotChecked and so on) are not rows: they are counted in
+    # One row per Missing or Changed finding of a Standard check (the tenant's blueprint compared with the standard). Other kinds (NotChecked and so on) are not rows: they are counted in
     # the headline as not readable, never as differences and never as matching.
     [CmdletBinding()]
     param
@@ -22,7 +22,7 @@ function ConvertTo-PEGuiStandardRow
     $status = if ($accepted) { 'accepted' } elseif ($stale) { 'lookAgain' } elseif ([string]$Finding.Kind -eq 'Missing') { 'missing' } else { 'differs' }
     $values = {
         param ($list)
-        @(foreach ($difference in @($list | Where-Object { $null -ne $_ })) { [ordered]@{ property = [string]$difference.Property; standard = $difference.Blueprint; tenant = $difference.Target } })
+        @(foreach ($difference in @($list | Where-Object { $null -ne $_ })) { [ordered]@{ property = [string]$difference.Property; standard = $difference.Blueprint; blueprint = $difference.Target } })
     }
     $isAdopted = $Adopted.ContainsKey($itemId)
     $actions = switch ($status)
@@ -30,10 +30,6 @@ function ConvertTo-PEGuiStandardRow
         'accepted' { @('RemoveRisk') }
         'lookAgain' { @('Adopt', 'AcceptRisk', 'RemoveRisk') }
         default { @('Adopt', 'AcceptRisk') }
-    }
-    if ($isAdopted)
-    {
-        $actions = @($actions | Where-Object { $_ -ne 'Adopt' })
     }
     $property = { param ($name) if ($Finding.PSObject.Properties[$name]) { $Finding.$name } else { $null } }
     [ordered]@{
@@ -132,7 +128,7 @@ function Get-PEGuiStandardTenantView
             notCovered  = [int]$figures.Total - [int]$figures.Covered
         }
     })
-    $checkedAt = $check.State.Meta.ExportedAt
+    $checkedAt = $check.CheckedAt
     [ordered]@{
         standard             = $Standard
         tenantId             = $TenantSlug
@@ -141,7 +137,7 @@ function Get-PEGuiStandardTenantView
         checkedAt            = $(if ($checkedAt -is [datetime]) { $checkedAt.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') } else { [string]$checkedAt })
         standardVersion      = [int]$check.StandardVersion
         sourceVersion        = [string]$check.SourceVersion
-        patched              = [bool]($check.State.Meta.PSObject.Properties['PatchedFrom'] -and $check.State.Meta.PatchedFrom)
+        blueprint            = [ordered]@{ name = [string]$check.BlueprintName; version = [int]$check.BlueprintVersion }
         newerVersionImported = $LatestVersion -gt [int]$check.StandardVersion
         headline             = $headline
         notCoveredByReason   = $byReason

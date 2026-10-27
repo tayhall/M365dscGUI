@@ -52,3 +52,36 @@ $teamsLine
 "@ | Set-Content -LiteralPath (Join-Path $folder 'export.log') -Encoding utf8
     return $folder
 }
+
+function New-FakeGit
+{
+    # A fake git: records every argument list, answers ls-remote with the given tags, and on a sparse checkout fills the DSC folder
+    # from the fixture. -FailOn makes the call whose first argument matches return exit code 128.
+    param ([string[]]$Tags = @('v1.3.13', 'v1.4.0', 'v1.4.0-rc', 'preview'), [string]$FailOn)
+    $calls = [System.Collections.Generic.List[object]]::new()
+    $fixture = $script:Fixture
+    $git = {
+        param ($Arguments)
+        $calls.Add(@($Arguments))
+        $verb = if ($Arguments[0] -eq '-C') { $Arguments[2] } else { $Arguments[0] }
+        if ($FailOn -and $verb -eq $FailOn) { return [pscustomobject]@{ ExitCode = 128; Output = @('fatal: boom') } }
+        switch ($verb)
+        {
+            'ls-remote'
+            {
+                $lines = foreach ($tag in $Tags) { "abc123`trefs/tags/$tag"; "def456`trefs/tags/$tag^{}" }
+                return [pscustomobject]@{ ExitCode = 0; Output = @($lines) }
+            }
+            'clone' { New-Item -ItemType Directory -Path $Arguments[-1] -Force | Out-Null }
+            'sparse-checkout'
+            {
+                $target = Join-Path $Arguments[1] ($Arguments[-1] -replace '/', '\')
+                New-Item -ItemType Directory -Path $target -Force | Out-Null
+                Copy-Item -Path (Join-Path $fixture '*') -Destination $target
+            }
+        }
+        [pscustomobject]@{ ExitCode = 0; Output = @() }
+    }.GetNewClosure()
+    [pscustomobject]@{ Git = $git; Calls = $calls }
+}
+

@@ -122,13 +122,14 @@ The Pode GUI (`gui/`, `docs/superpowers/plans/2026-10-22-gui-phase2.md`, `gui/RE
 
 Decisions made for this: Target Master now accepts Create, Update and Remove (restoring the master to its approved blueprint); `-ConfirmMasterWrite` is still required, and the GUI's two-step confirm provides it. A confirmed Accept of a Target-only item records the Remove decision itself. Previously Remove was refused for the master by design; that rule is gone. After a clean re-check the worker saves a patched check (`Meta.PatchedFrom`) so the GUI updates at once.
 
+Done since this was written: the blueprint revert (`RevertBlueprint`, now `Restore-PEBlueprintVersion`), two tenants (a master and replicas, each with its own blueprint layer), version sources shown as Promote and Restore in the GUI (stored as `Accept` and `Revert`), and the Host header check.
+
 Still open:
 
-1. A blueprint revert command (RevertBlueprint fails with a message).
-2. Two tenants (v1 shows its one tenant as the master), real first-seen times, Promote vs Accept in change records.
-3. Host header check / sign-in (the server answers any Host on localhost).
-4. Exclude is only valid for target-only items in the engine; the GUI offers it on others too (the job fails with that message).
-5. The worker runs one job at a time and blocks during an apply; no live progress in the GUI beyond Running.
+1. Real first-seen times: `firstSeen` is still the export time of the check, not when the drift first appeared.
+2. User sign-in (for example Entra ID). The server checks the Host header, the origin and a per-run token (`Test-PEGuiRequestAllowed`) and listens on localhost only, but nobody signs in; keep it on localhost.
+3. Exclude is only valid for target-only items in the engine; the GUI offers it on others too (the job fails with that message).
+4. The worker runs one job at a time and blocks during an apply; no live progress in the GUI beyond Running.
 ## Same-tenant and cross-tenant comparison (tenant-bound properties)
 
 A blueprint remembers the tenant it was taken from (`Meta.TenantId`). `Compare-PEState` treats a target as **cross-tenant** when its `Meta.TenantId` is known and differs from the blueprint's (`-CrossTenant Auto|Yes|No`, `Test-PECrossTenant`). Against the tenant the blueprint came from everything is compared, so a deleted and recreated app, a changed domain or a new key shows as drift. Against another tenant (a dev tenant checked against the production blueprint) the `TenantBound` section of `Data\IgnoredProperties.psd1` is left out of each matched pair: ids generated per tenant (service principal `ObjectID`, application `AppId`/`ObjectId`/scope ids, team and group ids, mailbox plan identities, retention ids) and values naming the tenant's own objects (tab configuration, group addresses, distribution group OU). Those entries are not removed from stored states or blueprints, and the Revert plan for a different tenant strips them from the blueprint record so the source tenant's ids are never rendered into the target. Anything that grants or changes access (role group members, application credentials, pre-authorised applications, Intune assignments) is deliberately not tenant-bound. Check documents carry `BlueprintTenantId` and `CrossTenant`; the GUI shows the blueprint's source tenant and, per tenant, which mode applied. Not done: a generic substitution of the tenant's own domain inside strings (for example `*.sharepoint.com` URLs); only the properties listed are handled, and objects that exist in one tenant only (Missing/TargetOnly) remain per-object decisions.

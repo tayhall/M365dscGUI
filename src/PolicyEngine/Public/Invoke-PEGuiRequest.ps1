@@ -15,7 +15,7 @@ function Invoke-PEGuiRequest
       Invoke-PERectify in this process: Writer app, re-check with the Reader app. It needs confirmedMasterWrite in the
       request. After a clean re-check a patched copy of the check is saved (New-PEPatchedCheck) so the GUI shows the
       items aligned; a real full check replaces it. Possible renames are refused.
-    - RevertBlueprint: the engine has no revert command yet; the job fails with that message.
+    - RevertBlueprint -> Restore-PEBlueprintVersion: a new master blueprint version that copies an older one, or one item of it.
     - GenerateConfig -> New-PEOfflineConfig: the configuration that brings the tenant in line with its own blueprint, written to
       <GuiRoot>\configs\<jobId> (Changes.ps1, Removals.ps1, Manual.json) for the tenant's owner to download and run. No tenant is
       written to.

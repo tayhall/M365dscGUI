@@ -58,9 +58,9 @@ blueprint and the master blueprint, with the reviewed target version); RenameTen
 blueprint with `Invoke-PERectify` (Create for Missing, Update for Changed, Remove for Target-only) using the Writer
 app, then re-checks the same objects with the Reader app. Accept needs the GUI's two-step master-write confirm. After
 a clean re-check the worker saves a patched copy of the check (`Meta.PatchedFrom`) so the GUI shows the items
-aligned; run a full check to refresh everything. Revert still fails with a message (no engine command yet).
-Engine v1 has one tenant, shown as the master; a second tenant is optional. `firstSeen` is the check time and
-blueprint versions are labelled Initial or Accept.
+aligned; run a full check to refresh everything. A blueprint restore (`RevertBlueprint`) runs `Restore-PEBlueprintVersion`.
+The Overview lists the master and any number of replicas. `firstSeen` is the check time and
+blueprint versions are labelled Initial, Promote or Restore (stored as Initial, Accept and Revert).
 
 ### Offline tenants: upload and generate
 
@@ -97,11 +97,11 @@ pwsh -NoProfile -File tools/PEDemoTenant.ps1 -Action Cleanup    # when finished
 ```
 
 Checked on real Pode 2.14: JSON posts arrive parsed, deep links serve the app shell, no console errors.
-Known gap: the server accepts any Host header (no sign-in yet); keep it on localhost.
+Known gap: no user sign-in yet. The server checks the Host header, the origin and a startup token, but keep it on localhost.
 
 ## Not done yet
 
-- A blueprint revert command, two-tenant data, Entra sign-in, a Host header check.
+- User sign-in (for example Entra ID).
 
 ## Blueprint layers
 

@@ -385,3 +385,6 @@ The first Standards GUI had a page of its own for the differences (`/standards/:
 
 - **Left out, on purpose.** Matching settings are not listed (the Drift review lists drift only; the Match count stays a figure). A standard's rows have no item page: the expanded row shows the standard's value against the blueprint's.
 - **Removed.** `standardCheckPage`, its row and the `/standards/:name` route, and the unused `filterRows`/`filterCounts` of `standards-model.js`.
+## Adopt refreshes the tenant's own drift (2026-10-27)
+
+After Adopt the adopted items are compared with the new blueprint version again, from the records of the tenant's latest Full check (`Update-PECheckForItems`, as after Promote; the tenant is not read). An adopted item the tenant lacks or has differently shows in the tenant's own Drift review at once, ready to Revert. Before, it only showed after the next check. If the latest check is of another blueprint nothing is compared and the job says they show after the next check.

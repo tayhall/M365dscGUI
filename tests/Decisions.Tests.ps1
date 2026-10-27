@@ -109,3 +109,49 @@ Describe 'Decisions store' {
         $d.At | Should -Match '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$'
     }
 }
+
+Describe 'PropertyExcluded decisions' {
+    BeforeEach {
+        $script:Temp = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-' + [guid]::NewGuid())
+    }
+
+    AfterEach {
+        if (Test-Path $script:Temp)
+        {
+            Remove-Item $script:Temp -Recurse -Force
+        }
+    }
+
+    It 'requires a tenant' {
+        { Set-PEDecision -Kind PropertyExcluded -ResourceType 'SCDLPCompliancePolicy' -Property 'Priority' -Reason 'r' -DataRoot $script:Temp } | Should -Throw '*requires -Tenant*'
+    }
+
+    It 'requires a property' {
+        { Set-PEDecision -Kind PropertyExcluded -ResourceType 'SCDLPCompliancePolicy' -Tenant 'contoso' -Reason 'r' -DataRoot $script:Temp } | Should -Throw '*requires -Property*'
+    }
+
+    It 'keeps a type-wide and an item-level exclusion apart, and one per identity' {
+        Set-PEDecision -Kind PropertyExcluded -ResourceType 'SCDLPCompliancePolicy' -Property 'Priority' -Tenant 'contoso' -Reason 'a' -DataRoot $script:Temp | Out-Null
+        Set-PEDecision -Kind PropertyExcluded -ResourceType 'SCDLPCompliancePolicy' -Property 'Priority' -Tenant 'contoso' -Key 'GDPR' -Reason 'b' -DataRoot $script:Temp | Out-Null
+        Set-PEDecision -Kind PropertyExcluded -ResourceType 'SCDLPCompliancePolicy' -Property 'Priority' -Tenant 'contoso' -Reason 'again' -DataRoot $script:Temp | Out-Null
+        $got = @(Get-PEDecision -Kind PropertyExcluded -DataRoot $script:Temp)
+        $got.Count | Should -Be 2
+        @($got | Where-Object { -not $_.Key })[0].Reason | Should -Be 'again'
+        $got[0].Value | Should -BeNullOrEmpty
+    }
+
+    It 'is returned for its own tenant only' {
+        Set-PEDecision -Kind PropertyExcluded -ResourceType 'SCDLPCompliancePolicy' -Property 'Priority' -Tenant 'contoso' -Reason 'a' -DataRoot $script:Temp | Out-Null
+        @(Get-PEDecision -Kind PropertyExcluded -Tenant 'contoso' -DataRoot $script:Temp).Count | Should -Be 1
+        @(Get-PEDecision -Kind PropertyExcluded -Tenant 'other' -DataRoot $script:Temp).Count | Should -Be 0
+    }
+
+    It 'Remove-PEDecision with a key removes only the item-level one' {
+        Set-PEDecision -Kind PropertyExcluded -ResourceType 'SCDLPCompliancePolicy' -Property 'Priority' -Tenant 'contoso' -Reason 'a' -DataRoot $script:Temp | Out-Null
+        Set-PEDecision -Kind PropertyExcluded -ResourceType 'SCDLPCompliancePolicy' -Property 'Priority' -Tenant 'contoso' -Key 'GDPR' -Reason 'b' -DataRoot $script:Temp | Out-Null
+        Remove-PEDecision -Kind PropertyExcluded -ResourceType 'SCDLPCompliancePolicy' -Property 'Priority' -Tenant 'contoso' -Key 'GDPR' -DataRoot $script:Temp
+        $left = @(Get-PEDecision -Kind PropertyExcluded -DataRoot $script:Temp)
+        $left.Count | Should -Be 1
+        $left[0].Key | Should -BeNullOrEmpty
+    }
+}

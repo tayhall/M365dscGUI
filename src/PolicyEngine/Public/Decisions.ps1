@@ -4,7 +4,7 @@ function Set-PEDecision
     param
     (
         [Parameter(Mandatory)]
-        [ValidateSet('Unmanaged', 'Noise', 'Remove')]
+        [ValidateSet('Unmanaged', 'Noise', 'Remove', 'PropertyExcluded')]
         [string]$Kind,
 
         [Parameter(Mandatory)]
@@ -38,13 +38,25 @@ function Set-PEDecision
             throw 'A Noise decision requires -Value.'
         }
     }
+    elseif ($Kind -eq 'PropertyExcluded')
+    {
+        # One property of a type (or of one item, with -Key) is not enforced in one tenant: the tenant is part of the decision.
+        if ([string]::IsNullOrWhiteSpace($Property))
+        {
+            throw 'A PropertyExcluded decision requires -Property.'
+        }
+        if ([string]::IsNullOrWhiteSpace($Tenant))
+        {
+            throw 'A PropertyExcluded decision requires -Tenant.'
+        }
+    }
     elseif ([string]::IsNullOrWhiteSpace($Key))
     {
         throw "A $Kind decision requires -Key."
     }
 
     # Identity is (Kind, ResourceType, Key) for Unmanaged and Remove, so any supplied Property is ignored.
-    if ($Kind -ne 'Noise')
+    if ($Kind -notin 'Noise', 'PropertyExcluded')
     {
         $Property = $null
     }
@@ -77,7 +89,7 @@ function Get-PEDecision
     [OutputType([object[]])]
     param
     (
-        [ValidateSet('Unmanaged', 'Noise', 'Remove')]
+        [ValidateSet('Unmanaged', 'Noise', 'Remove', 'PropertyExcluded')]
         [string]$Kind,
 
         # With a tenant: the decisions for every tenant plus the ones for that tenant.
@@ -104,7 +116,7 @@ function Remove-PEDecision
     param
     (
         [Parameter(Mandatory)]
-        [ValidateSet('Unmanaged', 'Noise', 'Remove')]
+        [ValidateSet('Unmanaged', 'Noise', 'Remove', 'PropertyExcluded')]
         [string]$Kind,
 
         [Parameter(Mandatory)]

@@ -215,6 +215,33 @@ function Compare-PEState
         $excludedPropertiesByType[$excludedType].Add([pscustomobject]@{ Key = [string]$decision.Key; Property = [string]$decision.Property })
     }
 
+    # Accepted risks (RiskAccepted decisions, already limited to the tenant by the caller; one without a tenant or a key is ignored): an item
+    # (no Property) or one property of an item whose difference from the standard was approved. A decision that remembers a StandardHash only
+    # holds while the standard's record still has that hash; otherwise the finding stays open with a hint.
+    $riskByType = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($decision in @($Decisions))
+    {
+        if ($null -eq $decision -or $decision.Kind -ne 'RiskAccepted' -or [string]::IsNullOrWhiteSpace([string]$decision.ResourceType) -or
+            [string]::IsNullOrWhiteSpace([string]$decision.Key) -or [string]::IsNullOrWhiteSpace([string]$decision.Tenant))
+        {
+            continue
+        }
+        $riskType = [string]$decision.ResourceType
+        if (-not $riskByType.ContainsKey($riskType))
+        {
+            $riskByType[$riskType] = [System.Collections.Generic.List[object]]::new()
+        }
+        $riskByType[$riskType].Add([pscustomobject]@{
+                Key        = [string]$decision.Key
+                Property   = [string]$decision.Property
+                Hash       = $(if ($decision.PSObject.Properties['StandardHash']) { [string]$decision.StandardHash } else { '' })
+                ApprovedBy = $(if ($decision.PSObject.Properties['ApprovedBy']) { [string]$decision.ApprovedBy } else { '' })
+                Reason     = [string]$decision.Reason
+                At         = [string]$decision.At
+            })
+    }
+    $staleHint = 'Accepted risk needs another look: the standard has changed.'
+
     # 3. Ambiguous, Changed, and Missing/TargetOnly candidates (grouped by lower-cased type for rename matching).
     $missingByType = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $targetOnlyByType = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -313,9 +340,41 @@ function Compare-PEState
                 $differences = $enforced.ToArray()
                 $excludedDifferences = $excludedList.ToArray()
             }
-            if ($differences.Count -gt 0 -or $excludedDifferences.Count -gt 0)
+            $acceptedDifferences = @()
+            $changedHint = $null
+            if ($differences.Count -gt 0 -and $riskByType.ContainsKey([string]$first.ResourceType))
             {
-                $findings.Add((New-PEFinding -Kind 'Changed' -ResourceType $first.ResourceType -Key $first.Key -Workload (Get-PERecordWorkload -Record $first) -Differences $differences -ExcludedDifferences $excludedDifferences -BlueprintRecord $first -TargetRecord $other))
+                $recordHash = $null
+                $enforced = [System.Collections.Generic.List[object]]::new()
+                $acceptedList = [System.Collections.Generic.List[object]]::new()
+                foreach ($difference in $differences)
+                {
+                    $accepted = $false
+                    foreach ($rule in $riskByType[[string]$first.ResourceType])
+                    {
+                        if ($rule.Property -ieq $difference.Property -and $rule.Key -ieq [string]$first.Key)
+                        {
+                            if ($rule.Hash)
+                            {
+                                if ($null -eq $recordHash) { $recordHash = Get-PEDecisionHash -Record $first }
+                                if ($rule.Hash -ne $recordHash)
+                                {
+                                    $changedHint = $staleHint
+                                    continue
+                                }
+                            }
+                            $accepted = $true
+                            break
+                        }
+                    }
+                    if ($accepted) { $acceptedList.Add($difference) } else { $enforced.Add($difference) }
+                }
+                $differences = $enforced.ToArray()
+                $acceptedDifferences = $acceptedList.ToArray()
+            }
+            if ($differences.Count -gt 0 -or $excludedDifferences.Count -gt 0 -or $acceptedDifferences.Count -gt 0)
+            {
+                $findings.Add((New-PEFinding -Kind 'Changed' -ResourceType $first.ResourceType -Key $first.Key -Workload (Get-PERecordWorkload -Record $first) -Differences $differences -ExcludedDifferences $excludedDifferences -AcceptedDifferences $acceptedDifferences -Hint $changedHint -BlueprintRecord $first -TargetRecord $other))
             }
         }
         else
@@ -493,6 +552,38 @@ function Compare-PEState
             $finding.State = 'Unmanaged'
             $result.Add($finding)
             continue
+        }
+        # An accepted risk: the item itself (a Missing or Changed finding), or every difference of the item was an accepted property. It is
+        # kept visible with who approved it and why, and not counted. A stale acceptance (the standard's record changed) stays open.
+        if ($finding.Kind -in 'Missing', 'Changed' -and $null -ne $finding.Key -and $riskByType.ContainsKey([string]$finding.ResourceType))
+        {
+            $itemRule = $null
+            foreach ($rule in $riskByType[[string]$finding.ResourceType])
+            {
+                if ($rule.Key -ieq [string]$finding.Key -and [string]::IsNullOrEmpty($rule.Property))
+                {
+                    $itemRule = $rule
+                    break
+                }
+            }
+            if ($null -ne $itemRule -and $itemRule.Hash -and $itemRule.Hash -ne (Get-PEDecisionHash -Record $finding.BlueprintRecord))
+            {
+                $finding.Hint = $staleHint
+                $itemRule = $null
+            }
+            if ($null -eq $itemRule -and $finding.Kind -eq 'Changed' -and @($finding.Differences).Count -eq 0 -and @($finding.AcceptedDifferences).Count -gt 0)
+            {
+                $itemRule = @($riskByType[[string]$finding.ResourceType] | Where-Object { $_.Key -ieq [string]$finding.Key -and $_.Property -ieq [string]$finding.AcceptedDifferences[0].Property })[0]
+            }
+            if ($null -ne $itemRule)
+            {
+                $finding.State = 'Accepted'
+                $finding | Add-Member -NotePropertyName ApprovedBy -NotePropertyValue $itemRule.ApprovedBy
+                $finding | Add-Member -NotePropertyName AcceptedReason -NotePropertyValue $itemRule.Reason
+                $finding | Add-Member -NotePropertyName AcceptedAt -NotePropertyValue $itemRule.At
+                $result.Add($finding)
+                continue
+            }
         }
         # Unmanaged covers only objects that exist in the target and not in the blueprint.
         $isTargetSide = $finding.Kind -eq 'TargetOnly' -or ($finding.Kind -eq 'PossibleRename' -and $null -ne $finding.TargetRecord)

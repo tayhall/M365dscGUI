@@ -4,7 +4,7 @@ function Set-PEDecision
     param
     (
         [Parameter(Mandatory)]
-        [ValidateSet('Unmanaged', 'Noise', 'Remove', 'PropertyExcluded')]
+        [ValidateSet('Unmanaged', 'Noise', 'Remove', 'PropertyExcluded', 'RiskAccepted')]
         [string]$Kind,
 
         [Parameter(Mandatory)]
@@ -24,10 +24,31 @@ function Set-PEDecision
         # The tenant the decision is for (a slug); empty means every tenant.
         [string]$Tenant,
 
+        # RiskAccepted only: who approved leaving the difference, and a hash of the standard's record at that time (Get-PEDecisionHash), so a
+        # later change to the standard reopens it.
+        [string]$ApprovedBy,
+
+        [string]$StandardHash,
+
         [string]$DataRoot
     )
 
-    if ($Kind -eq 'Noise')
+    if ($Kind -eq 'RiskAccepted')
+    {
+        if ([string]::IsNullOrWhiteSpace($Tenant))
+        {
+            throw 'A RiskAccepted decision requires -Tenant.'
+        }
+        if ([string]::IsNullOrWhiteSpace($Key))
+        {
+            throw 'A RiskAccepted decision requires -Key.'
+        }
+        if ([string]::IsNullOrWhiteSpace($ApprovedBy))
+        {
+            throw 'A RiskAccepted decision requires -ApprovedBy.'
+        }
+    }
+    elseif ($Kind -eq 'Noise')
     {
         if ([string]::IsNullOrWhiteSpace($Property))
         {
@@ -56,7 +77,7 @@ function Set-PEDecision
     }
 
     # Identity is (Kind, ResourceType, Key) for Unmanaged and Remove, so any supplied Property is ignored.
-    if ($Kind -notin 'Noise', 'PropertyExcluded')
+    if ($Kind -notin 'Noise', 'PropertyExcluded', 'RiskAccepted')
     {
         $Property = $null
     }
@@ -70,6 +91,11 @@ function Set-PEDecision
         Reason       = $Reason
         Tenant       = $(if ($Tenant) { $Tenant } else { $null })
         At           = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+    }
+    if ($Kind -eq 'RiskAccepted')
+    {
+        $decision['ApprovedBy'] = $ApprovedBy
+        $decision['StandardHash'] = $(if ($StandardHash) { $StandardHash } else { $null })
     }
 
     $path = Get-PEDecisionPath -DataRoot $DataRoot
@@ -89,7 +115,7 @@ function Get-PEDecision
     [OutputType([object[]])]
     param
     (
-        [ValidateSet('Unmanaged', 'Noise', 'Remove', 'PropertyExcluded')]
+        [ValidateSet('Unmanaged', 'Noise', 'Remove', 'PropertyExcluded', 'RiskAccepted')]
         [string]$Kind,
 
         # With a tenant: the decisions for every tenant plus the ones for that tenant.
@@ -116,7 +142,7 @@ function Remove-PEDecision
     param
     (
         [Parameter(Mandatory)]
-        [ValidateSet('Unmanaged', 'Noise', 'Remove', 'PropertyExcluded')]
+        [ValidateSet('Unmanaged', 'Noise', 'Remove', 'PropertyExcluded', 'RiskAccepted')]
         [string]$Kind,
 
         [Parameter(Mandatory)]

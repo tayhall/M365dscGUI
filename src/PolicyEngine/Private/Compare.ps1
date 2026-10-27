@@ -540,6 +540,10 @@ function New-PEFinding
         [AllowNull()]
         [object[]]$ExcludedDifferences = @(),
 
+        # Differences of properties whose risk was accepted (RiskAccepted decisions): shown, not counted.
+        [AllowNull()]
+        [object[]]$AcceptedDifferences = @(),
+
         [AllowNull()]
         [string]$Hint,
 
@@ -563,6 +567,7 @@ function New-PEFinding
         Workload        = $Workload
         Differences     = $(if ($null -eq $Differences) { @() } else { @($Differences) })
         ExcludedDifferences = $(if ($null -eq $ExcludedDifferences) { @() } else { @($ExcludedDifferences) })
+        AcceptedDifferences = $(if ($null -eq $AcceptedDifferences) { @() } else { @($AcceptedDifferences) })
         Hint            = $(if ([string]::IsNullOrEmpty($Hint)) { $null } else { $Hint })
         State           = 'Open'
         BlueprintRecord = $BlueprintRecord
@@ -968,4 +973,21 @@ function Select-PESubsetTarget
     }
 
     New-PEState -Records @($kept) -NotChecked @($Target.NotChecked) -Meta $Target.Meta
+}
+
+function Get-PEDecisionHash
+{
+    # SHA-256 (hex) of a record's properties in canonical form: what a RiskAccepted decision remembers of the standard's record, so a
+    # later change to any property the standard states reopens the acceptance.
+    [CmdletBinding()]
+    [OutputType([string])]
+    param
+    (
+        [Parameter(Mandatory)]
+        $Record
+    )
+
+    $canonical = ConvertTo-PECanonicalValue (Get-PEPropertyBag -Record $Record)
+    $bytes = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes([string]$canonical))
+    return [System.Convert]::ToHexString($bytes)
 }

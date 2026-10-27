@@ -536,6 +536,10 @@ function New-PEFinding
         [AllowNull()]
         [object[]]$Differences = @(),
 
+        # Differences of properties excluded for the tenant (PropertyExcluded decisions): shown, not counted, never reverted.
+        [AllowNull()]
+        [object[]]$ExcludedDifferences = @(),
+
         [AllowNull()]
         [string]$Hint,
 
@@ -558,6 +562,7 @@ function New-PEFinding
         Key             = $(if ([string]::IsNullOrEmpty($Key)) { $null } else { $Key })
         Workload        = $Workload
         Differences     = $(if ($null -eq $Differences) { @() } else { @($Differences) })
+        ExcludedDifferences = $(if ($null -eq $ExcludedDifferences) { @() } else { @($ExcludedDifferences) })
         Hint            = $(if ([string]::IsNullOrEmpty($Hint)) { $null } else { $Hint })
         State           = 'Open'
         BlueprintRecord = $BlueprintRecord

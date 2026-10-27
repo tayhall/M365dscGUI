@@ -37,6 +37,9 @@ function Compare-PEState
     - Unmanaged decisions set State 'Unmanaged' only on TargetOnly findings and PossibleRename findings built from
       a target record, with that ResourceType and Key. A stale decision never hides a Missing or Changed finding.
     - Remove decisions do not affect comparison (they are used by Rectify).
+    - PropertyExcluded decisions (ResourceType + Property + Tenant, optionally Key; one without a tenant is ignored) move a matching
+      difference of a matched pair from Differences to ExcludedDifferences. A Changed finding with nothing left in Differences keeps
+      State 'Unmanaged' (shown, not counted, never reverted); with other differences left it stays Open and lists both.
     - Ignore paths of Data\IgnoredProperties.psd1 (dotted, for example 'ScheduleInfo.startDateTime', or conditional
       @{ Path; When = 'PastExport' }) are applied to both records of a matched pair before their properties are
       compared, so a blueprint stored before the entry was added does not report the ignored member as Changed. (New
@@ -185,6 +188,24 @@ function Compare-PEState
     $blueprintIndex = Get-PERecordIndex -Records $blueprintRecordsCompared -SkipTypes $skipTypes -Side 'Blueprint' -Findings $findings
     $targetIndex = Get-PERecordIndex -Records $targetRecordsCompared -SkipTypes $skipTypes -Side 'Target' -Findings $findings
 
+    # Properties the owner chose not to enforce in this tenant (PropertyExcluded decisions, already limited to the tenant by the caller; one with no
+    # tenant is ignored). Matched pairs move such a difference to ExcludedDifferences: still shown, not counted, never reverted.
+    $excludedPropertiesByType = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($decision in @($Decisions))
+    {
+        if ($null -eq $decision -or $decision.Kind -ne 'PropertyExcluded' -or [string]::IsNullOrWhiteSpace([string]$decision.ResourceType) -or
+            [string]::IsNullOrWhiteSpace([string]$decision.Property) -or [string]::IsNullOrWhiteSpace([string]$decision.Tenant))
+        {
+            continue
+        }
+        $excludedType = [string]$decision.ResourceType
+        if (-not $excludedPropertiesByType.ContainsKey($excludedType))
+        {
+            $excludedPropertiesByType[$excludedType] = [System.Collections.Generic.List[object]]::new()
+        }
+        $excludedPropertiesByType[$excludedType].Add([pscustomobject]@{ Key = [string]$decision.Key; Property = [string]$decision.Property })
+    }
+
     # 3. Ambiguous, Changed, and Missing/TargetOnly candidates (grouped by lower-cased type for rename matching).
     $missingByType = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $targetOnlyByType = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -261,9 +282,31 @@ function Compare-PEState
             {
                 $differences = Remove-PETenantNameDifference -Difference $differences -BlueprintName $blueprintName -TargetName $targetName
             }
-            if ($differences.Count -gt 0)
+            $excludedDifferences = @()
+            if ($differences.Count -gt 0 -and $excludedPropertiesByType.ContainsKey([string]$first.ResourceType))
             {
-                $findings.Add((New-PEFinding -Kind 'Changed' -ResourceType $first.ResourceType -Key $first.Key -Workload (Get-PERecordWorkload -Record $first) -Differences $differences -BlueprintRecord $first -TargetRecord $other))
+                $rules = $excludedPropertiesByType[[string]$first.ResourceType]
+                $enforced = [System.Collections.Generic.List[object]]::new()
+                $excludedList = [System.Collections.Generic.List[object]]::new()
+                foreach ($difference in $differences)
+                {
+                    $isExcluded = $false
+                    foreach ($rule in $rules)
+                    {
+                        if ($rule.Property -ieq $difference.Property -and ([string]::IsNullOrEmpty($rule.Key) -or $rule.Key -ieq [string]$first.Key))
+                        {
+                            $isExcluded = $true
+                            break
+                        }
+                    }
+                    if ($isExcluded) { $excludedList.Add($difference) } else { $enforced.Add($difference) }
+                }
+                $differences = $enforced.ToArray()
+                $excludedDifferences = $excludedList.ToArray()
+            }
+            if ($differences.Count -gt 0 -or $excludedDifferences.Count -gt 0)
+            {
+                $findings.Add((New-PEFinding -Kind 'Changed' -ResourceType $first.ResourceType -Key $first.Key -Workload (Get-PERecordWorkload -Record $first) -Differences $differences -ExcludedDifferences $excludedDifferences -BlueprintRecord $first -TargetRecord $other))
             }
         }
         else
@@ -430,10 +473,17 @@ function Compare-PEState
                 }
             }
             $finding.Differences = @($kept)
-            if ($finding.Differences.Count -eq 0)
+            if ($finding.Differences.Count -eq 0 -and @($finding.ExcludedDifferences).Count -eq 0)
             {
                 continue
             }
+        }
+        # Every difference of the item is a property excluded for this tenant: nothing is enforced, so it is kept (visible) but not counted.
+        if ($finding.Kind -eq 'Changed' -and $finding.Differences.Count -eq 0 -and @($finding.ExcludedDifferences).Count -gt 0)
+        {
+            $finding.State = 'Unmanaged'
+            $result.Add($finding)
+            continue
         }
         # Unmanaged covers only objects that exist in the target and not in the blueprint.
         $isTargetSide = $finding.Kind -eq 'TargetOnly' -or ($finding.Kind -eq 'PossibleRename' -and $null -ne $finding.TargetRecord)

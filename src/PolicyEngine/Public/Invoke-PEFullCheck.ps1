@@ -49,13 +49,7 @@ function Invoke-PEFullCheck
     Assert-PEModuleVersion -BlueprintName $BlueprintName -AcceptModuleChange:$AcceptModuleChange -DataRoot $root
     $blueprintVersion = @(Get-PEBlueprintVersionNumber -Directory (Get-PEBlueprintDirectory -Name $BlueprintName -DataRoot $root))[-1]
 
-    # CheckId: sortable UTC timestamp; on a collision (same second) take the next free second.
-    $moment = [datetime]::UtcNow
-    while (Test-Path -LiteralPath (Join-Path $root ('checks\' + $moment.ToString('yyyyMMdd-HHmmss'))))
-    {
-        $moment = $moment.AddSeconds(1)
-    }
-    $checkId = $moment.ToString('yyyyMMdd-HHmmss')
+    $checkId = New-PECheckId -Root $root
 
     $exported = Get-PETenantExportState -Blueprint $blueprint -Workloads $Workloads -CheckId $checkId -Tenant $Tenant -Root $root -ExportScript $ExportScript -TargetTenantId $TargetTenantId
     $state = $exported.State

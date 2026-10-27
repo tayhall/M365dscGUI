@@ -20,7 +20,7 @@ function Get-PECheck
         [Parameter(Mandatory, ParameterSetName = 'Latest')]
         [switch]$Latest,
 
-        [ValidateSet('Full', 'Scan')]
+        [ValidateSet('Full', 'Scan', 'Standard')]
         [string]$Kind,
 
         # With -Latest: the newest check of this tenant. A check written before tenants existed belongs to 'master'.

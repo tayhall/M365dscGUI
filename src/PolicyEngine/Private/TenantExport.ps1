@@ -113,3 +113,22 @@ function Get-PETenantExportState
         LogWarnings = @($logWarnings)
     }
 }
+
+function New-PECheckId
+{
+    # CheckId: sortable UTC timestamp; on a collision (same second) take the next free second.
+    [CmdletBinding()]
+    [OutputType([string])]
+    param
+    (
+        [Parameter(Mandatory)]
+        [string]$Root
+    )
+
+    $moment = [datetime]::UtcNow
+    while (Test-Path -LiteralPath (Join-Path $Root ('checks\' + $moment.ToString('yyyyMMdd-HHmmss'))))
+    {
+        $moment = $moment.AddSeconds(1)
+    }
+    return $moment.ToString('yyyyMMdd-HHmmss')
+}

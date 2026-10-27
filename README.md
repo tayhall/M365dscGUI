@@ -116,6 +116,20 @@ pwsh -NoProfile -File tools\Invoke-PETests.ps1 -Fast
 
 The Pester tests run offline on fake exports.
 
+## Status and roadmap
+
+M365dscGUI is early-stage and exploratory. Checking, blueprints, drift review and applying a Revert through the Local Configuration Manager work against a test tenant, but treat it as a prototype. Known limits and open items are kept in [`docs/handover.md`](docs/handover.md).
+
+Planned or under consideration (these are plans, not promises, and the order may change):
+
+- **Azure DevOps pipeline.** Run checks and applies from a pipeline instead of a workstation. Today the offline-tenant flow writes `Changes.ps1` and `Removals.ps1` for a pipeline owner to run by hand; a real pipeline still needs the Writer app and its certificate handled safely, and a design for approvals. See "Not done" in [`docs/handover.md`](docs/handover.md) and section 6 of [`docs/gap-analysis.md`](docs/gap-analysis.md).
+- **Entra sign-in for the GUI.** The GUI currently listens on localhost only, protected by a per-run token and a host-name check, with no user sign-in. Signing users in with Microsoft Entra ID (and deciding who may Promote or Revert) is needed before it could be shared beyond one machine. Until then, keep it on localhost.
+- **Shared storage** for blueprints and decisions, so a team can work from the same state rather than one workstation's `data/` folder.
+- **Revert dialog and classifier.** Use the results of the round-trip classifier in the Revert dialog, so a resource type DSC cannot round-trip is clearly marked as confirmed only by a re-check.
+- **More workloads.** A Security and Compliance check of the replica. Security and Compliance types are check-only today because Revert fails inside the Exchange module (reported upstream, issue 7563).
+
+Ideas and pull requests are welcome. Open an issue first for anything large so it can be discussed against the thin-wrapper principle in [`CLAUDE.md`](CLAUDE.md).
+
 ## Documentation
 
 | Document | What it covers |

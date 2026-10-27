@@ -277,6 +277,7 @@ async function loadAll() {
     tenants[t] = { meta, status, findings, items };
   }));
   Object.assign(D, { setup, index, types, versions, exclusions, activity, tenants, layerRows: {}, bpVersions: {}, tenantIds: index.tenants.map((m) => m.tenantId), ready: true, error: null });
+  await loadStandards();
   ui.queue = loadQueue();
 }
 async function loadItem(t, id) {
@@ -337,6 +338,9 @@ function route() {
   if (a === 'blueprint') return { screen: 'blueprint', name: q.get('name') || '' };
   if (a === 'exclusions') return { screen: 'exclusions' };
   if (a === 'queue') return { screen: 'queue' };
+  if (a === 'standards' && !b) return { screen: 'standards' };
+  if (a === 'standards' && b && c === 'not-covered') return { screen: 'notcovered', name: b, reason: q.get('reason') || 'all' };
+  if (a === 'standards' && b && !c) return { screen: 'standard', name: b, show: q.get('show') || 'decide' };
   if (a === 'activity') return { screen: 'activity', job: b || null };
   return { screen: 'notfound' };
 }
@@ -387,8 +391,8 @@ function contextStrip(t) {
 function topbar(r) {
   const open = findingsOf(curTenant()).filter(isOpenDrift).length;
   const running = D.activity.filter((j) => j.status === 'Queued' || j.status === 'Running').length;
-  const top = { workload: 'overview', type: 'overview', item: 'overview', compare: 'blueprint', version: 'blueprint' }[r.screen] || r.screen;
-  const nav = [['overview', 'Overview', '/'], ['drift', 'Drift review', '/drift'], ['blueprint', 'Blueprint', '/blueprint'], ['exclusions', 'Exclusions', '/exclusions'], ['queue', 'Selection list', '/queue'], ['tenants', 'Tenants', '/tenants'], ['activity', 'Activity', '/activity']]
+  const top = { workload: 'overview', type: 'overview', item: 'overview', compare: 'blueprint', version: 'blueprint', standard: 'standards', notcovered: 'standards' }[r.screen] || r.screen;
+  const nav = [['overview', 'Overview', '/'], ['drift', 'Drift review', '/drift'], ['blueprint', 'Blueprint', '/blueprint'], ['standards', 'Standards', '/standards'], ['exclusions', 'Exclusions', '/exclusions'], ['queue', 'Selection list', '/queue'], ['tenants', 'Tenants', '/tenants'], ['activity', 'Activity', '/activity']]
     .map(([k, label, href]) => `<a href="${href}" data-link class="navb${top === k ? ' on' : ''}"${top === k ? ' aria-current="page"' : ''}>${label}${k === 'drift' && open ? `<span class="badge">${open}</span>` : ''}${k === 'queue' && ui.queue.length ? `<span class="badge">${ui.queue.length}</span>` : ''}</a>`).join('');
   return `<header class="top">
     <div class="brand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9cc0ff" stroke-width="2" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Drift Engine</div>
@@ -399,6 +403,7 @@ function topbar(r) {
   </header>`;
 }
 function crumbs(r) {
+  if (r.screen === 'standard' || r.screen === 'notcovered') return standardCrumbs(r);
   let list = [];
   if (['workload', 'type', 'item'].includes(r.screen) && tenant(r.t)) {
     const wl = r.wl || (D.types[itemType(r)] || {}).workload;
@@ -1544,6 +1549,7 @@ function onClick(e) {
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
   const act = el.dataset.act;
+  if (act.startsWith('std-')) { standardsClick(el); return; }
   if (act === 'action') openDialog(el.dataset.action, [{ tenantId: el.dataset.tenant, items: itemsFromIds(el.dataset.ids) }]);
   else if (act === 'bulk') {
     const byTenant = {};
@@ -1666,7 +1672,7 @@ function render() {
   syncTenantUrl(r);
   const focusId = document.activeElement && document.activeElement.id;
   const hadDialog = !!document.querySelector('.dialog');
-  const screens = { overview, workload, type: typePage, item: itemPage, drift, blueprint, compare, version: versionPage, exclusions, tenants: tenantsPage, queue: queuePage, activity, notfound: notFound };
+  const screens = { overview, workload, type: typePage, item: itemPage, drift, blueprint, compare, version: versionPage, exclusions, tenants: tenantsPage, queue: queuePage, standards: standardsPage, standard: standardCheckPage, notcovered: notCoveredPage, activity, notfound: notFound };
   const valid = !['workload', 'type', 'item'].includes(r.screen) || tenant(r.t);
   const body = valid ? screens[r.screen](r) : notFound();
   const toast = ui.toast ? `<div class="toast" role="status"><span>${esc(ui.toast.text)}</span>${ui.toast.job ? link(path.activity(ui.toast.job), 'View in Activity') : ''}<button class="lnk" data-act="toast-close" aria-label="Dismiss">✕</button></div>` : '';

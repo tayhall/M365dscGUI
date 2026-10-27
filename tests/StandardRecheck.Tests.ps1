@@ -10,7 +10,7 @@ BeforeAll {
     }
 }
 
-Describe 'Checking a tenant against a newer version of a standard' {
+Describe 'Checking a tenant''s blueprint against a newer version of a standard' {
     BeforeEach {
         $script:Temp = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-recheck-' + [guid]::NewGuid())
     }
@@ -19,11 +19,10 @@ Describe 'Checking a tenant against a newer version of a standard' {
         if (Test-Path $script:Temp) { Remove-Item $script:Temp -Recurse -Force }
     }
 
-    It 'keeps an accepted risk until the standard changes the item, then asks for another look, and adopts what is promoted' {
+    It 'keeps an accepted risk until the standard changes the item, then asks for another look, and shows an adopted setting as matching' {
         Import-TestStandard -Path $script:Fixture -SourceVersion 'v1.4.0' -Root $script:Temp | Out-Null
-        $folder = New-TenantExport -Root $script:Temp -Countries '@("AU","NZ")'
-        $export = { $folder }.GetNewClosure()
-        $check = { Invoke-PEStandardCheck -StandardName 'asd' -ExportScript $export -TargetTenantId 'tenant-1' -DataRoot $script:Temp }
+        New-TestTenantBlueprint -Root $script:Temp
+        $check = { Invoke-PEStandardCheck -StandardName 'asd' -BlueprintName 'main' -DataRoot $script:Temp }
 
         # v1: the named location differs (Changed) and the Teams policy is missing.
         $first = & $check
@@ -49,13 +48,15 @@ Describe 'Checking a tenant against a newer version of a standard' {
         $third.Coverage.Checked | Should -Be 2
         $location = @($third.Findings | Where-Object ResourceType -EQ 'AADNamedLocationPolicy')[0]
         $location.State | Should -Be 'Open'
+        $location.AcceptanceStale | Should -BeTrue
         $location.Hint | Should -Be 'Accepted risk needs another look: the standard has changed.'
 
-        # The Teams policy is promoted into the user's blueprint and shows as adopted.
-        Initialize-PEBlueprint -Name 'prod' -State (& (Get-Module PolicyEngine) { New-PEState -Records @() -NotChecked @() -Meta @{ TenantId = 't' } }) -DataRoot $script:Temp | Out-Null
+        # The Teams policy is adopted into the tenant's blueprint: the next check no longer lists it, and it counts as adopted.
         $teams = @((Get-PEBlueprint -Name 'asd' -DataRoot $script:Temp).Records | Where-Object ResourceType -EQ 'TeamsMessagingPolicy')[0]
-        Copy-PEStandardItem -Standard 'asd' -To 'prod' -Item ([pscustomobject]@{ ResourceType = $teams.ResourceType; Key = $teams.Key }) -Reason 'adopt' -ExpectedVersion 1 -DataRoot $script:Temp | Should -Be 2
-        $adoption = @(Get-PEStandardAdoption -Standard 'asd' -Blueprint 'prod' -DataRoot $script:Temp)
+        Copy-PEStandardItem -Standard 'asd' -To 'main' -Item ([pscustomobject]@{ ResourceType = $teams.ResourceType; Key = $teams.Key }) -Reason 'adopt' -ExpectedVersion 1 -DataRoot $script:Temp | Should -Be 2
+        $fourth = & $check
+        @($fourth.Findings | Where-Object ResourceType -EQ 'TeamsMessagingPolicy').Count | Should -Be 0
+        $adoption = @(Get-PEStandardAdoption -Standard 'asd' -Blueprint 'main' -DataRoot $script:Temp)
         ($adoption | Where-Object ResourceType -EQ 'TeamsMessagingPolicy').Adopted | Should -BeTrue
         ($adoption | Where-Object ResourceType -EQ 'AADNamedLocationPolicy').Adopted | Should -BeFalse
     }

@@ -93,10 +93,10 @@ Describe 'Standards request previews' {
         ($p.errors -join ' ') | Should -BeLike '*no blueprint of its own*'
     }
 
-    It 'refuses Adopt without a reason, on an accepted row, on an adopted row and for an item that is not a row' {
+    It 'refuses Adopt without a reason, on an accepted row and for an item that is not a row, and allows it again on an item adopted before' {
         (Get-Preview $root @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; items = @(@{ itemId = $countries }) }).errors -join ' ' | Should -BeLike '*reason is required*'
         (Get-Preview $root @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; reason = 'x'; items = @(@{ itemId = $trusted }) }).errors -join ' ' | Should -BeLike "*not allowed*"
-        (Get-Preview $root @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; reason = 'x'; items = @(@{ itemId = $giphy }) }).errors -join ' ' | Should -BeLike "*not allowed*"
+        (Get-Preview $root @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; reason = 'x'; confirmedMasterWrite = $true; items = @(@{ itemId = $giphy }) }).valid | Should -BeTrue
         (Get-Preview $root @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; reason = 'x'; items = @(@{ itemId = 'Nope~x' }) }).errors -join ' ' | Should -BeLike "*No row*"
         (Get-Preview $root @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; reason = 'x'; items = @() }).errors -join ' ' | Should -BeLike '*at least one item*'
     }
@@ -142,9 +142,9 @@ Describe 'Standards request previews' {
         (Get-Preview $root @{ action = 'ImportStandard'; standard = '..\x' }).valid | Should -BeFalse
     }
 
-    It 'refuses a standard check for an offline tenant or while a check is running' {
+    It 'allows a standard check for an offline tenant (nothing is read from it) and refuses a second one while it runs' {
         Set-IndexTenant $root { param ($i) ($i.tenants | Where-Object tenantId -EQ 'replica') | Add-Member -NotePropertyName offline -NotePropertyValue $true -Force }
-        (Get-Preview $root @{ action = 'StandardCheck'; tenantId = 'replica'; standard = 'asd' }).errors -join ' ' | Should -BeLike '*offline*'
+        (Get-Preview $root @{ action = 'StandardCheck'; tenantId = 'replica'; standard = 'asd' }).valid | Should -BeTrue
         $first = New-PEGuiRequest -DataRoot $root -Request @{ action = 'StandardCheck'; tenantId = 'master'; standard = 'asd' }
         $first.created | Should -BeTrue
         (Get-Preview $root @{ action = 'StandardCheck'; tenantId = 'master'; standard = 'asd' }).errors -join ' ' | Should -BeLike '*already running*'

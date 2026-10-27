@@ -6,7 +6,10 @@
   "checkedAt": "2026-10-27T14:32:00Z",
   "standardVersion": 1,
   "sourceVersion": "v1.4.0",
-  "patched": false,
+  "blueprint": {
+    "name": "prod",
+    "version": 7
+  },
   "newerVersionImported": false,
   "headline": {
     "total": 133,
@@ -104,7 +107,7 @@
           "standard": [
             "AU"
           ],
-          "tenant": [
+          "blueprint": [
             "AU",
             "NZ"
           ]
@@ -133,7 +136,7 @@
         {
           "property": "IsTrusted",
           "standard": true,
-          "tenant": false
+          "blueprint": false
         }
       ],
       "acceptedDifferences": [],
@@ -158,7 +161,7 @@
         {
           "property": "Block credential stealing",
           "standard": "Block",
-          "tenant": "Audit"
+          "blueprint": "Audit"
         }
       ],
       "acceptedDifferences": [],
@@ -169,6 +172,7 @@
       "adopted": true,
       "adoptedFrom": "v1.4.0",
       "allowedActions": [
+        "Adopt",
         "AcceptRisk"
       ]
     },
@@ -183,7 +187,7 @@
         {
           "property": "PasswordRequired",
           "standard": true,
-          "tenant": false
+          "blueprint": false
         }
       ],
       "acceptedDifferences": [],
@@ -229,7 +233,7 @@
         {
           "property": "ExternalDelayDsnEnabled",
           "standard": false,
-          "tenant": true
+          "blueprint": true
         }
       ],
       "acceptedDifferences": [],
@@ -255,7 +259,7 @@
         {
           "property": "AllowGiphy",
           "standard": false,
-          "tenant": true
+          "blueprint": true
         }
       ],
       "acceptedDifferences": [],
@@ -266,6 +270,7 @@
       "adopted": true,
       "adoptedFrom": "v1.4.0",
       "allowedActions": [
+        "Adopt",
         "AcceptRisk"
       ]
     },
@@ -280,7 +285,7 @@
         {
           "property": "AllowAnonymousUsersToJoinMeeting",
           "standard": false,
-          "tenant": true
+          "blueprint": true
         }
       ],
       "acceptedDifferences": [],
@@ -306,7 +311,7 @@
         {
           "property": "DefaultCatalogAppsType",
           "standard": "AllowedAppList",
-          "tenant": "BlockedAppList"
+          "blueprint": "BlockedAppList"
         }
       ],
       "acceptedDifferences": [],
@@ -332,7 +337,7 @@
         {
           "property": "AllowPreview",
           "standard": false,
-          "tenant": true
+          "blueprint": true
         }
       ],
       "acceptedDifferences": [],
@@ -358,7 +363,7 @@
         {
           "property": "AllowPrivateChannelCreation",
           "standard": false,
-          "tenant": true
+          "blueprint": true
         }
       ],
       "acceptedDifferences": [],
@@ -383,7 +388,7 @@
         {
           "property": "AllowPrivateCalling",
           "standard": false,
-          "tenant": true
+          "blueprint": true
         }
       ],
       "acceptedDifferences": [],
@@ -408,7 +413,7 @@
         {
           "property": "Priority",
           "standard": 2,
-          "tenant": 4
+          "blueprint": 4
         }
       ],
       "acceptedDifferences": [],
@@ -435,7 +440,7 @@
         {
           "property": "Mode",
           "standard": "Enable",
-          "tenant": "TestWithNotifications"
+          "blueprint": "TestWithNotifications"
         }
       ],
       "acceptedDifferences": [],
@@ -461,7 +466,7 @@
         {
           "property": "Enabled",
           "standard": true,
-          "tenant": false
+          "blueprint": false
         }
       ],
       "acceptedDifferences": [],
@@ -507,7 +512,7 @@
         {
           "property": "Mode",
           "standard": "Enable",
-          "tenant": "TestWithoutNotifications"
+          "blueprint": "TestWithoutNotifications"
         }
       ],
       "acceptedDifferences": [],
@@ -532,7 +537,7 @@
         {
           "property": "RetentionDuration",
           "standard": 2555,
-          "tenant": 1825
+          "blueprint": 1825
         }
       ],
       "acceptedDifferences": [],
@@ -557,7 +562,7 @@
         {
           "property": "Mode",
           "standard": "Enable",
-          "tenant": "TestWithNotifications"
+          "blueprint": "TestWithNotifications"
         }
       ],
       "acceptedDifferences": [],

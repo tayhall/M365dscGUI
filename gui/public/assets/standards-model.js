@@ -17,7 +17,7 @@
     return { decide: filterRows(rows, 'decide').length, accepted: filterRows(rows, 'accepted').length, all: (rows || []).length };
   }
 
-  const headlineText = (h) => `Checked ${h.checked} of ${h.total} settings`;
+  const headlineText = (h) => `Compared ${h.checked} of ${h.total} settings`;
   const subText = (h) => `${h.match} match, ${h.differ} differ, ${h.accepted} ${h.accepted === 1 ? 'is an accepted risk' : 'are accepted risks'}`;
 
   // The coverage bar: every setting of the standard is in exactly one segment, so not covered and not readable never count as matching.

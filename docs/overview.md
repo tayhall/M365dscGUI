@@ -29,7 +29,7 @@ Secrets and certificates live outside the repo, in `~\.m365dsc-policy\`.
 **Standards** (design: `docs/superpowers/specs/2026-10-27-standards-blueprints-design.md`)
 - A standard (the ASD Blueprint for Secure Cloud first) is a read-only blueprint with a `standard.json` (source, licence, imported versions) and a `coverage\vNNNN.json` per version. Every write and apply path refuses it.
 - `tools/Import-PEStandard.ps1` (`Import-PEStandard`): takes the latest ASD release tag (sparse clone into `data\sources\`), parses its DSC files with DSC's own parser, and stores what can be checked. Items with a placeholder or a property the pinned module lacks are listed as not covered, with the reason (`Get-PEStandardCoverage`).
-- `tools/Invoke-PEStandardCheck.ps1` (`Invoke-PEStandardCheck`): exports only the standard's workloads and compares only what the standard states (`Compare-PEState -Subset`). Reports "checked N of M settings".
+- `tools/Invoke-PEStandardCheck.ps1` (`Invoke-PEStandardCheck`): compares the tenant's own blueprint with the standard, reading nothing from the tenant, so it also works for an offline tenant (`Compare-PEState -Subset`; compares only what the standard states). Reports "compared N of M settings".
 - `Set-PERiskAcceptance`: accept a difference (who approved it, why); shown as Accepted, and reopened when a newer version of the standard changes the item. `Copy-PEStandardItem` promotes items into a blueprint with provenance; `Get-PEStandardAdoption` shows what a blueprint has adopted; `Get-PEStandardChange` compares two versions of a standard.
 
 **Checking drift**
@@ -62,7 +62,7 @@ Secrets and certificates live outside the repo, in `~\.m365dsc-policy\`.
 - `tools/Initialize-PETenantBlueprints.ps1`: gives every replica its own blueprint (use `-WhatIf` first). A replica without one cannot promote (it would change the master blueprint).
 
 **Standards in the GUI**
-- A Standards page (nav item), a check page per standard and a Not covered page, as in `docs/gui-mockups/standards.html`. The page shows the selected tenant's headline (`Checked N of M settings`), a coverage bar, a per-workload table and the differences with what the standard says and what the tenant has. **Adopt** copies a setting into the tenant's own blueprint, **Accept risk** records who approved leaving it and why, **Remove** brings a difference back; Adopt and Accept risk go through the Selection list. A standard check, an import of a release and a look for a newer one are worker requests. See `gui/README.md`, "Standards". `tools/PEDemoStandards.ps1` seeds a folder to try it without a tenant.
+- A Standards page (nav item), a check page per standard and a Not covered page, as in `docs/gui-mockups/standards.html`. The page shows the selected tenant's headline (`Compared N of M settings`), a coverage bar, a per-workload table and the differences with what the standard says and what the tenant has. **Adopt** copies a setting into the tenant's own blueprint, **Accept risk** records who approved leaving it and why, **Remove** brings a difference back; Adopt and Accept risk go through the Selection list. A standard check, an import of a release and a look for a newer one are worker requests. See `gui/README.md`, "Standards". `tools/PEDemoStandards.ps1` seeds a folder to try it without a tenant.
 
 **Verification**
 - `Invoke-PERoundTrip`, `Measure-PEKeyCoverage`: check that a blueprint exports and compares cleanly, and how well its keys are covered.

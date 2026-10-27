@@ -11,12 +11,15 @@ BeforeAll {
 
     function Invoke-TestCheck
     {
-        param ([string]$Countries = '@("AU","NZ")', [switch]$TeamsFails)
-        $arguments = @{ Root = $script:Temp; Countries = $Countries }
-        if ($TeamsFails) { $arguments.TeamsFails = $true }
-        $folder = New-TenantExport @arguments
-        $export = { $folder }.GetNewClosure()
-        Invoke-PEStandardCheck -StandardName 'asd' -ExportScript $export -TargetTenantId 'tenant-1' -DataRoot $script:Temp
+        # The tenant's blueprint 'main' compared with the standard; -TeamsNotChecked compares a blueprint with no data for the Teams type.
+        param ([switch]$TeamsNotChecked)
+        $name = 'main'
+        if ($TeamsNotChecked)
+        {
+            $name = 'partial'
+            New-TestTenantBlueprint -Root $script:Temp -Name $name -TeamsNotChecked
+        }
+        Invoke-PEStandardCheck -StandardName 'asd' -BlueprintName $name -DataRoot $script:Temp
     }
 
     function Export-TestGui
@@ -30,7 +33,8 @@ Describe 'Standards view models' {
         $script:Temp = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-guistd-' + [guid]::NewGuid())
         $script:Gui = Join-Path $script:Temp 'gui'
         $state = & (Get-Module PolicyEngine) { New-PEState -Records @() -NotChecked @() -Meta @{ TenantId = 't'; ExportedAt = '2026-10-21T01:02:03Z' } }
-        Initialize-PEBlueprint -Name 'main' -State $state -DataRoot $script:Temp | Out-Null
+        # The master blueprint is the tenant's blueprint: the named location with AU and NZ, no Teams policy.
+        New-TestTenantBlueprint -Root $script:Temp -Name 'main'
         # Export-PEGuiData needs one Full check to start from.
         $directory = Join-Path $script:Temp 'checks\20261021-020000'
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
@@ -93,7 +97,7 @@ Describe 'Standards view models' {
         $location.itemId | Should -Not -BeNullOrEmpty
         $location.differences[0].property | Should -Be 'CountriesAndRegions'
         @($location.differences[0].standard) | Should -Be @('AU')
-        @($location.differences[0].tenant) | Should -Be @('AU', 'NZ')
+        @($location.differences[0].blueprint) | Should -Be @('AU', 'NZ')
         @($location.allowedActions) | Should -Be @('Adopt', 'AcceptRisk')
         (@($view.rows | Where-Object resourceType -EQ 'TeamsMessagingPolicy')[0]).status | Should -Be 'missing'
         (@($view.byWorkload | Where-Object workload -EQ 'Teams')[0]).total | Should -Be 2
@@ -116,7 +120,7 @@ Describe 'Standards view models' {
         $view.rows -is [array] | Should -BeTrue
     }
     It 'never counts not covered or not readable items as matching' {
-        Invoke-TestCheck -TeamsFails | Out-Null
+        Invoke-TestCheck -TeamsNotChecked | Out-Null
         Export-TestGui
         $view = Read-Json 'tenants/master/standards/asd.json'
         $h = $view.headline
@@ -133,7 +137,7 @@ Describe 'Standards view models' {
     It 'shows an accepted risk as accepted, with who and why' {
         Invoke-TestCheck | Out-Null
         Set-PERiskAcceptance -Standard 'asd' -Tenant master -ResourceType AADNamedLocationPolicy -Key 'Allowed Countries' -ApprovedBy 'cio' -Reason 'NZ staff' -DataRoot $script:Temp | Out-Null
-        Update-PEStandardCheck -Tenant master -StandardName 'asd' -DataRoot $script:Temp | Out-Null
+        Invoke-TestCheck | Out-Null
         Export-TestGui
         $view = Read-Json 'tenants/master/standards/asd.json'
         $row = @($view.rows | Where-Object resourceType -EQ 'AADNamedLocationPolicy')[0]
@@ -143,7 +147,7 @@ Describe 'Standards view models' {
         @($row.allowedActions) | Should -Be @('RemoveRisk')
         $view.headline.accepted | Should -Be 1
         $view.headline.differ | Should -Be 1
-        $view.patched | Should -BeTrue
+        $view.blueprint.name | Should -Be 'main'
     }
 
     It 'shows an accepted risk whose standard changed as look again' {
@@ -169,21 +173,23 @@ Describe 'Standards view models' {
         $view.headline.differ | Should -Be 2
     }
 
-    It 'marks what the tenant blueprint has adopted, and drops Adopt for it' {
+    It 'shows an adopted setting as matching, and counts it as adopted' {
         Invoke-TestCheck | Out-Null
+        Export-TestGui
+        (Read-Json 'tenants/master/standards/asd.json').headline.match | Should -Be 0
         $teams = @((Get-PEBlueprint -Name 'asd' -DataRoot $script:Temp).Records | Where-Object ResourceType -EQ 'TeamsMessagingPolicy')[0]
         Copy-PEStandardItem -Standard 'asd' -To 'main' -Item ([pscustomobject]@{ ResourceType = $teams.ResourceType; Key = $teams.Key }) -Reason 'adopt' -ExpectedVersion 1 -DataRoot $script:Temp | Out-Null
+        Invoke-TestCheck | Out-Null
         Export-TestGui
         $view = Read-Json 'tenants/master/standards/asd.json'
-        $row = @($view.rows | Where-Object resourceType -EQ 'TeamsMessagingPolicy')[0]
-        $row.adopted | Should -BeTrue
-        $row.adoptedFrom | Should -Be 'v1.4.0'
-        @($row.allowedActions) | Should -Be @('AcceptRisk')
+        @($view.rows | Where-Object resourceType -EQ 'TeamsMessagingPolicy').Count | Should -Be 0
+        $view.headline.match | Should -Be 1
+        $view.headline.differ | Should -Be 1
+        $view.blueprint.version | Should -Be 2
         $view.adoption.blueprint | Should -Be 'main'
         $view.adoption.adopted | Should -Be 1
         $view.adoption.covered | Should -Be 2
     }
-
     It 'lists a tenant that has no check of the standard as not checked' {
         Set-PETenant -Slug 'dev' -DisplayName 'Dev' -TenantId 'dev.onmicrosoft.com' -DataRoot $script:Temp | Out-Null
         Invoke-TestCheck | Out-Null

@@ -119,18 +119,18 @@ The Standards pages (design: `docs/superpowers/specs/2026-10-27-standards-gui-de
 **View models** (written by `Export-PEGuiData`, camelCase JSON):
 - `standards/index.json`: the standards (source, licence, attribution, imported `versions`, `latestRelease` from `data\sources\<name>-latest.json` when the worker looked).
 - `standards/<name>/coverage.json`: what could not be covered in the latest version (`byReason`, `rows` with `reason` and `detail`).
-- `tenants/<id>/standards/<name>.json`: the tenant's latest check: `headline` (`total`, `covered`, `checked`, `match`, `differ`, `accepted`, `lookAgain`, `notReadable`, `notCovered`), `byWorkload`, `adoption`, and `rows` (`status` differs, missing, lookAgain or accepted; `differences` as `property`, `standard`, `tenant`; `adopted`; `allowedActions`). `{ checked: false }` when there is no check yet.
+- `tenants/<id>/standards/<name>.json`: the tenant's latest check: `headline` (`total`, `covered`, `checked`, `match`, `differ`, `accepted`, `lookAgain`, `notReadable`, `notCovered`), `byWorkload`, `adoption`, and `rows` (`status` differs, missing, lookAgain or accepted; `differences` as `property`, `standard`, `blueprint`; `adopted`; `allowedActions`), `blueprint` (`name`, `version` of the blueprint that was compared). `{ checked: false }` when there is no check yet.
 
 **Routes** (GET): `/api/standards`, `/api/standards/:name/coverage`, `/api/tenants/:tenantId/standards/:name`. Page URLs: `/standards`, `/standards/:name` (`?show=decide|accepted|all`), `/standards/:name/not-covered` (`?reason=`).
 
 **Request actions** (`POST /api/requests`, run by the worker; none writes a tenant):
-- `StandardCheck` (`tenantId`, `standard`): `Invoke-PEStandardCheck`, a live read with the Reader app. Not for an offline tenant.
+- `StandardCheck` (`tenantId`, `standard`): `Invoke-PEStandardCheck` compares the tenant's own blueprint with the standard. Nothing is read from the tenant (a tenant is managed against its blueprint), so it works for an offline tenant and is quick.
 - `Adopt` (`tenantId`, `standard`, `reason`, `items`): `Copy-PEStandardItem` into the tenant's own blueprint, one version per request; the master blueprint needs the master-write confirmation; a replica with no blueprint of its own is refused.
 - `AcceptRisk` (`tenantId`, `standard`, `items` of `{ itemId, approvedBy, why, properties? }`): `Set-PERiskAcceptance`, for the whole item or one decision per listed property.
 - `RemoveRisk` (`tenantId`, `standard`, `items`): removes the item's accepted risks.
 - `ImportStandard` (`standard`, optional `tag` vX.Y.Z; default the latest): `Import-PEStandardRelease`.
 - `CheckStandardRelease` (`standard`): `git ls-remote` only; writes the latest tag for the banner.
-After Adopt, Accept risk and Remove the worker saves a patched Standard check (`Update-PEStandardCheck`, `Meta.PatchedFrom`), so the page shows the result without reading the tenant. Adopt and Accept risk are added to the Selection list like Revert, Promote and Exclude (entries carry their `standard`, so they never replace a Drift review pick of the same item); Remove acts at once.
+After Adopt, Accept risk and Remove the worker compares the blueprint with the standard again, so the page shows the result at once (an adopted setting then matches). To change the tenant, revert it to its blueprint on Drift review. Adopt and Accept risk are added to the Selection list like Revert, Promote and Exclude (entries carry their `standard`, so they never replace a Drift review pick of the same item); Remove acts at once.
 
 **Try it.** `Start-PEGui.ps1 -Mock` shows the example numbers of the mock-ups. For real engine data without a tenant: `pwsh -NoProfile -File tools/PEDemoStandards.ps1 -DataRoot data/demo-standards` (add `-NewVersion` to see "Look again"), then start the GUI on `<DataRoot>\gui` and the worker with `-DataRoot <DataRoot>`.
 

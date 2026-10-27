@@ -448,15 +448,12 @@ function Invoke-PEGuiRequestAction
         }
         'StandardCheck'
         {
-            # Reads the tenant (Reader app) for the workloads the standard covers and compares only what the standard states.
+            # Compares the tenant's own blueprint with the standard. Nothing is read from the tenant, so it also works for an offline tenant.
             $standard = [string]$Request.standard
-            if ((Get-PETenant -Slug $tenant -DataRoot $DataRoot).Offline) { throw "Tenant '$tenant' is offline: a standard check reads the tenant." }
-            $arguments = @{ StandardName = $standard; Tenant = $tenant; DataRoot = $DataRoot }
-            if ($ExportScript) { $arguments.ExportScript = $ExportScript }
-            $result = Invoke-PEStandardCheck @arguments
+            $result = Invoke-PEStandardCheck -StandardName $standard -BlueprintName $BlueprintName -Tenant $tenant -DataRoot $DataRoot
             $c = $result.Coverage
             $notCovered = (@($c.NotCovered.Values) | Measure-Object -Sum).Sum
-            return (& $done "Checked $($c.Checked) of $($c.Total) settings of '$standard' (check $($result.CheckId)): $($c.NotReadable) not readable in this tenant, $([int]$notCovered) not covered.")
+            return (& $done "Compared $($c.Checked) of $($c.Total) settings of '$standard' with blueprint '$($result.BlueprintName)' v$($result.BlueprintVersion) (check $($result.CheckId)): $($c.NotReadable) not in the blueprint's data, $([int]$notCovered) not covered. Nothing was read from the tenant.")
         }
         'Adopt'
         {
@@ -479,8 +476,8 @@ function Invoke-PEGuiRequestAction
             $picked = @($items | ForEach-Object { [pscustomobject]@{ ResourceType = [string]$_.resourceType; Key = [string]$_.key } })
             $version = Copy-PEStandardItem -Standard $standard -To $own -Item $picked -Reason $reason -ExpectedVersion $latest -DataRoot $DataRoot
             $refreshed = $false
-            try { $null = Update-PEStandardCheck -Tenant $tenant -StandardName $standard -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The standard check was not updated: $($_.Exception.Message)" }
-            return (& $done "Blueprint v$version recorded in '$own' from '$standard'. No tenant was changed. Revert the items on Drift review to change the tenant.$(if ($refreshed) { ' The check shows them as adopted.' })")
+            try { $null = Invoke-PEStandardCheck -StandardName $standard -BlueprintName $BlueprintName -Tenant $tenant -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The comparison with the standard was not refreshed: $($_.Exception.Message)" }
+            return (& $done "Blueprint v$version recorded in '$own' from '$standard'. No tenant was changed. Revert the tenant to its blueprint on Drift review to push the change.$(if ($refreshed) { ' The blueprint now matches the standard for them.' })")
         }
         'AcceptRisk'
         {
@@ -508,7 +505,7 @@ function Invoke-PEGuiRequestAction
                 else { foreach ($property in $properties) { Set-PERiskAcceptance @arguments -Property $property | Out-Null; $count++ } }
             }
             $refreshed = $false
-            try { $null = Update-PEStandardCheck -Tenant $tenant -StandardName $standard -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The standard check was not updated: $($_.Exception.Message)" }
+            try { $null = Invoke-PEStandardCheck -StandardName $standard -BlueprintName $BlueprintName -Tenant $tenant -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The comparison with the standard was not refreshed: $($_.Exception.Message)" }
             return (& $done "Accepted risk recorded ($count note$(if ($count -ne 1) { 's' })). No tenant or blueprint was changed.$(if ($refreshed) { ' The check shows it.' })")
         }
         'RemoveRisk'
@@ -528,7 +525,7 @@ function Invoke-PEGuiRequestAction
                 }
             }
             $refreshed = $false
-            try { $null = Update-PEStandardCheck -Tenant $tenant -StandardName $standard -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The standard check was not updated: $($_.Exception.Message)" }
+            try { $null = Invoke-PEStandardCheck -StandardName $standard -BlueprintName $BlueprintName -Tenant $tenant -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The comparison with the standard was not refreshed: $($_.Exception.Message)" }
             return (& $done "Accepted risk removed ($removed note$(if ($removed -ne 1) { 's' })). The differences count again.$(if ($refreshed) { ' The check shows them.' })")
         }
         'ImportStandard'

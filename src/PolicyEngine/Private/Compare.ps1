@@ -547,6 +547,9 @@ function New-PEFinding
         [AllowNull()]
         [string]$Hint,
 
+        # True when an accepted risk was set aside because the standard's record changed since it was accepted.
+        [bool]$AcceptanceStale = $false,
+
         [AllowNull()]
         $BlueprintRecord,
 
@@ -570,6 +573,7 @@ function New-PEFinding
         AcceptedDifferences = $(if ($null -eq $AcceptedDifferences) { @() } else { @($AcceptedDifferences) })
         Hint            = $(if ([string]::IsNullOrEmpty($Hint)) { $null } else { $Hint })
         State           = 'Open'
+        AcceptanceStale = $AcceptanceStale
         BlueprintRecord = $BlueprintRecord
         TargetRecord    = $TargetRecord
         BlueprintCount  = $BlueprintCount

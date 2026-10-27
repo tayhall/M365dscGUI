@@ -9,14 +9,14 @@ const KIND_LABEL = {
   NotChecked: 'Not read', NotAvailable: 'Not available', Unkeyed: 'Unkeyed', Unreadable: 'Unreadable', Aligned: 'Aligned', Checked: 'Checked'
 };
 const KIND_COLOR = { Missing: '#9a4f00', Changed: '#e39a25', TargetOnly: '#f2cf8b', PossibleRename: '#8b5cf6', Ambiguous: '#4c2a99' };
-const ACTION_LABEL = { Accept: 'Revert tenant', RevertBlueprint: 'Restore blueprint version', FullCheck: 'Snapshot', Recheck: 'Snapshot or refresh',ExcludeProperty: 'Noise rule', Unexclude: 'Bring back', GenerateConfig: 'Generate configuration' };
+const ACTION_LABEL = { Accept: 'Revert tenant', RevertBlueprint: 'Restore blueprint version', FullCheck: 'Snapshot', Recheck: 'Snapshot or refresh',ExcludeProperty: 'Noise rule', ExcludePropertyForTenant: 'Property exclusion', IncludePropertyForTenant: 'Property enforced again', Unexclude: 'Bring back', GenerateConfig: 'Generate configuration' };
 const actionLabel = (a) => ACTION_LABEL[a] || a;
 // What a blueprint version records as its source, in the words of the buttons: a version made by Promote is stored as 'Accept', one made by Revert as 'Revert'.
 const SOURCE_LABEL = { Accept: 'Promote', Revert: 'Restore' };
 const srcLabel = (s) => SOURCE_LABEL[s] || s;
 const ACTION_TITLE = {
   Accept: 'Revert the tenant to the blueprint', Promote: 'Promote the change', Exclude: 'Exclude from management',
-  ExcludeProperty: 'Ignore a value as noise', Unexclude: 'Bring back under management', RevertBlueprint: 'Restore a blueprint version',
+  ExcludeProperty: 'Ignore a value as noise', ExcludePropertyForTenant: 'Stop enforcing a setting in this tenant', IncludePropertyForTenant: 'Enforce a setting again', Unexclude: 'Bring back under management', RevertBlueprint: 'Restore a blueprint version',
   PromoteUp: 'Promote to master blueprint', PullDown: 'Update tenant blueprint', Run: 'Run the selection list'
 };
 const ACTION_SUB = {
@@ -24,6 +24,8 @@ const ACTION_SUB = {
   Promote: "The drift becomes the intended state in this tenant's own blueprint. No tenant is written to.",
   Exclude: 'The item stays as it is and is no longer counted.',
   ExcludeProperty: 'Only this exact value is hidden. A different value still shows as drift.',
+  ExcludePropertyForTenant: 'The setting stays visible but does not count as drift in this tenant, and a revert leaves it as the tenant has it. Other tenants still show it as drift.',
+  IncludePropertyForTenant: 'The setting counts as drift again in this tenant if it differs. Nothing in the tenant changes now.',
   Unexclude: 'Nothing in the tenant changes now.',
   RevertBlueprint: 'Only the blueprint changes. No tenant is written to.',
   PromoteUp: 'What differs moves from the tenant blueprint into the master blueprint. No tenant is written to.',
@@ -737,6 +739,8 @@ function itemPage(r) {
   const diffs = comparable ? rows.filter((x) => !x.same) : [];
   const same = comparable ? rows.filter((x) => x.same) : rows;
   const canNoise = f && (f.allowedActions || []).includes('ExcludeProperty') && !busy(r.t, r.id);
+  const canTenantProp = f && (f.allowedActions || []).includes('ExcludePropertyForTenant') && !busy(r.t, r.id);
+  const propExcluded = (p) => !!f && (f.excludedDifferences || []).some((d) => d.property.toLowerCase() === p.toLowerCase());
   const tenantCol = T.meta.displayName + (f && f.other ? ` (“${f.other}”)` : '');
   let banner = '';
   if (f && f.kind === 'PossibleRename') banner = ['b-review', `Possible rename: the blueprint item “${f.key}” is missing and “${f.other}” exists only in the ${T.meta.role.toLowerCase()} with similar settings. Actions apply to the pair.`];
@@ -746,7 +750,7 @@ function itemPage(r) {
   if (viewLayer && !banner) banner = ['b-grey', `Compared with the master blueprint “${viewLayer}”, as in the Drift review you came from.`];
   if (state === 'Unmanaged') {
     const ex = D.exclusions.unmanaged.find((u) => u.tenantId === r.t && u.itemId === r.id);
-    banner = ['b-grey', 'Excluded from management' + (ex ? ` on ${ex.at.slice(0, 10)}: ${ex.reason}` : '.')];
+    banner = ['b-grey', ex ? `Excluded from management on ${ex.at.slice(0, 10)}: ${ex.reason}` : f && (f.excludedDifferences || []).length ? 'Every difference of this item is a setting excluded for this tenant, so it is not counted as drift. The settings stay visible below.' : 'Excluded from management.'];
   }
   const tabs = [['settings', 'Settings'], ['raw', 'Raw'], ['history', 'History']]
     .map(([k, l]) => `<a href="${esc(path.item(r.t, r.id, k, viewLayer))}" data-link data-replace class="tab${r.tab === k ? ' on' : ''}" role="tab" aria-selected="${r.tab === k}">${l}</a>`).join('');
@@ -766,8 +770,17 @@ function itemPage(r) {
     body = `<div class="cards2"><section class="card"><h2>Blueprint versions that changed this item</h2>${versions || `<div class="muted">${bp ? 'In the blueprint since v1, unchanged.' : 'Not in the blueprint.'}</div>`}</section>
       <section class="card"><h2>Actions on this item</h2>${jobs || '<div class="muted">No actions yet.</div>'}</section></div>`;
   } else {
-    const diffRows = diffs.map((x) => `<div class="gr setg hl"><span class="mono">${esc(x.p)}</span><span>${fv(x.b)}</span><span><span class="diffv">${fv(x.v)}</span></span>
-      <span>${canNoise && f.differences.some((d) => d.property === x.p) ? `<button class="lnk sub" data-act="noise" data-tenant="${esc(r.t)}" data-item="${esc(r.id)}" data-prop="${esc(x.p)}">Ignore value as noise…</button>` : ''}</span></div>`).join('');
+    const diffRows = diffs.map((x) => {
+      if (propExcluded(x.p)) {
+        // Excluded for this tenant: visible, greyed, not counted; the rule (this item's, else the type's) can be removed here.
+        const rule = (D.exclusions.propertyExclusions || []).filter((e) => e.tenantId === r.t && e.resourceType === rt && e.property.toLowerCase() === x.p.toLowerCase()).sort((a, b) => (b.itemId ? 1 : 0) - (a.itemId ? 1 : 0))[0];
+        return `<div class="gr setg" style="opacity:.7"><span class="mono">${esc(x.p)}</span><span>${fv(x.b)}</span><span>${fv(x.v)}</span>
+          <span><span class="chip c-grey">excluded for this tenant</span>${rule ? ` <button class="lnk sub" data-act="include-prop" data-tenant="${esc(r.t)}" data-type="${esc(rt)}" data-prop="${esc(x.p)}" data-item="${esc(rule.itemId || '')}">Bring back…</button>` : ''}</span></div>`;
+      }
+      const differs = f && f.differences.some((d) => d.property === x.p);
+      return `<div class="gr setg hl"><span class="mono">${esc(x.p)}</span><span>${fv(x.b)}</span><span><span class="diffv">${fv(x.v)}</span></span>
+      <span>${canNoise && differs ? `<button class="lnk sub" data-act="noise" data-tenant="${esc(r.t)}" data-item="${esc(r.id)}" data-prop="${esc(x.p)}">Ignore value as noise…</button>` : ''}${canTenantProp && differs ? `<div><button class="lnk sub" data-act="tenant-prop" data-tenant="${esc(r.t)}" data-item="${esc(r.id)}" data-prop="${esc(x.p)}">Exclude for this tenant…</button></div>` : ''}</span></div>`;
+    }).join('');
     // Opens on what differs; an item that matches everywhere opens on its matching settings. Without a blueprint or tenant side there is
     // nothing to compare, so every setting shows and there is no filter.
     const show = comparable ? ui.itemShow || (diffs.length ? 'drifted' : 'matching') : 'all';
@@ -1007,8 +1020,13 @@ function exclusions() {
   const noise = D.exclusions.noise.map((n, i) => `<div class="gr nzg"><span>${esc(typeName(n.resourceType))}</span><span class="mono">${esc(n.property)}</span><span>${fv(n.value)}</span>
     <span>${esc(n.itemId ? decodeURIComponent(n.itemId.split('~')[1]) : 'All items')}</span><span>${esc(n.reason)}</span><span class="muted">${esc(n.at.slice(0, 10))}</span>
     <span><button class="btn sm" data-act="unnoise" data-index="${i}">Remove…</button></span></div>`).join('');
-  return `<div class="phead"><div><h1>Exclusions</h1><div class="muted">Items left unmanaged and values ignored as noise. Not counted as aligned or drifted.</div></div></div>
+  const propRules = (D.exclusions.propertyExclusions || []);
+  const props = propRules.map((e) => `<div class="gr exg"><span>${esc(tenantLabel(e.tenantId))}</span><span>${esc(typeName(e.resourceType))}</span>
+    <span><span class="mono">${esc(e.property)}</span> · ${e.itemId ? link(path.item(e.tenantId, e.itemId), e.key, 'lnk strong') : 'all items'}</span><span>${esc(e.reason)}</span><span class="muted">${esc((e.at || '').slice(0, 10))}</span>
+    <span><button class="btn sm" data-act="include-prop" data-tenant="${esc(e.tenantId)}" data-type="${esc(e.resourceType)}" data-prop="${esc(e.property)}" data-item="${esc(e.itemId || '')}">Bring back…</button></span></div>`).join('');
+  return `<div class="phead"><div><h1>Exclusions</h1><div class="muted">Items left unmanaged, settings not enforced in one tenant, and values ignored as noise. Not counted as aligned or drifted.</div></div></div>
     <div class="stack"><section class="card"><h2>Unmanaged items (${D.exclusions.unmanaged.length})</h2><div class="tw"><div class="gt"><div class="gr h exg"><span>Tenant</span><span>Type</span><span>Item</span><span>Reason</span><span>Since</span><span></span></div>${items || '<div class="empty">None.</div>'}</div></div></section>
+    <section class="card"><h2>Properties not enforced in a tenant (${propRules.length})</h2><div class="muted" style="margin-bottom:6px">Still shown in the item, not counted as drift, and left as the tenant has them by a revert.</div><div class="tw"><div class="gt"><div class="gr h exg"><span>Tenant</span><span>Type</span><span>Property</span><span>Reason</span><span>Since</span><span></span></div>${props || '<div class="empty">None.</div>'}</div></div></section>
     <section class="card"><h2>Noise rules (${D.exclusions.noise.length})</h2><div class="tw"><div class="gt"><div class="gr h nzg"><span>Type</span><span>Property</span><span>Value</span><span>Scope</span><span>Reason</span><span>Since</span><span></span></div>${noise || '<div class="empty">None.</div>'}</div></div></section></div>`;
 }
 
@@ -1094,14 +1112,14 @@ function dialogView() {
   if (d.step === 2) title = 'Confirm: change the master';
   const list = d.loading ? '<div class="muted">Working out what this does…</div>'
     : items.map((i) => `<div class="dit"><span><b>${esc(i.label)}</b>${i.role ? `<div class="muted sub">${esc(i.role)}${i.findingKind ? ' · ' + esc(KIND_LABEL[i.findingKind]) : ''}</div>` : ''}</span><span>${esc(i.effect)}</span></div>`).join('');
-  let primaryLabel = { Accept: 'Revert and apply', Promote: 'Promote', Exclude: 'Exclude', ExcludeProperty: 'Add noise rule', Unexclude: 'Bring back', RevertBlueprint: d.restoreItem ? 'Restore item' : 'Restore blueprint version', PromoteUp: 'Promote to master blueprint', PullDown: 'Update tenant blueprint', Run: 'Run selection' }[d.action];
+  let primaryLabel = { Accept: 'Revert and apply', Promote: 'Promote', Exclude: 'Exclude', ExcludeProperty: 'Add noise rule', ExcludePropertyForTenant: 'Exclude for this tenant', IncludePropertyForTenant: 'Bring back', Unexclude: 'Bring back', RevertBlueprint: d.restoreItem ? 'Restore item' : 'Restore blueprint version', PromoteUp: 'Promote to master blueprint', PullDown: 'Update tenant blueprint', Run: 'Run selection' }[d.action];
   let primaryAct = 'submit';
   if (writesMaster && d.step === 1) { primaryLabel = 'Continue'; primaryAct = 'step2'; }
   else if (writesMaster) primaryLabel = 'Change the master';
   const primaryCls = (writesMaster || destructive) && primaryAct === 'submit' ? 'btn dan' : 'btn pri';
   const needReason = reasonRequired(d);
   const step1 = `<div><span class="lab">What will happen</span>${list}</div>
-    ${d.action === 'ExcludeProperty' ? `<fieldset style="border:0;padding:0;margin:0"><legend class="lab">Scope</legend>
+    ${d.action === 'ExcludeProperty' || d.action === 'ExcludePropertyForTenant' ? `<fieldset style="border:0;padding:0;margin:0"><legend class="lab">Scope</legend>
       <label style="display:flex;gap:8px;align-items:center;min-height:32px"><input type="radio" name="scope" id="scope-type" data-act="scope" data-scope="type"${d.scopeItem ? '' : ' checked'}> All items of this type</label>
       <label style="display:flex;gap:8px;align-items:center;min-height:32px"><input type="radio" name="scope" id="scope-item" data-act="scope" data-scope="item"${d.scopeItem ? ' checked' : ''}> Only this item</label></fieldset>` : ''}
     ${vAfter ? `<div class="banner b-review" style="margin:0">${d.action === 'RevertBlueprint' ? `Creates v${vAfter}${d.restoreItem ? ' with this item as it was in v' + d.groups[0].targetVersion : ' as a copy of v' + d.groups[0].targetVersion}. Nothing is deleted; v1 to v${vAfter - 1} are kept.` : `Creates ${vText}. Earlier versions are kept.`}</div>` : ''}
@@ -1480,7 +1498,7 @@ async function submitDialog() {
   for (let i = 0; i < d.groups.length; i++) {
     const g = d.groups[i];
     let created = false;
-    const items = d.action === 'ExcludeProperty' ? g.items.map((it) => Object.assign({}, it, { scopeItem: d.scopeItem })) : g.items;
+    const items = d.action === 'ExcludeProperty' || d.action === 'ExcludePropertyForTenant' ? g.items.map((it) => Object.assign({}, it, { scopeItem: d.scopeItem })) : g.items;
     const body = Object.assign(groupBody(g), { items, action: g.action || d.action, reason: d.reason, confirmedMasterWrite: !!(d.previews[i] && d.previews[i].writesMaster && d.confirmed), expectedVersion: d.previews[i] && d.previews[i].targetVersion != null ? d.previews[i].targetVersion : undefined, expectedSourceVersion: d.previews[i] && d.previews[i].sourceVersion != null ? d.previews[i].sourceVersion : undefined });
     try {
       const res = await api('/api/requests', body);
@@ -1532,6 +1550,8 @@ function onClick(e) {
     ui.sel.forEach((k) => { const [t, id] = k.split('|'); (byTenant[t] = byTenant[t] || []).push({ itemId: id }); });
     openDialog(el.dataset.action, Object.entries(byTenant).map(([t, items]) => ({ tenantId: t, items })), { count: ui.sel.size });
   } else if (act === 'noise') openDialog('ExcludeProperty', [{ tenantId: el.dataset.tenant, items: [{ itemId: el.dataset.item, property: el.dataset.prop }] }]);
+  else if (act === 'tenant-prop') openDialog('ExcludePropertyForTenant', [{ tenantId: el.dataset.tenant, items: [{ itemId: el.dataset.item, property: el.dataset.prop }] }]);
+  else if (act === 'include-prop') openDialog('IncludePropertyForTenant', [{ tenantId: el.dataset.tenant, items: [{ resourceType: el.dataset.type, property: el.dataset.prop, itemId: el.dataset.item || null }] }]);
   else if (act === 'unnoise') {
     const n = D.exclusions.noise[Number(el.dataset.index)];
     openDialog('Unexclude', [{ items: [{ resourceType: n.resourceType, property: n.property, value: n.value }] }]);

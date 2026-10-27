@@ -40,7 +40,7 @@ Describe 'the GUI actions for a finding the engine will not revert' {
             $normal = [pscustomobject]@{ state = 'Open'; kind = 'Missing'; revertBlocked = $null }
             (Get-PEGuiAllowedAction -Finding $blocked) -join ',' | Should -Be 'Promote,Exclude'
             (Get-PEGuiAllowedAction -Finding $normal) -join ',' | Should -Be 'Accept,Promote,Exclude'
-            (Get-PEGuiAllowedAction -Finding ([pscustomobject]@{ state = 'Open'; kind = 'Changed'; revertBlocked = 'x' })) -join ',' | Should -Be 'Promote,Exclude,ExcludeProperty'
+            (Get-PEGuiAllowedAction -Finding ([pscustomobject]@{ state = 'Open'; kind = 'Changed'; revertBlocked = 'x' })) -join ',' | Should -Be 'Promote,Exclude,ExcludeProperty,ExcludePropertyForTenant'
         }
     }
 }

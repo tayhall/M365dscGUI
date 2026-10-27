@@ -5,7 +5,7 @@ Set-StrictMode -Version Latest
 
 $script:ResourceTypes = Get-Content (Join-Path $PSScriptRoot 'ResourceTypes.json') -Raw | ConvertFrom-Json -AsHashtable
 $script:ActionableKinds = @('Missing', 'Changed', 'TargetOnly', 'PossibleRename')
-$script:ReasonRequired = @('Promote', 'Exclude', 'ExcludeProperty', 'RevertBlueprint', 'PromoteUp', 'PullDown')
+$script:ReasonRequired = @('Promote', 'Exclude', 'ExcludeProperty', 'ExcludePropertyForTenant', 'RevertBlueprint', 'PromoteUp', 'PullDown')
 $script:ItemIdPattern = '^[A-Za-z0-9]+~[A-Za-z0-9_.%-]+$'
 $script:TenantIdPattern = '^[a-z0-9-]{1,40}$'
 
@@ -108,12 +108,17 @@ function Get-PEGuiAllowedAction {
     # The actions the GUI may offer for a finding. Kinds the engine cannot act on get none.
     # -Offline: nothing can be written to the tenant, so no revert (Accept); its owner runs the generated configuration instead.
     param([Parameter(Mandatory)]$Finding, [switch]$Offline)
-    if ($Finding.state -eq 'Unmanaged') { return , @('Unexclude') }
+    if ($Finding.state -eq 'Unmanaged')
+    {
+        # Nothing is enforced because every difference is a property excluded for the tenant: those come back one by one (IncludePropertyForTenant).
+        if ($Finding.PSObject.Properties['excludedDifferences'] -and @($Finding.excludedDifferences).Count -gt 0) { return , @() }
+        return , @('Unexclude')
+    }
     if ($Finding.kind -notin $script:ActionableKinds) { return , @() }
     # A type the engine refuses to revert (Data\RevertBlocked.psd1) can still be promoted or excluded.
     $actions = @('Accept', 'Promote', 'Exclude')
     if ($Offline -or ($Finding.PSObject.Properties['revertBlocked'] -and $Finding.revertBlocked)) { $actions = @('Promote', 'Exclude') }
-    if ($Finding.kind -eq 'Changed') { $actions += 'ExcludeProperty' }
+    if ($Finding.kind -eq 'Changed') { $actions += 'ExcludeProperty', 'ExcludePropertyForTenant' }
     , $actions
 }
 
@@ -302,6 +307,7 @@ function Get-PEGuiEffect {
         }
         'Exclude' { if ($Finding.kind -eq 'TargetOnly') { "Keep it in the $t as unmanaged" } else { "Stop managing it in the $t" } }
         'ExcludeProperty' { 'Ignore this value as noise; a different value still shows as drift' }
+        'ExcludePropertyForTenant' { "Stop enforcing this setting in the ${t}: it stays visible, does not count as drift and a revert leaves it as it is" }
         'Unexclude' { 'Manage it again; it shows as drift if it differs' }
     }
 }
@@ -378,13 +384,13 @@ function Get-PEGuiRequestPreview {
     $action = [string](Get-PEGuiProperty $Request 'action')
     $reason = [string](Get-PEGuiProperty $Request 'reason')
     $reqItems = @(Get-PEGuiProperty $Request 'items' | Where-Object { $null -ne $_ })
-    $known = 'Accept', 'Promote', 'Exclude', 'ExcludeProperty', 'Unexclude', 'RevertBlueprint', 'Recheck', 'ConnectTenant', 'RenameTenant', 'ReviewModule', 'PromoteUp', 'PullDown', 'UploadSnapshot', 'GenerateConfig'
+    $known = 'Accept', 'Promote', 'Exclude', 'ExcludeProperty', 'ExcludePropertyForTenant', 'IncludePropertyForTenant', 'Unexclude', 'RevertBlueprint', 'Recheck', 'ConnectTenant', 'RenameTenant', 'ReviewModule', 'PromoteUp', 'PullDown', 'UploadSnapshot', 'GenerateConfig'
 
     if ($action -notin $known) { $errors.Add("Unknown action '$action'.") }
     if ($action -in $script:ReasonRequired -and -not $reason.Trim()) { $errors.Add("A reason is required for $action.") }
 
     $noiseUnexclude = $action -eq 'Unexclude' -and $reqItems.Count -gt 0 -and (Get-PEGuiProperty $reqItems[0] 'property')
-    if ($action -in 'Accept', 'Promote', 'Exclude', 'ExcludeProperty' -or ($action -eq 'Unexclude' -and -not $noiseUnexclude)) {
+    if ($action -in 'Accept', 'Promote', 'Exclude', 'ExcludeProperty', 'ExcludePropertyForTenant' -or ($action -eq 'Unexclude' -and -not $noiseUnexclude)) {
         $tenantId = [string](Get-PEGuiProperty $Request 'tenantId')
         $tenant = $null
         try { $tenant = Get-PEGuiTenant -DataRoot $DataRoot -TenantId $tenantId } catch { $errors.Add($_.Exception.Message) }
@@ -394,6 +400,7 @@ function Get-PEGuiRequestPreview {
             $errors.Add("Replica '$tenantId' has no blueprint of its own, so Promote would change the master blueprint. Give it one first (Initialize-PETenantBlueprint).")
         }
         if ($action -eq 'ExcludeProperty' -and $reqItems.Count -ne 1) { $errors.Add('A noise rule applies to exactly one property of one item.') }
+        if ($action -eq 'ExcludePropertyForTenant' -and $reqItems.Count -ne 1) { $errors.Add('A property exclusion applies to exactly one property of one item.') }
         if ($tenant) {
             $role = $tenant.role
             $findings = Get-PEGuiFinding -DataRoot $DataRoot -TenantId $tenantId
@@ -420,6 +427,13 @@ function Get-PEGuiRequestPreview {
                     $resolved.scope = if (Get-PEGuiProperty $ri 'scopeItem') { 'item' } else { 'type' }
                     $resolved.label = "$label · $prop = $($diff.target -join ', ')"
                 }
+                if ($action -eq 'ExcludePropertyForTenant') {
+                    $prop = [string](Get-PEGuiProperty $ri 'property')
+                    if (-not (@($f.differences) | Where-Object property -EQ $prop | Select-Object -First 1)) { $errors.Add("'$prop' does not differ on '$($f.key)'."); continue }
+                    $resolved.property = $prop
+                    $resolved.scope = if (Get-PEGuiProperty $ri 'scopeItem') { 'item' } else { 'type' }
+                    $resolved.label = "$label · $prop"
+                }
                 $items.Add([pscustomobject]$resolved)
                 if (Test-PEGuiWritesMaster -Action $action -Role $role) { $writesMaster = $true }
                 foreach ($e in (Get-PEGuiConfigEntry -Action $action -Finding $f -Role $role -Item $item)) { $entries.Add($e) }
@@ -434,6 +448,17 @@ function Get-PEGuiRequestPreview {
             $rule = $rules | Where-Object { $_.resourceType -eq $rt -and $_.property -eq $prop -and (ConvertTo-Json -InputObject $_.value -Compress -Depth 5) -eq $val } | Select-Object -First 1
             if (-not $rule) { $errors.Add("No noise rule for $rt.$prop with that value."); continue }
             $items.Add([pscustomobject]@{ resourceType = $rt; property = $prop; value = $rule.value; label = "$(Get-PEGuiTypeName $rt) · $prop = $($rule.value -join ', ')"; effect = 'Stop ignoring this value' })
+        }
+    } elseif ($action -eq 'IncludePropertyForTenant') {
+        # Brings an excluded property back: the rule is looked up in the exported list, so only an existing exclusion of this tenant can be removed.
+        $tenantId = [string](Get-PEGuiProperty $Request 'tenantId')
+        $rules = @((Get-PEGuiExclusion -DataRoot $DataRoot).propertyExclusions | Where-Object { $_ })
+        if ($reqItems.Count -eq 0) { $errors.Add('A request needs at least one item.') }
+        foreach ($ri in $reqItems) {
+            $rt = [string](Get-PEGuiProperty $ri 'resourceType'); $prop = [string](Get-PEGuiProperty $ri 'property'); $rid = [string](Get-PEGuiProperty $ri 'itemId')
+            $rule = $rules | Where-Object { $_.tenantId -eq $tenantId -and $_.resourceType -eq $rt -and $_.property -eq $prop -and [string]$_.itemId -eq $rid } | Select-Object -First 1
+            if (-not $rule) { $errors.Add("No exclusion of $rt.$prop for tenant '$tenantId'."); continue }
+            $items.Add([pscustomobject]@{ resourceType = $rt; key = $rule.key; itemId = $rule.itemId; property = $prop; label = "$(Get-PEGuiTypeName $rt) · $prop"; effect = 'Enforce this setting again; it shows as drift if it differs' })
         }
     } elseif ($action -eq 'ConnectTenant') {
         # Registers a tenant whose Reader (and Writer) app was created with DSC's own commands. Everything is checked again
@@ -739,6 +764,8 @@ function Step-PEGuiMockJob {
                 'RevertBlueprint' { "Blueprint v$($job.blueprintVersionAfter) recorded as a copy of v$($job.targetVersion) (mock). No tenant was changed." }
                 'Exclude' { 'Exclusion recorded (mock).' }
                 'ExcludeProperty' { 'Noise rule recorded (mock).' }
+                'ExcludePropertyForTenant' { 'Property exclusion recorded (mock).' }
+                'IncludePropertyForTenant' { 'Property enforced again (mock).' }
                 'Unexclude' { 'Back under management (mock).' }
                 'Recheck' { 'Snapshot finished (mock). The data is unchanged.' }
                 'ConnectTenant' { 'Tenant registered (mock).' }

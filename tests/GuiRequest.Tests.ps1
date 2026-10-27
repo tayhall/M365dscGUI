@@ -1032,3 +1032,85 @@ Describe 'GenerateConfig' {
         Test-Path (Join-Path $script:Temp 'audit') | Should -BeFalse
     }
 }
+
+Describe 'Invoke-PEGuiRequest and properties excluded for a tenant' {
+    BeforeEach {
+        $script:Temp = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-guiexc-' + [guid]::NewGuid())
+        $script:Gui = Join-Path $script:Temp 'gui'
+        Initialize-PEBlueprint -Name 'main' -State (New-TestState -Records @((New-TestRecord -Key 'Sales' -Props @{ Description = 'one' }), (New-TestRecord -Key 'Finance' -Props @{ Description = 'fin' }))) -DataRoot $script:Temp | Out-Null
+        $target = New-TestState -Records @((New-TestRecord -Key 'Sales' -Props @{ Description = 'two' }), (New-TestRecord -Key 'Finance' -Props @{ Description = 'fin two' }))
+        $findings = @(Compare-PEState -Blueprint (Get-PEBlueprint -Name 'main' -DataRoot $script:Temp) -Target $target)
+        $directory = Join-Path $script:Temp 'checks\20261021-020000'
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+        [ordered]@{ CheckId = '20261021-020000'; Kind = 'Full'; BlueprintName = 'main'; BlueprintVersion = 1; Findings = $findings; State = $target } |
+            ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $directory 'result.json') -Encoding utf8
+        Mock -ModuleName PolicyEngine Get-PEGuiRevertConfig { @{ Wrapper = $null; Items = @{} } }
+        Export-PEGuiData -BlueprintName 'main' -DataRoot $script:Temp -GuiRoot $script:Gui | Out-Null
+    }
+
+    AfterEach {
+        Remove-Item -LiteralPath $script:Temp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'excluding a property for every item of the type keeps it visible and takes the items out of the drift count' {
+        $id = Send-Request @{ action = 'ExcludePropertyForTenant'; tenantId = 'master'; reason = 'order is local'; items = @(@{ itemId = 'AADGroup~Sales'; property = 'Description' }) }
+        Invoke-PEGuiRequest -BlueprintName 'main' -DataRoot $script:Temp -GuiRoot $script:Gui | Out-Null
+        $job = Get-TestJob $id
+        $job.status | Should -Be 'Succeeded' -Because $job.result
+        $rule = @(Get-PEDecision -Kind PropertyExcluded -DataRoot $script:Temp)
+        $rule.Count | Should -Be 1
+        $rule[0].Tenant | Should -Be 'master'
+        $rule[0].Key | Should -BeNullOrEmpty
+        $rows = @(Get-Content (Join-Path $script:Gui 'tenants\master\findings.json') -Raw | ConvertFrom-Json)
+        foreach ($key in 'Sales', 'Finance')
+        {
+            $row = $rows | Where-Object key -eq $key
+            $row.state | Should -Be 'Unmanaged'
+            @($row.differences).Count | Should -Be 0
+            @($row.excludedDifferences.property) | Should -Contain 'Description'
+        }
+        $exclusions = Get-Content (Join-Path $script:Gui 'exclusions.json') -Raw | ConvertFrom-Json
+        @($exclusions.propertyExclusions).Count | Should -Be 1
+        $exclusions.propertyExclusions[0].tenantId | Should -Be 'master'
+        $exclusions.propertyExclusions[0].itemId | Should -BeNullOrEmpty
+    }
+
+    It 'excluding a property for one item leaves the other items as drift' {
+        $id = Send-Request @{ action = 'ExcludePropertyForTenant'; tenantId = 'master'; reason = 'order is local'; items = @(@{ itemId = 'AADGroup~Sales'; property = 'Description'; scopeItem = $true }) }
+        Invoke-PEGuiRequest -BlueprintName 'main' -DataRoot $script:Temp -GuiRoot $script:Gui | Out-Null
+        (Get-TestJob $id).status | Should -Be 'Succeeded'
+        @(Get-PEDecision -Kind PropertyExcluded -DataRoot $script:Temp)[0].Key | Should -Be 'Sales'
+        $rows = @(Get-Content (Join-Path $script:Gui 'tenants\master\findings.json') -Raw | ConvertFrom-Json)
+        ($rows | Where-Object key -eq 'Sales').state | Should -Be 'Unmanaged'
+        ($rows | Where-Object key -eq 'Finance').state | Should -Be 'Open'
+        $exclusions = Get-Content (Join-Path $script:Gui 'exclusions.json') -Raw | ConvertFrom-Json
+        $exclusions.propertyExclusions[0].itemId | Should -Be 'AADGroup~Sales'
+    }
+
+    It 'bringing an excluded property back makes it count as drift again' {
+        Send-Request @{ action = 'ExcludePropertyForTenant'; tenantId = 'master'; reason = 'order is local'; items = @(@{ itemId = 'AADGroup~Sales'; property = 'Description' }) } | Out-Null
+        Invoke-PEGuiRequest -BlueprintName 'main' -DataRoot $script:Temp -GuiRoot $script:Gui | Out-Null
+        $id = Send-Request @{ action = 'IncludePropertyForTenant'; tenantId = 'master'; items = @(@{ resourceType = 'AADGroup'; property = 'Description'; itemId = $null }) }
+        Invoke-PEGuiRequest -BlueprintName 'main' -DataRoot $script:Temp -GuiRoot $script:Gui | Out-Null
+        $job = Get-TestJob $id
+        $job.status | Should -Be 'Succeeded' -Because $job.result
+        @(Get-PEDecision -Kind PropertyExcluded -DataRoot $script:Temp).Count | Should -Be 0
+        $rows = @(Get-Content (Join-Path $script:Gui 'tenants\master\findings.json') -Raw | ConvertFrom-Json)
+        @($rows | Where-Object state -eq 'Open').Count | Should -Be 2
+    }
+
+    It 'refuses a request with no reason, for a property that does not differ, and an include with no matching exclusion' {
+        $r = Invoke-PEGuiApi -DataRoot $script:Gui -Method POST -Path '/api/requests' -Body ([pscustomobject]@{ action = 'ExcludePropertyForTenant'; tenantId = 'master'; items = @(@{ itemId = 'AADGroup~Sales'; property = 'Description' }) })
+        $r.StatusCode | Should -Be 400
+        $r = Invoke-PEGuiApi -DataRoot $script:Gui -Method POST -Path '/api/requests' -Body ([pscustomobject]@{ action = 'ExcludePropertyForTenant'; tenantId = 'master'; reason = 'x'; items = @(@{ itemId = 'AADGroup~Sales'; property = 'DisplayName' }) })
+        $r.StatusCode | Should -Be 400
+        $r = Invoke-PEGuiApi -DataRoot $script:Gui -Method POST -Path '/api/requests' -Body ([pscustomobject]@{ action = 'IncludePropertyForTenant'; tenantId = 'master'; items = @(@{ resourceType = 'AADGroup'; property = 'Description'; itemId = $null }) })
+        $r.StatusCode | Should -Be 400
+    }
+
+    It 'a Changed finding offers the exclusion; a finding with only excluded differences offers nothing else' {
+        (Get-PEGuiAllowedAction -Finding ([pscustomobject]@{ state = 'Open'; kind = 'Changed' })) -join ',' | Should -Be 'Accept,Promote,Exclude,ExcludeProperty,ExcludePropertyForTenant'
+        (Get-PEGuiAllowedAction -Finding ([pscustomobject]@{ state = 'Unmanaged'; kind = 'Changed'; excludedDifferences = @([pscustomobject]@{ property = 'Priority' }) })).Count | Should -Be 0
+        (Get-PEGuiAllowedAction -Finding ([pscustomobject]@{ state = 'Unmanaged'; kind = 'TargetOnly' })) -join ',' | Should -Be 'Unexclude'
+    }
+}

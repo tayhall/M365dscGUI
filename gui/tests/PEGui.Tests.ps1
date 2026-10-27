@@ -71,6 +71,7 @@ Describe 'Allowed actions' {
 
     It 'adds the noise action on Changed findings' {
         (Get-TestFinding $root 'replica' 'CA001 - Require MFA for admins').allowedActions | Should -Contain 'ExcludeProperty'
+        (Get-TestFinding $root 'replica' 'CA001 - Require MFA for admins').allowedActions | Should -Contain 'ExcludePropertyForTenant'
     }
 
     It 'offers nothing on <kind>' -ForEach @(

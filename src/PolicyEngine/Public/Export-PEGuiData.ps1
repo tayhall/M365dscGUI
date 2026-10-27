@@ -379,7 +379,20 @@ function Export-PEGuiData
             at           = & $text $decision.At
         }
     }
-    & $write 'exclusions.json' ([ordered]@{ unmanaged = @($unmanagedAll); noise = @($noise) })
+    # Properties not enforced in one tenant (the rule can cover one item or every item of the type).
+    $propertyExclusions = foreach ($decision in @(Get-PEDecision -Kind PropertyExcluded -DataRoot $root))
+    {
+        [ordered]@{
+            tenantId     = [string]$decision.Tenant
+            resourceType = [string]$decision.ResourceType
+            property     = [string]$decision.Property
+            key          = $(if ($decision.Key) { [string]$decision.Key } else { $null })
+            itemId       = $(if ($decision.Key) { ConvertTo-PEGuiItemId -ResourceType ([string]$decision.ResourceType) -Key ([string]$decision.Key) } else { $null })
+            reason       = [string]$decision.Reason
+            at           = & $text $decision.At
+        }
+    }
+    & $write 'exclusions.json' ([ordered]@{ unmanaged = @($unmanagedAll); noise = @($noise); propertyExclusions = @($propertyExclusions) })
     # Index.
     $latest = $versions[-1]
     $workloadNames = @('Entra ID', 'Intune', 'Exchange Online', 'Teams', 'Security and Compliance', 'Other')

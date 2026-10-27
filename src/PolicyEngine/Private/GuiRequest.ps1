@@ -39,6 +39,24 @@ function Invoke-PEGuiRequestAction
     # The blueprint the tenant is checked against, promoted into and reverted to: its own (the last layer), or the master blueprint.
     $ownBlueprint = { @(Get-PETenantBlueprint -Tenant $tenant -MasterBlueprint $BlueprintName -DataRoot $DataRoot)[-1] }
     $done = { param($text) @{ Status = 'Succeeded'; Result = $text; Config = $null; Refresh = $true } }
+    # After a property exclusion changes: compares the Changed findings of the type (or one item) of the tenant's latest snapshot with its blueprint again,
+    # from the records the snapshot holds (no tenant read). $false when there is nothing to compare or the snapshot is of another blueprint.
+    $recompareProperty = {
+        param ($type, $key)
+        try
+        {
+            $check = Get-PECheck -Latest -Kind Full -Tenant $tenant -DataRoot $DataRoot
+            $affected = @(@($check.Findings) | Where-Object { $_.Kind -eq 'Changed' -and [string]$_.ResourceType -ieq $type -and ([string]::IsNullOrEmpty($key) -or [string]$_.Key -ieq $key) } |
+                    ForEach-Object { [pscustomobject]@{ ResourceType = $_.ResourceType; Key = $_.Key } })
+            if ($affected.Count -eq 0) { return $false }
+            return [bool](Update-PECheckForItems -Tenant $tenant -BlueprintName (& $ownBlueprint) -Item $affected -DataRoot $DataRoot)
+        }
+        catch
+        {
+            Write-Warning "The items were not compared again: $($_.Exception.Message)"
+            return $false
+        }
+    }
 
     switch ($action)
     {
@@ -267,6 +285,28 @@ function Invoke-PEGuiRequestAction
             if ($item.scope -eq 'item') { $arguments.Key = [string]$item.key }
             Set-PEDecision @arguments | Out-Null
             return (& $done "Noise rule recorded for $($item.resourceType).$($item.property).")
+        }
+        'ExcludePropertyForTenant'
+        {
+            if ($items.Count -ne 1) { throw 'A property exclusion applies to exactly one property of one item.' }
+            $item = $items[0]
+            $arguments = @{ Kind = 'PropertyExcluded'; ResourceType = [string]$item.resourceType; Property = [string]$item.property; Tenant = $tenant; Reason = $reason; DataRoot = $DataRoot }
+            if ($item.scope -eq 'item') { $arguments.Key = [string]$item.key }
+            Set-PEDecision @arguments | Out-Null
+            $recompared = & $recompareProperty ([string]$item.resourceType) $(if ($item.scope -eq 'item') { [string]$item.key } else { $null })
+            return (& $done "$($item.resourceType).$($item.property) is no longer enforced in '$tenant'$(if ($item.scope -eq 'item') { " for '$($item.key)'" } else { ' for any item of the type' }). It stays visible in the item and a revert leaves it as it is.$(if (-not $recompared) { ' The drift list updates at the next snapshot.' })")
+        }
+        'IncludePropertyForTenant'
+        {
+            if ($items.Count -eq 0) { throw 'No items in the request.' }
+            foreach ($item in $items)
+            {
+                $arguments = @{ Kind = 'PropertyExcluded'; ResourceType = [string]$item.resourceType; Property = [string]$item.property; Tenant = $tenant; DataRoot = $DataRoot }
+                if ($item.key) { $arguments.Key = [string]$item.key }
+                Remove-PEDecision @arguments
+                $null = & $recompareProperty ([string]$item.resourceType) $(if ($item.key) { [string]$item.key } else { $null })
+            }
+            return (& $done "$($items.Count) property exclusion(s) removed in '$tenant'. The setting is enforced again.")
         }
         'Unexclude'
         {

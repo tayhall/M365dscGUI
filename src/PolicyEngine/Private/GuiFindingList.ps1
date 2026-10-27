@@ -67,6 +67,7 @@ function ConvertTo-PEGuiFindingList
                     {
                         if ($null -ne $difference) { [ordered]@{ property = [string]$difference.Property; blueprint = $difference.Blueprint; target = $difference.Target } }
                     })
+                excludedDifferences = @(foreach ($difference in @($(if ($finding.PSObject.Properties['ExcludedDifferences']) { $finding.ExcludedDifferences }))) { if ($null -ne $difference) { [ordered]@{ property = [string]$difference.Property; blueprint = $difference.Blueprint; target = $difference.Target } } })
                 hint         = $hint
                 other        = $other
                 error        = $error

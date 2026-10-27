@@ -34,7 +34,7 @@ Describe 'Standard releases' {
 
     Context 'Save-PEStandardRelease' {
         It 'refuses a tag that is not vX.Y.Z before it calls git' {
-            foreach ($tag in 'v1.4', 'main', 'v1.4.0; calc', '--upload-pack=x', '')
+            foreach ($tag in 'v1.4', 'main', 'v1.4.0; calc', '--upload-pack=x', '', "v1.4.0`n", 'v١.٢.٣')
             {
                 $fake = New-FakeGit
                 { Save-PEStandardRelease -Standard asd -Tag $tag -DataRoot $script:Temp -Git $fake.Git } | Should -Throw

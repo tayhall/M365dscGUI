@@ -24,7 +24,7 @@ function Get-PEStandardLatestTag
         throw "git ls-remote failed for $($source.Repository): $(@($result.Output) -join ' ')"
     }
     $tags = @(@($result.Output) | ForEach-Object { ([string]$_ -split "`t")[-1] -replace '\Arefs/tags/', '' } |
-            Where-Object { $_ -cmatch '\Av\d+\.\d+\.\d+\z' } | Sort-Object -Unique)
+            Where-Object { $_ -cmatch '\Av[0-9]+\.[0-9]+\.[0-9]+\z' } | Sort-Object -Unique)
     if ($tags.Count -eq 0)
     {
         throw "No release tag (vX.Y.Z) found at $($source.Repository)."

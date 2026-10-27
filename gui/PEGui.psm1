@@ -436,7 +436,7 @@ function Get-PEGuiStandardRequestPreview {
         if ($tenant -and [bool](Get-PEGuiProperty $tenant 'offline')) { $errors.Add("Tenant '$tenantId' is offline: a standard check reads the tenant.") }
         if (@(Get-PEGuiActiveJob -DataRoot $DataRoot | Where-Object { $_.action -eq 'StandardCheck' -and [string]$_.tenantId -ceq $tenantId }).Count) { $errors.Add('A standard check is already running for this tenant.') }
     } elseif ($action -eq 'ImportStandard') {
-        if ($tag -and $tag -cnotmatch '^v\d+\.\d+\.\d+$') { $errors.Add("Release tag '$tag' is not of the form vX.Y.Z.") }
+        if ($tag -and $tag -cnotmatch '\Av[0-9]+\.[0-9]+\.[0-9]+\z') { $errors.Add("Release tag '$tag' is not of the form vX.Y.Z.") }
         if (@(Get-PEGuiActiveJob -DataRoot $DataRoot | Where-Object { $_.action -eq 'ImportStandard' }).Count) { $errors.Add('A standard import is already running.') }
     } elseif ($action -in 'Adopt', 'AcceptRisk', 'RemoveRisk') {
         if ($reqItems.Count -eq 0) { $errors.Add('A request needs at least one item.') }

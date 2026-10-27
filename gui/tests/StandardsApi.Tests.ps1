@@ -134,7 +134,8 @@ Describe 'Standards request previews' {
         (Get-Preview $root @{ action = 'ImportStandard'; standard = 'asd' }).valid | Should -BeTrue
         (Get-Preview $root @{ action = 'ImportStandard'; standard = 'asd'; tag = 'v1.5.0' }).valid | Should -BeTrue
         (Get-Preview $root @{ action = 'CheckStandardRelease'; standard = 'asd' }).valid | Should -BeTrue
-        foreach ($tag in 'main', 'v1.4.0; calc', 'v1.4', '--upload-pack=x')
+        foreach ($tag in 'main', 'v1.4.0; calc', 'v1.4', '--upload-pack=x', "v1.4.0`n", "v1.4.0`r
+", 'v١.٢.٣')
         {
             (Get-Preview $root @{ action = 'ImportStandard'; standard = 'asd'; tag = $tag }).errors -join ' ' | Should -BeLike '*vX.Y.Z*' -Because $tag
         }

@@ -40,7 +40,7 @@ function Assert-PEReleaseTag
         [string]$Tag
     )
 
-    if ($Tag -cnotmatch '\Av\d+\.\d+\.\d+\z')
+    if ($Tag -cnotmatch '\Av[0-9]+\.[0-9]+\.[0-9]+\z')
     {
         throw "Release tag '$Tag' is not of the form vX.Y.Z."
     }

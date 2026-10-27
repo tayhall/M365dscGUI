@@ -31,7 +31,7 @@ matured.
   `BlueprintDefenderDsc.txt`, `BlueprintPurviewDsc.txt`, `BlueprintSpoDsc.txt`,
   and `ConfigurationData.txt`. They are plain DSC configuration scripts
   (`Configuration M365TenantConfig`, one resource block per object).
-- About 133 resource blocks: Purview 46 (sensitivity labels, retention, DLP),
+- 133 resource blocks (spike, 2026-10-27): Purview 51 (sensitivity labels, retention, DLP),
   Teams 40, Entra 22 (15 Conditional Access policies, named locations,
   authorisation policy), Intune 10, Exchange 4, SharePoint 4, Defender 2.
 - Releases are tagged (v1.4.0 on 2026-09-18; "ISM updates" quarterly) with a

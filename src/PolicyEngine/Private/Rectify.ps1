@@ -278,6 +278,7 @@ function Get-PEPlanItemSnapshot
             Hint              = $(if ($finding.Hint) { [string]$finding.Hint } else { $null })
             ChangedProperties = [string[]]@($differences | ForEach-Object { [string]$_.Property })
             DifferenceCount   = $differences.Count
+            ExcludedProperties = [string[]]@(@($(if ($finding.PSObject.Properties['ExcludedDifferences']) { $finding.ExcludedDifferences })) | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_.Property })
         }
     }
     $identityCopy = $null

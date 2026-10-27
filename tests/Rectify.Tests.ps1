@@ -1476,3 +1476,47 @@ Describe 'Allowlist names, fragment level' {
             } } | Should -Throw '*Credential is never generated*'
     }
 }
+
+Describe 'New-PERectifyPlan and properties excluded for the tenant' {
+    BeforeEach {
+        # Sales differs in Description only; the owner excluded Description for this tenant, and Ensure-less AADGroup also differs in nothing else,
+        # so a second real difference (MailEnabled) is added to the finding to make it a mixed one.
+        $targetDescription = $script:Changed.TargetRecord.Properties['Description']
+        $script:Mixed = $script:Changed | Select-Object *
+        $script:Mixed.Differences = @([pscustomobject]@{ Property = 'MailEnabled'; Blueprint = $false; Target = $true })
+        $script:Mixed.ExcludedDifferences = @([pscustomobject]@{ Property = 'description'; Blueprint = 'Sales team'; Target = $targetDescription })
+    }
+
+    It 'Update writes the tenant value of an excluded property and the blueprint value of the rest' {
+        $plan = @(New-PERectifyPlan -Findings @($script:Mixed) -Action Update @PlanArgs)
+        $plan[0].Record.Properties['Description'] | Should -Be 'Sales team (edited)'
+        $plan[0].Record.Properties['MailEnabled'] | Should -BeFalse
+        $plan[0].Record.Properties['DisplayName'] | Should -Be 'Sales'
+        # the finding's own blueprint record is not modified
+        $script:Mixed.BlueprintRecord.Properties['Description'] | Should -Be 'Sales team'
+    }
+
+    It 'a tenant value of null removes the excluded property from the record' {
+        $script:Mixed.ExcludedDifferences = @([pscustomobject]@{ Property = 'Description'; Blueprint = 'Sales team'; Target = $null })
+        $plan = @(New-PERectifyPlan -Findings @($script:Mixed) -Action Update @PlanArgs)
+        $plan[0].Record.Properties.Contains('Description') | Should -BeFalse
+    }
+
+    It 'a finding without excluded differences plans as before' {
+        $plan = @(New-PERectifyPlan -Findings $script:Changed -Action Update @PlanArgs)
+        $plan[0].Record.Properties['Description'] | Should -Be 'Sales team'
+    }
+
+    It 'the audit snapshot lists the excluded properties' {
+        $plan = @(New-PERectifyPlan -Findings @($script:Mixed) -Action Update @PlanArgs)
+        $snapshot = InModuleScope PolicyEngine -Parameters @{ Item = $plan[0] } { param ($Item) Get-PEPlanItemSnapshot -Item $Item }
+        @($snapshot.Finding.ExcludedProperties) | Should -Be @('description')
+    }
+
+    It 'a finding whose only differences are excluded (Unmanaged) is still refused for Update' {
+        $only = $script:Mixed | Select-Object *
+        $only.Differences = @()
+        $only.State = 'Unmanaged'
+        { New-PERectifyPlan -Findings @($only) -Action Update @PlanArgs } | Should -Throw '*Unmanaged*'
+    }
+}

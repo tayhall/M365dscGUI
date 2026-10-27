@@ -218,6 +218,23 @@ function New-PERectifyPlan
             $bag = Remove-PEIgnoredPath -ResourceType ([string]$record.ResourceType) -Properties (Get-PEPropertyBag -Record $record) -TenantBound
             $record = [pscustomobject]@{ ResourceType = $record.ResourceType; Key = $record.Key; Workload = $record.Workload; TenantId = $record.TenantId; Properties = $bag }
         }
+        # A property the owner excluded for this tenant is not enforced: the record keeps the tenant's value for it (the property is left out when the
+        # tenant has none), so the Revert changes only what is still drift. The finding's own record is not touched (a copy of the bag is changed).
+        if ($side -eq 'Changed' -and $null -ne $finding.PSObject.Properties['ExcludedDifferences'] -and @($finding.ExcludedDifferences).Count -gt 0)
+        {
+            $bag = [ordered]@{}
+            foreach ($name in (Get-PEPropertyBag -Record $record).get_Keys()) { $bag[$name] = (Get-PEPropertyBag -Record $record)[$name] }
+            foreach ($excluded in @($finding.ExcludedDifferences))
+            {
+                $existing = @($bag.get_Keys() | Where-Object { [string]$_ -ieq [string]$excluded.Property })
+                foreach ($name in $existing) { $bag.Remove($name) }
+                if ($null -ne $excluded.Target)
+                {
+                    $bag[$(if ($existing.Count -gt 0) { $existing[0] } else { [string]$excluded.Property })] = $excluded.Target
+                }
+            }
+            $record = [pscustomobject]@{ ResourceType = $record.ResourceType; Key = $record.Key; Workload = $record.Workload; TenantId = $record.TenantId; Properties = $bag }
+        }
         if ([string]$record.ResourceType -ine $type -or [string]$record.Key -ine $key)
         {
             throw "Refusing $Action for $label`: the finding's record is $($record.ResourceType) '$($record.Key)'."

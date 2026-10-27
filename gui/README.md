@@ -125,7 +125,7 @@ The Standards pages (design: `docs/superpowers/specs/2026-10-27-standards-gui-de
 
 **Request actions** (`POST /api/requests`, run by the worker; none writes a tenant):
 - `StandardCheck` (`tenantId`, `standard`): `Invoke-PEStandardCheck` compares the tenant's own blueprint with the standard. Nothing is read from the tenant (a tenant is managed against its blueprint), so it works for an offline tenant and is quick.
-- `Adopt` (`tenantId`, `standard`, `reason`, `items`): `Copy-PEStandardItem` into the tenant's own blueprint, one version per request; the master blueprint needs the master-write confirmation; a replica with no blueprint of its own is refused.
+- `Adopt` (`tenantId`, `standard`, `reason`, `items`): `Copy-PEStandardItem` into the tenant's own blueprint, one version per request, then the items are compared with the new version against the tenants latest check (no tenant read) so they show in its Drift review at once; the master blueprint needs the master-write confirmation; a replica with no blueprint of its own is refused.
 - `AcceptRisk` (`tenantId`, `standard`, `items` of `{ itemId, approvedBy, why, properties? }`): `Set-PERiskAcceptance`, for the whole item or one decision per listed property.
 - `RemoveRisk` (`tenantId`, `standard`, `items`): removes the item's accepted risks.
 - `ImportStandard` (`standard`, optional `tag` vX.Y.Z; default the latest): `Import-PEStandardRelease`.

@@ -93,6 +93,21 @@ Describe 'Standards requests in the worker' {
             (Read-Json 'tenants/master/standards/asd.json').blueprint.version | Should -Be 2
         }
 
+        It 'makes an adopted setting the tenant lacks show as Missing in the tenant''s own drift, without reading the tenant' {
+            $row = Get-Row 'TeamsMessagingPolicy'
+            $row.kind | Should -Be 'Missing'
+            $before = (Get-PECheck -Latest -Kind Full -Tenant master -DataRoot $script:Temp).CheckId
+            $job = Invoke-Worker (Send-Request @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; reason = 'adopt messaging'; confirmedMasterWrite = $true; items = @(@{ itemId = $row.itemId }) })
+            $job.status | Should -Be 'Succeeded' -Because $job.result
+            $full = Get-PECheck -Latest -Kind Full -Tenant master -DataRoot $script:Temp
+            $full.CheckId | Should -Not -Be $before
+            $finding = @($full.Findings | Where-Object { $_.ResourceType -eq 'TeamsMessagingPolicy' })[0]
+            $finding.Kind | Should -Be 'Missing'
+            $job.result | Should -BeLike '*compared with the tenant''s latest check again*'
+            $drift = @((Read-Json 'tenants/master/findings.json') | Where-Object { $_.resourceType -eq 'TeamsMessagingPolicy' -and $_.kind -eq 'Missing' -and $_.state -eq 'Open' })
+            $drift.Count | Should -Be 1
+        }
+
         It 'refuses the master blueprint without the master-write confirmation, and a replica with no blueprint of its own' {
             $row = Get-Row 'TeamsMessagingPolicy'
             { Invoke-Action @{ action = 'Adopt'; tenantId = 'master'; standard = 'asd'; reason = 'x'; confirmedMasterWrite = $false; items = @(@{ resourceType = $row.resourceType; key = $row.key }) } } | Should -Throw '*master-write confirmation*'

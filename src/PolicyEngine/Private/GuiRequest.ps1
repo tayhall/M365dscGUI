@@ -477,7 +477,11 @@ function Invoke-PEGuiRequestAction
             $version = Copy-PEStandardItem -Standard $standard -To $own -Item $picked -Reason $reason -ExpectedVersion $latest -DataRoot $DataRoot
             $refreshed = $false
             try { $null = Invoke-PEStandardCheck -StandardName $standard -BlueprintName $BlueprintName -Tenant $tenant -DataRoot $DataRoot; $refreshed = $true } catch { Write-Warning "The comparison with the standard was not refreshed: $($_.Exception.Message)" }
-            return (& $done "Blueprint v$version recorded in '$own' from '$standard'. No tenant was changed. Revert the tenant to its blueprint on Drift review to push the change.$(if ($refreshed) { ' The blueprint now matches the standard for them.' })")
+            # Like Promote: the adopted items are compared with the new blueprint version again, from the records of the tenant's latest check (no
+            # tenant read), so that they show in the tenant's own Drift review now and can be reverted from there.
+            $recompared = $false
+            try { $recompared = [bool](Update-PECheckForItems -Tenant $tenant -BlueprintName $own -Item $picked -DataRoot $DataRoot) } catch { Write-Warning "The adopted items were not compared with the tenant's check: $($_.Exception.Message)" }
+            return (& $done "Blueprint v$version recorded in '$own' from '$standard'. No tenant was changed.$(if ($recompared) { ' The adopted items were compared with the tenant''s latest check again, so any that differ show in Drift review now: revert the tenant to its blueprint there to push the change.' } else { ' They show in Drift review after the next check; then revert the tenant to its blueprint to push the change.' })$(if ($refreshed) { ' The blueprint now matches the standard for them.' })")
         }
         'AcceptRisk'
         {

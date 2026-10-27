@@ -1,6 +1,6 @@
 # M365dscGUI
 
-A policy engine and local web GUI for Microsoft 365 tenants, built as a thin layer on top of [Microsoft365DSC](https://github.com/Microsoft365DSC/Microsoft365DSC) (DSC).
+A policy engine and local web GUI for Microsoft 365 tenants, built as a thin layer on top of [Microsoft365DSC](https://microsoft365dsc.com/) (DSC; [source on GitHub](https://github.com/Microsoft365DSC/Microsoft365DSC)). The GUI is served by [Pode](https://pode.readthedocs.io/), a PowerShell web framework (see [What is Pode?](#what-is-pode)).
 
 > **Disclaimer.** This is an independent, community project. It is not affiliated with, endorsed by or supported by Microsoft or the Microsoft365DSC project. Microsoft 365 and related names are trademarks of Microsoft. The tool can **change settings in live tenants**. It is early-stage software provided "as is", without warranty (see `LICENSE`). Try it on a test tenant first, review every change before it is applied, and keep your own backups.
 
@@ -20,7 +20,7 @@ Export, comparison inputs, permissions and applying are done by Microsoft365DSC'
 
 ## Why it exists
 
-The aim was to explore how far a small policy layer on top of Microsoft365DSC can go towards "configuration as policy" for M365 tenants: define what a tenant should look like once, see when a tenant drifts from it, and decide, item by item, whether to put the tenant back or accept the change, without writing a second implementation of DSC. The principles are in `CLAUDE.md`, the folder map in `docs/overview.md`, and status, decisions and open items in `docs/handover.md`.
+The aim was to explore how far a small policy layer on top of Microsoft365DSC can go towards "configuration as policy" for M365 tenants: define what a tenant should look like once, see when a tenant drifts from it, and decide, item by item, whether to put the tenant back or accept the change, without writing a second implementation of DSC. The principles are in [`CLAUDE.md`](CLAUDE.md), the folder map in [`docs/overview.md`](docs/overview.md), and status, decisions and open items in [`docs/handover.md`](docs/handover.md).
 
 ## What it looks like
 
@@ -38,12 +38,20 @@ Screenshots of the GUI running on its built-in fake data set (`./gui/Start-PEGui
 
 ![Blueprint page: what the master blueprint holds, how the tenant differs, and the version history](docs/images/blueprint.png)
 
+## What is Pode?
+
+[Pode](https://github.com/Badgerati/Pode) is an open-source, cross-platform web framework for PowerShell ([documentation](https://pode.readthedocs.io/), [module on the PowerShell Gallery](https://www.powershellgallery.com/packages/Pode)). It lets a PowerShell script act as a web server: routes, JSON APIs, static files, timers and background tasks, all written in PowerShell.
+
+M365dscGUI uses it to serve the GUI. `gui/Start-PEGui.ps1` starts a small Pode server on `localhost` (port 8080 by default) that serves the static front end in `gui/public/` and a JSON API whose logic lives in `gui/PEGui.psm1`. The browser page is plain HTML, CSS and JavaScript with no build step and no third-party code. Because Pode runs on PowerShell, the GUI can call the same module and Microsoft365DSC commands as the command-line tools, and nothing else needs installing (no Node.js, IIS or database).
+
+The server only answers localhost host names and needs a per-run token, which `Start-PEGui.ps1` prints in the address to open, so another web page or process on the machine cannot drive it. Actions you choose in the GUI are written as request files; a separate worker (`tools\Start-PEGuiWorker.ps1`) picks them up and runs the checks and applies the changes. Details are in [`gui/README.md`](gui/README.md).
+
 ## Requirements
 
-- Windows with **PowerShell 7.6 or later** (`winget install Microsoft.PowerShell`)
-- **Microsoft365DSC** at the pinned version (installed by the script below)
-- **Pode 2.12 or later** for the GUI
-- **Pester 5.7.1** to run the tests
+- Windows with **[PowerShell](https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows) 7.6 or later** (`winget install Microsoft.PowerShell`)
+- **[Microsoft365DSC](https://microsoft365dsc.com/)** at the pinned version (installed by the script below)
+- **[Pode](https://github.com/Badgerati/Pode) 2.12 or later** for the GUI (see [What is Pode?](#what-is-pode))
+- **[Pester](https://pester.dev/) 5.7.1** to run the tests
 - A Microsoft 365 tenant, preferably a test tenant, and an administrator who can grant consent (Global Administrator, or Privileged Role Administrator plus Application Administrator) to create the app registrations
 
 ## Install
@@ -110,14 +118,14 @@ The Pester tests run offline on fake exports.
 
 ## Documentation
 
-| File | What it covers |
+| Document | What it covers |
 | --- | --- |
-| `docs/overview.md` | Folder map, tools and the words used in the GUI |
-| `docs/handover.md` | Main status file: decisions, open items, known gaps |
-| `docs/apply-mechanics.md` | How changes are compiled and applied |
-| `docs/key-coverage.md` | How resource keys are covered |
-| `gui/README.md` | Running and extending the GUI |
+| [`docs/overview.md`](docs/overview.md) | Folder map, tools and the words used in the GUI |
+| [`docs/handover.md`](docs/handover.md) | Main status file: decisions, open items, known gaps |
+| [`docs/apply-mechanics.md`](docs/apply-mechanics.md) | How changes are compiled and applied |
+| [`docs/key-coverage.md`](docs/key-coverage.md) | How resource keys are covered |
+| [`gui/README.md`](gui/README.md) | Running and extending the GUI |
 
 ## Licence
 
-MIT, see `LICENSE`.
+MIT, see [`LICENSE`](LICENSE).

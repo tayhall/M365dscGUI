@@ -111,6 +111,12 @@ Describe 'Standards request previews' {
         $q.valid | Should -BeTrue -Because ($q.errors -join '; ')
     }
 
+    It 'does not double the full stop when the reason already ends with one' {
+        $p = Get-Preview $root @{ action = 'AcceptRisk'; tenantId = 'master'; standard = 'asd'; items = @(@{ itemId = $countries; approvedBy = 'J. Citizen'; why = 'Managed by the device team.' }) }
+        $p.items[0].effect | Should -Be 'Records that J. Citizen accepted this difference: Managed by the device team.'
+        $q = Get-Preview $root @{ action = 'AcceptRisk'; tenantId = 'master'; standard = 'asd'; items = @(@{ itemId = $countries; approvedBy = 'J. Citizen'; why = 'NZ staff' }) }
+        $q.items[0].effect | Should -Be 'Records that J. Citizen accepted this difference: NZ staff.'
+    }
     It 'refuses Accept risk without approver or why, or for a property that does not differ' {
         (Get-Preview $root @{ action = 'AcceptRisk'; tenantId = 'master'; standard = 'asd'; items = @(@{ itemId = $countries; why = 'b' }) }).errors -join ' ' | Should -BeLike '*approved by*'
         (Get-Preview $root @{ action = 'AcceptRisk'; tenantId = 'master'; standard = 'asd'; items = @(@{ itemId = $countries; approvedBy = 'a'; why = '   ' }) }).errors -join ' ' | Should -BeLike '*why*'

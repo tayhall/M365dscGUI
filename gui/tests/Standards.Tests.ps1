@@ -75,6 +75,64 @@ Describe 'PEStandards words and values' -Skip:(-not (Get-Command node -ErrorActi
     }
 }
 
+Describe 'PEStandards selection list' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    BeforeAll {
+        $script:Entries = @"
+[
+  {t:'master',standard:'asd',itemId:'A~1',action:'Adopt'},
+  {t:'master',standard:'asd',itemId:'A~2',action:'Adopt'},
+  {t:'master',standard:'asd',itemId:'B~1',action:'AcceptRisk',approvedBy:'cio',why:'x'},
+  {t:'master',standard:'asd',itemId:'B~2',action:'AcceptRisk',approvedBy:'cio',why:'y',properties:['P1']},
+  {t:'dev',standard:'asd',itemId:'A~1',action:'Adopt'}
+]
+"@
+    }
+
+    It 'gives a standards entry and a Drift review entry for the same item different identities' {
+        Invoke-Model "S.queueIdentity({t:'master',itemId:'A~1'}) !== S.queueIdentity({t:'master',standard:'asd',itemId:'A~1'})" | Should -Be 'true'
+        Invoke-Model "S.queueIdentity({t:'master',standard:'asd',itemId:'A~1'}) !== S.queueIdentity({t:'master',standard:'nist',itemId:'A~1'})" | Should -Be 'true'
+        Invoke-Model "S.queueIdentity({t:'master',standard:'asd',itemId:'A~1'}) === S.queueIdentity({t:'master',standard:'asd',itemId:'A~1',action:'Adopt'})" | Should -Be 'true'
+    }
+
+    It 'groups entries by action, tenant and standard, keeping the order they were picked in' {
+        Invoke-Model "S.groupStandardEntries($($script:Entries)).map(g => [g.action, g.tenantId, g.standard, g.items.length])" |
+            Should -Be '[["Adopt","master","asd",2],["AcceptRisk","master","asd",2],["Adopt","dev","asd",1]]'
+        Invoke-Model "S.groupStandardEntries($($script:Entries))[0].items.map(i => i.itemId)" | Should -Be '["A~1","A~2"]'
+        Invoke-Model "S.groupStandardEntries([])" | Should -Be '[]'
+    }
+
+    It 'leaves entries of the Drift review out of the standards groups' {
+        Invoke-Model "S.groupStandardEntries([{t:'master',itemId:'A~1',action:'Promote'}])" | Should -Be '[]'
+    }
+
+    It 'sends who approved and why with each Accept risk item, and the properties only for a partial selection' {
+        Invoke-Model "S.groupStandardEntries($($script:Entries))[1].items" |
+            Should -Be '[{"itemId":"B~1","approvedBy":"cio","why":"x"},{"itemId":"B~2","approvedBy":"cio","why":"y","properties":["P1"]}]'
+        Invoke-Model "S.groupStandardEntries($($script:Entries))[0].items[0]" | Should -Be '{"itemId":"A~1"}'
+    }
+}
+
+Describe 'PEStandards Accept risk dialog' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    It 'asks for who approved it and why, ignoring blanks and spaces' {
+        Invoke-Model "S.riskDialogProblem({approvedBy:'',why:'x',differing:['P']})" | Should -Be '"Say who approved it."'
+        Invoke-Model "S.riskDialogProblem({approvedBy:'   ',why:'x',differing:['P']})" | Should -Be '"Say who approved it."'
+        Invoke-Model "S.riskDialogProblem({approvedBy:'cio',why:'  ',differing:['P']})" | Should -Be '"Say why."'
+        Invoke-Model "S.riskDialogProblem({approvedBy:'cio',why:'ok',differing:['P']})" | Should -Be '""'
+    }
+
+    It 'needs at least one setting ticked when the item has several that differ' {
+        Invoke-Model "S.riskDialogProblem({approvedBy:'a',why:'b',differing:['P','Q'],ticked:[]})" | Should -Be '"Tick at least one setting."'
+        Invoke-Model "S.riskDialogProblem({approvedBy:'a',why:'b',differing:['P','Q'],ticked:['Q']})" | Should -Be '""'
+        Invoke-Model "S.riskDialogProblem({approvedBy:'a',why:'b',differing:[],ticked:[]})" | Should -Be '""'
+    }
+
+    It 'accepts the whole item when every setting is ticked or only one differs, and only the ticked ones otherwise' {
+        Invoke-Model "S.riskProperties({differing:['P','Q'],ticked:['P','Q']})" | Should -Be '[]'
+        Invoke-Model "S.riskProperties({differing:['P'],ticked:['P']})" | Should -Be '[]'
+        Invoke-Model "S.riskProperties({differing:['P','Q'],ticked:['Q']})" | Should -Be '["Q"]'
+        Invoke-Model "S.riskProperties({differing:['P','Q','R'],ticked:['R','P']})" | Should -Be '["R","P"]'
+    }
+}
 Describe 'The server serves the Standards pages and routes' {
     BeforeAll { $script:Server = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\server.ps1') -Raw }
 

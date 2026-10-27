@@ -474,7 +474,7 @@ function Get-PEGuiStandardRequestPreview {
                     $resolved.approvedBy = $by
                     $resolved.why = $why
                     $resolved.properties = $properties
-                    $resolved.effect = "Records that $by accepted this difference: $why."
+                    $resolved.effect = "Records that $by accepted this difference: $why$(if ($why -notmatch '[.!?]$') { '.' })"
                     if ($properties.Count) { $resolved.label = "$label · $($properties -join ', ')" }
                 }
                 $items.Add([pscustomobject]$resolved)

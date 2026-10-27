@@ -124,7 +124,15 @@ function standardsPage() {
   }).join('<div style="height:16px"></div>');
 }
 
-function stdRowHtml(row) {
+function stdDecideHtml(std, row) {
+  const t = curTenant();
+  const chosen = stdChosen(t, std.name, row.itemId);
+  const actions = row.allowedActions || [];
+  const btn = (act, label, extra) => `<button class="btn sm${chosen === extra ? ' sel' : ''}" data-act="${act}" data-standard="${esc(std.name)}" data-id="${esc(row.itemId)}"${chosen === extra ? ' aria-pressed="true"' : (extra ? ' aria-pressed="false"' : '')}>${label}</button>`;
+  return `<div class="btns">${actions.includes('Adopt') ? btn('std-pick', 'Adopt', 'Adopt') : ''}${actions.includes('AcceptRisk') ? btn('std-risk', 'Accept risk', 'AcceptRisk') : ''}${actions.includes('RemoveRisk') ? btn('std-remove', 'Remove', '') : ''}</div>`;
+}
+
+function stdRowHtml(std, row) {
   const status = PEStandards.statusOf(row);
   const values = (list, side) => list.map((d) => `<span class="std-val"><span class="mono">${esc(d.property)}</span> <b>${esc(PEStandards.valueText(d[side]))}</b></span>`).join('');
   const diffs = row.differences || [];
@@ -134,7 +142,7 @@ function stdRowHtml(row) {
   let state = `<div class="std-chips">${stdStatusChip(status)}${row.adopted ? stdChip('ok', 'Adopted' + (row.adoptedFrom ? ' (' + row.adoptedFrom + ')' : '')) : ''}</div>`;
   if (status === 'accepted' || accepted.length) state += `<span class="std-sub">${accepted.length && status !== 'accepted' ? 'Accepted for ' + esc(accepted.map((d) => d.property).join(', ')) + ' · ' : ''}by ${esc(row.approvedBy || 'someone')}${row.acceptedAt ? ', ' + esc(shortDate(row.acceptedAt)) : ''}</span>${row.acceptedReason ? `<span class="std-sub">${esc(row.acceptedReason)}</span>` : ''}`;
   if (status === 'lookAgain') state += `<span class="std-sub std-look">${esc(row.hint || 'The standard changed after this was accepted.')}</span>`;
-  return `<tr class="${status === 'accepted' ? 'std-acc' : ''}"><td><b>${esc(row.key)}</b><span class="std-sub mono">${esc(row.resourceType)}</span><span class="std-sub">${esc(row.workload)}</span></td><td>${standard}</td><td>${tenantSide}</td><td>${state}</td></tr>`;
+  return `<tr class="${status === 'accepted' ? 'std-acc' : ''}"><td><b>${esc(row.key)}</b><span class="std-sub mono">${esc(row.resourceType)}</span><span class="std-sub">${esc(row.workload)}</span></td><td>${standard}</td><td>${tenantSide}</td><td>${state}</td><td>${stdDecideHtml(std, row)}</td></tr>`;
 }
 
 function standardCheckPage(r) {
@@ -152,7 +160,7 @@ function standardCheckPage(r) {
   const pill = (key, label) => `<button class="tab${show === key ? ' on' : ''}" data-act="std-filter" data-standard="${esc(std.name)}" data-show="${key}" aria-pressed="${show === key}">${label} <b>${counts[key]}</b></button>`;
   const empty = show === 'accepted' ? 'No accepted risks.' : show === 'decide' ? 'Nothing needs a decision. Every checked setting matches or has an accepted risk.' : 'No differences.';
   return head + `<div class="card"><div class="pills" role="group" aria-label="Show">${pill('decide', 'Needs a decision')}${pill('accepted', 'Accepted')}${pill('all', 'All differences')}</div>
-    ${rows.length ? `<div class="std-scroll"><table class="std-table"><thead><tr><th>Setting</th><th>Standard says</th><th>Tenant has</th><th>Status</th></tr></thead><tbody>${rows.map(stdRowHtml).join('')}</tbody></table></div>` : `<p class="muted">${esc(empty)}</p>`}</div>`;
+    ${rows.length ? `<div class="std-scroll"><table class="std-table"><thead><tr><th>Setting</th><th>Standard says</th><th>Tenant has</th><th>Status</th><th>Decide</th></tr></thead><tbody>${rows.map((r) => stdRowHtml(std, r)).join('')}</tbody></table></div>` : `<p class="muted">${esc(empty)}</p>`}</div>`;
 }
 
 function notCoveredPage(r) {
@@ -181,6 +189,129 @@ function standardCrumbs(r) {
   return `<div class="crumbs"><nav aria-label="Breadcrumb" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">${html}</nav></div>`;
 }
 
+// ---------- the selection list ----------
+// Adopt and Accept risk are added to the same list as Revert, Promote and Exclude (ui.queue, kept per blueprint in local storage). An entry has
+// its standard, so it never replaces a Drift review pick of the same item (PEStandards.queueIdentity).
+const stdRowOf = (t, standard, id) => { const v = D.std.tenant[t + '|' + standard]; return v && v.rows ? v.rows.find((r) => r.itemId === id) : null; };
+function stdChosen(t, standard, id) {
+  const want = PEStandards.queueIdentity({ t, standard, itemId: id });
+  const c = ui.queue.find((x) => PEStandards.queueIdentity(x) === want);
+  return c ? c.action : '';
+}
+function stdQueueDrop(t, standard, ids) {
+  const gone = new Set(ids.map((id) => PEStandards.queueIdentity({ t, standard, itemId: id })));
+  ui.queue = ui.queue.filter((c) => !(c.standard && gone.has(PEStandards.queueIdentity(c))));
+  ui.selPreview = null;
+  saveQueue();
+}
+function stdQueueSet(entry) {
+  const want = PEStandards.queueIdentity(entry);
+  ui.queue = ui.queue.filter((c) => PEStandards.queueIdentity(c) !== want);
+  ui.queue.push(entry);
+  ui.selPreview = null;
+  saveQueue();
+}
+// A group that ran (or was refused for good) leaves the list; Drift review groups go through app.js's queueRemove.
+function queueRemoveGroup(g) {
+  if (g.standard) stdQueueDrop(g.tenantId, g.standard, g.items.map((it) => it.itemId));
+  else queueRemove(g.tenantId, g.items.map((it) => it.itemId));
+}
+// Still a row of the latest check that offers the chosen action (while the check loads, it is kept).
+function stdQueueLive(c) {
+  if (!tenant(c.t)) return false;
+  const v = stdTenantView(c.t, c.standard);
+  if (v.loading) return true;
+  const row = v.rows && v.rows.find((r) => r.itemId === c.itemId);
+  return !!row && (row.allowedActions || []).includes(c.action);
+}
+function stdQueueRow(c) {
+  const live = stdQueueLive(c);
+  const row = stdRowOf(c.t, c.standard, c.itemId);
+  const std = (D.standards || []).find((s) => s.name === c.standard);
+  const note = c.action === 'AcceptRisk' ? `${esc(c.approvedBy)}: ${esc(c.why)}${c.properties && c.properties.length ? ' · ' + esc(c.properties.join(', ')) : ''}` : 'Copied into the tenant’s own blueprint';
+  return `<div class="gr selrow"><span><b class="wrap">${esc(c.key)}</b><div class="muted sub">${esc(row ? row.workload : workloadOf(c.resourceType))} · ${esc(typeName(c.resourceType))} · ${esc(std ? std.sourceName : c.standard)}</div><div class="muted sub">${note}</div></span>
+    <span>${esc(tenantLabel(c.t))} <span class="muted">· ${esc(tenant(c.t) ? role(c.t) : '')}</span></span>
+    <span>${live ? (row ? stdStatusChip(PEStandards.statusOf(row)) : '') : '<span class="chip c-grey">⊘ no longer offered in the latest check</span>'}</span>
+    <button class="btn sm" data-act="std-queue-remove" data-tenant="${esc(c.t)}" data-standard="${esc(c.standard)}" data-ids="${esc(c.itemId)}" aria-label="Remove ${esc(c.key)} from the selection list">Remove</button></div>`;
+}
+function stdPick(el) {
+  const t = curTenant();
+  const name = el.dataset.standard;
+  const id = el.dataset.id;
+  const row = stdRowOf(t, name, id);
+  if (!row) return;
+  if (stdChosen(t, name, id) === 'Adopt') stdQueueDrop(t, name, [id]);
+  else stdQueueSet({ t, standard: name, itemId: id, resourceType: row.resourceType, key: row.key, kind: row.kind, action: 'Adopt' });
+  render();
+}
+
+// ---------- the Accept risk dialog ----------
+function readApprovedBy() { try { return localStorage.getItem('pe.approvedBy') || ''; } catch (e) { return ''; } }
+function storeApprovedBy(v) { try { localStorage.setItem('pe.approvedBy', v); } catch (e) { /* storage blocked: it is asked for again next time */ } }
+function stdRiskOpen(el) {
+  const t = curTenant();
+  const name = el.dataset.standard;
+  const id = el.dataset.id;
+  const row = stdRowOf(t, name, id);
+  if (!row) return;
+  if (stdChosen(t, name, id) === 'AcceptRisk') { stdQueueDrop(t, name, [id]); render(); return; }
+  const differing = (row.differences || []).map((d) => d.property);
+  ui.riskDialog = { t, standard: name, itemId: id, row, differing, ticked: differing.slice(), approvedBy: readApprovedBy(), why: '' };
+  render();
+  setTimeout(() => { const f = document.getElementById(ui.riskDialog && !ui.riskDialog.approvedBy ? 'rk-by' : 'rk-why'); if (f) f.focus(); }, 0);
+}
+function riskDialogView() {
+  const d = ui.riskDialog;
+  if (!d) return '';
+  const row = d.row;
+  const problem = PEStandards.riskDialogProblem(d);
+  const values = (side) => (row.differences || []).map((x) => `<div><span class="mono">${esc(x.property)}</span> <b>${esc(PEStandards.valueText(x[side]))}</b></div>`).join('') || (side === 'standard' ? '<b>Present</b>' : '<span class="muted">Not in this tenant</span>');
+  const props = d.differing.length > 1
+    ? `<fieldset style="border:0;padding:0;margin:0"><legend class="lab">Settings to accept</legend>${d.differing.map((p, i) => `<label style="display:flex;gap:8px;align-items:center;min-height:32px"><input type="checkbox" id="rk-p-${i}" data-rkprop="${esc(p)}"${d.ticked.includes(p) ? ' checked' : ''}> <span class="mono">${esc(p)}</span></label>`).join('')}</fieldset>`
+    : '';
+  return `<div class="overlay"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="rk-title">
+    <div class="dh"><h2 id="rk-title" style="font-size:19px;margin:0">Accept this difference</h2><div class="muted" style="margin-top:4px">${esc(ACTION_SUB.AcceptRisk)}</div></div>
+    <div class="db">
+      <dl class="std-kv"><dt>Setting</dt><dd><b>${esc(row.key)}</b> <span class="mono">${esc(row.resourceType)}</span></dd><dt>Standard says</dt><dd>${values('standard')}</dd><dt>Tenant has</dt><dd>${values('tenant')}</dd><dt>Tenant</dt><dd>${esc(tenantLabel(d.t))}</dd></dl>
+      ${props}
+      <div><label class="lab" for="rk-by">Approved by</label><input id="rk-by" type="text" value="${esc(d.approvedBy)}" autocomplete="off" style="width:100%"></div>
+      <div><label class="lab" for="rk-why">Why</label><textarea id="rk-why" placeholder="Why is it acceptable to leave this as it is?">${esc(d.why)}</textarea></div>
+      <p class="muted std-note">This is a note kept next to the check so the difference is not raised again. It is not your risk register. If a newer version of the standard changes this setting, it comes back as “Look again”.</p>
+      <div id="rk-problem" class="err" role="status">${esc(problem)}</div></div>
+    <div class="df"><button class="btn" data-act="std-risk-cancel">Cancel</button><button class="btn pri" id="rk-ok" data-act="std-risk-confirm"${problem ? ' disabled' : ''}>Add to selection list</button></div></div></div>`;
+}
+// Typing in the dialog updates its state and the button without redrawing (which would lose the caret); a tick redraws.
+function standardsInput(e) {
+  const d = ui.riskDialog;
+  const el = e.target;
+  if (!d || !el) return false;
+  if (el.id === 'rk-by' || el.id === 'rk-why') {
+    if (el.id === 'rk-by') d.approvedBy = el.value; else d.why = el.value;
+    const problem = PEStandards.riskDialogProblem(d);
+    const ok = document.getElementById('rk-ok');
+    const msg = document.getElementById('rk-problem');
+    if (ok) ok.disabled = !!problem;
+    if (msg) msg.textContent = problem;
+    return true;
+  }
+  if (el.dataset && el.dataset.rkprop !== undefined) {
+    d.ticked = el.checked ? [...new Set([...d.ticked, el.dataset.rkprop])] : d.ticked.filter((p) => p !== el.dataset.rkprop);
+    render();
+    return true;
+  }
+  return false;
+}
+function stdRiskConfirm() {
+  const d = ui.riskDialog;
+  if (!d || PEStandards.riskDialogProblem(d)) return;
+  const properties = PEStandards.riskProperties(d);
+  storeApprovedBy(d.approvedBy.trim());
+  stdQueueSet({ t: d.t, standard: d.standard, itemId: d.itemId, resourceType: d.row.resourceType, key: d.row.key, kind: d.row.kind, action: 'AcceptRisk', approvedBy: d.approvedBy.trim(), why: d.why.trim(), properties });
+  ui.toast = { text: `Accept risk for “${d.row.key}” added to the selection list.`, job: null };
+  ui.riskDialog = null;
+  render();
+}
+
 // ---------- actions ----------
 async function stdRequest(body, queued) {
   // Queues a request; the worker does the work and the page reloads its data when the job finishes.
@@ -199,6 +330,12 @@ function standardsClick(el) {
   else if (act === 'std-import') stdRequest(Object.assign({ action: 'ImportStandard', standard: name }, el.dataset.tag ? { tag: el.dataset.tag } : {}), 'Import {job} queued. This page updates when it finishes.');
   else if (act === 'std-release') stdRequest({ action: 'CheckStandardRelease', standard: name }, 'Looking for a new release ({job}).');
   else if (act === 'std-import-toggle') { ui.stdImport = !ui.stdImport; render(); }
+  else if (act === 'std-pick') stdPick(el);
+  else if (act === 'std-risk') stdRiskOpen(el);
+  else if (act === 'std-risk-cancel') { ui.riskDialog = null; render(); }
+  else if (act === 'std-risk-confirm') stdRiskConfirm();
+  else if (act === 'std-remove') stdRequest({ action: 'RemoveRisk', tenantId: curTenant(), standard: name, items: [{ itemId: el.dataset.id }] }, 'Removing the accepted risk ({job}). This page updates when it finishes.');
+  else if (act === 'std-queue-remove') { stdQueueDrop(el.dataset.tenant, name, el.dataset.ids.split(' ').filter(Boolean)); render(); }
   else if (act === 'std-filter') go(stdPath.check(name, el.dataset.show));
   else if (act === 'std-notcov-filter') go(stdPath.notCovered(name, el.dataset.reason));
 }

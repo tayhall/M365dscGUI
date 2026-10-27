@@ -9,7 +9,7 @@ const KIND_LABEL = {
   NotChecked: 'Not read', NotAvailable: 'Not available', Unkeyed: 'Unkeyed', Unreadable: 'Unreadable', Aligned: 'Aligned', Checked: 'Checked'
 };
 const KIND_COLOR = { Missing: '#9a4f00', Changed: '#e39a25', TargetOnly: '#f2cf8b', PossibleRename: '#8b5cf6', Ambiguous: '#4c2a99' };
-const ACTION_LABEL = { Accept: 'Revert tenant', RevertBlueprint: 'Restore blueprint version', FullCheck: 'Snapshot', Recheck: 'Snapshot or refresh',ExcludeProperty: 'Noise rule', ExcludePropertyForTenant: 'Property exclusion', IncludePropertyForTenant: 'Property enforced again', Unexclude: 'Bring back', GenerateConfig: 'Generate configuration' };
+const ACTION_LABEL = { Accept: 'Revert tenant', RevertBlueprint: 'Restore blueprint version', FullCheck: 'Snapshot', Adopt: 'Adopt', AcceptRisk: 'Accept risk', RemoveRisk: 'Remove accepted risk', StandardCheck: 'Standard check', ImportStandard: 'Import standard', CheckStandardRelease: 'Look for a new release', Recheck: 'Snapshot or refresh',ExcludeProperty: 'Noise rule', ExcludePropertyForTenant: 'Property exclusion', IncludePropertyForTenant: 'Property enforced again', Unexclude: 'Bring back', GenerateConfig: 'Generate configuration' };
 const actionLabel = (a) => ACTION_LABEL[a] || a;
 // What a blueprint version records as its source, in the words of the buttons: a version made by Promote is stored as 'Accept', one made by Revert as 'Revert'.
 const SOURCE_LABEL = { Accept: 'Promote', Revert: 'Restore' };
@@ -17,7 +17,7 @@ const srcLabel = (s) => SOURCE_LABEL[s] || s;
 const ACTION_TITLE = {
   Accept: 'Revert the tenant to the blueprint', Promote: 'Promote the change', Exclude: 'Exclude from management',
   ExcludeProperty: 'Ignore a value as noise', ExcludePropertyForTenant: 'Stop enforcing a setting in this tenant', IncludePropertyForTenant: 'Enforce a setting again', Unexclude: 'Bring back under management', RevertBlueprint: 'Restore a blueprint version',
-  PromoteUp: 'Promote to master blueprint', PullDown: 'Update tenant blueprint', Run: 'Run the selection list'
+  PromoteUp: 'Promote to master blueprint', PullDown: 'Update tenant blueprint', Adopt: 'Adopt into the blueprint', AcceptRisk: 'Accept the risk', RemoveRisk: 'Remove an accepted risk', Run: 'Run the selection list'
 };
 const ACTION_SUB = {
   Accept: 'The tenant is brought back in line with the blueprint. The blueprint does not change.',
@@ -30,7 +30,9 @@ const ACTION_SUB = {
   RevertBlueprint: 'Only the blueprint changes. No tenant is written to.',
   PromoteUp: 'What differs moves from the tenant blueprint into the master blueprint. No tenant is written to.',
   PullDown: 'What differs moves from the master blueprint into the tenant blueprint. No tenant is written to; apply the tenant blueprint afterwards to bring the tenant in line.',
-  Run: 'Exclusions first, then blueprint changes, then the DSC configuration that reverts tenants. Only Revert writes to a tenant.'
+  Adopt: 'The standard’s setting is copied into the tenant’s own blueprint. The tenant is not changed: revert it afterwards on Drift review.',
+  AcceptRisk: 'The tenant stays as it is. A note records who approved leaving it and why.',
+  Run: 'Exclusions and accepted risks first, then blueprint changes (Promote and Adopt), then the DSC configuration that reverts tenants. Only Revert writes to a tenant.'
 };
 
 // The selection list: Revert, Promote and Exclude add an item here instead of acting at once (one action per item). The list shows what
@@ -42,11 +44,11 @@ const ACTION_TIP = {
   Promote: 'Promote: accept this drift into the blueprint. The blueprint takes the tenant’s value; the tenant is not changed.',
   Exclude: 'Exclude: ignore this drift. The item is no longer managed or counted as drift; nothing is changed in the tenant or the blueprint.'
 };
-const REQUEST_ACTION = { Revert: 'Accept', Promote: 'Promote', Exclude: 'Exclude' };
+const REQUEST_ACTION = { Revert: 'Accept', Promote: 'Promote', Exclude: 'Exclude', Adopt: 'Adopt', AcceptRisk: 'AcceptRisk' };
 function queueKey() { return 'pe-selection:' + (D.index ? D.index.blueprint.name : ''); }
 function loadQueue() { try { const v = JSON.parse(localStorage.getItem(queueKey()) || '[]'); return Array.isArray(v) ? v.filter((c) => REQUEST_ACTION[c.action]) : []; } catch (e) { return []; } }
 function saveQueue() { try { localStorage.setItem(queueKey(), JSON.stringify(ui.queue)); } catch (e) { /* the list still works for this page view */ } }
-const chosenAction = (t, id) => { const c = ui.queue.find((x) => x.t === t && x.itemId === id); return c ? c.action : ''; };
+const chosenAction = (t, id) => { const c = ui.queue.find((x) => x.t === t && x.itemId === id && !x.standard); return c ? c.action : ''; };
 const workloadOf = (rt) => (D.types[rt] && D.types[rt].workload) || 'Other';
 const allowedPick = (f, action) => !!f && (f.allowedActions || []).includes(REQUEST_ACTION[action]);
 // Choose an action for items (a second choice replaces the first, choosing the same one again removes it). Returns how many were skipped
@@ -56,7 +58,7 @@ function queuePick(t, ids, action) {
   let skipped = 0;
   ids.forEach((id) => {
     const f = findingFor(t, id);
-    ui.queue = ui.queue.filter((c) => !(c.t === t && c.itemId === id));
+    ui.queue = ui.queue.filter((c) => !(c.t === t && c.itemId === id && !c.standard));
     if (toggleOff) return;
     if (!allowedPick(f, action)) { skipped++; return; }
     ui.queue.push({ t, itemId: id, resourceType: f.resourceType, key: f.key, kind: f.kind, action });
@@ -65,20 +67,20 @@ function queuePick(t, ids, action) {
   saveQueue();
   return skipped;
 }
-function queueRemove(t, ids) { ui.queue = ui.queue.filter((c) => !(c.t === t && ids.includes(c.itemId))); ui.selPreview = null; saveQueue(); }
+function queueRemove(t, ids) { ui.queue = ui.queue.filter((c) => !(c.t === t && ids.includes(c.itemId) && !c.standard)); ui.selPreview = null; saveQueue(); }
 // Items still drifted in the latest check and still open to their chosen action; the rest are shown but never sent.
-const queueLive = (c) => { const f = tenant(c.t) && findingFor(c.t, c.itemId); return !!f && isOpenDrift(f) && allowedPick(f, c.action); };
+const queueLive = (c) => { if (c.standard) return stdQueueLive(c); const f = tenant(c.t) && findingFor(c.t, c.itemId); return !!f && isOpenDrift(f) && allowedPick(f, c.action); };
 function queueGroups() {
   // One group, so one job and one generated config, per action, tenant and workload: an Entra ID failure does not stop the Intune config.
   // Exclude first, then Promote, then Revert, as the runner does.
   const by = new Map();
-  ui.queue.filter(queueLive).forEach((c) => {
+  ui.queue.filter((c) => !c.standard && queueLive(c)).forEach((c) => {
     const k = c.action + '|' + c.t + '|' + workloadOf(c.resourceType);
     if (!by.has(k)) by.set(k, { action: REQUEST_ACTION[c.action], pick: c.action, tenantId: c.t, items: [] });
     by.get(k).items.push({ itemId: c.itemId });
   });
-  const rank = { Exclude: 0, Promote: 1, Revert: 2 };
-  return [...by.values()].sort((x, y) => rank[x.pick] - rank[y.pick]);
+  const rank = { Exclude: 0, AcceptRisk: 0, Promote: 1, Adopt: 1, Revert: 2 };
+  return [...by.values(), ...PEStandards.groupStandardEntries(ui.queue.filter(queueLive))].sort((x, y) => rank[x.pick] - rank[y.pick]);
 }
 // Two files per tenant and workload, as a Microsoft365DSC export gives them: the .ps1 is exactly the configuration the review shows, and the
 // .psd1 is its ConfigurationData with placeholders for the tenant values. Fill in the .psd1 and run the .ps1 by hand. Entra ID and Intune stay separate.
@@ -954,7 +956,9 @@ function compare(r) {
 const SELECTION_SECTIONS = [
   ['Revert', 'Revert: put the tenant back', 'Applied to the tenant as a DSC configuration (one per tenant and workload). The only action that writes to a tenant.'],
   ['Promote', 'Promote: accept into the blueprint', 'The tenant’s value becomes the blueprint’s. A new blueprint version; no tenant is changed.'],
-  ['Exclude', 'Exclude: ignore the drift', 'Recorded as an exclusion; the item is no longer managed or counted as drift.']
+  ['Exclude', 'Exclude: ignore the drift', 'Recorded as an exclusion; the item is no longer managed or counted as drift.'],
+  ['AcceptRisk', 'Accept risk: leave it as it is', 'A note of who approved the difference from a standard and why. The tenant and the blueprint are not changed.'],
+  ['Adopt', 'Adopt: copy the standard’s setting into the blueprint', 'A new version of the tenant’s own blueprint. No tenant is changed; revert the items afterwards on Drift review.']
 ];
 async function queuePreview() {
   const groups = queueGroups();
@@ -976,7 +980,7 @@ function selectionReview() {
   const config = v.previews.map((p) => p.config).filter(Boolean).join('\n\n');
   const blocks = v.groups.map((g, i) => {
     const p = v.previews[i];
-    const what = { Revert: 'Revert', Promote: 'Promote into blueprint', Exclude: 'Exclude' }[g.pick];
+    const what = { Revert: 'Revert', Promote: 'Promote into blueprint', Exclude: 'Exclude', Adopt: 'Adopt into blueprint', AcceptRisk: 'Accept risk' }[g.pick];
     const bp = p.blueprintVersionAfter ? `<div class="muted sub">Creates blueprint “${esc(p.blueprintName || '')}” v${esc(p.blueprintVersionAfter)}.</div>` : '';
     return `<div class="revblock"><div><b>${esc(what)}</b> · ${esc(tenantLabel(g.tenantId))} · ${esc(workloadOf(((findingFor(g.tenantId, g.items[0].itemId) || {}).resourceType) || ''))}</div>${bp}
       ${(p.items || []).map((it) => `<div class="dit"><span><b>${esc(it.label)}</b></span><span>${esc(it.effect)}</span></div>`).join('')}</div>`;
@@ -993,6 +997,7 @@ function queuePage() {
     const list = ui.queue.filter((c) => c.action === name);
     if (!list.length) return '';
     const rows = list.map((c) => {
+      if (c.standard) return stdQueueRow(c);
       const live = queueLive(c);
       const f = tenant(c.t) && findingFor(c.t, c.itemId);
       const why = !tenant(c.t) ? 'tenant no longer registered' : !f || !isOpenDrift(f) ? 'no longer drifted in the latest check' : `cannot be ${name === 'Revert' ? 'reverted' : name === 'Promote' ? 'promoted' : 'excluded'} now`;
@@ -1005,16 +1010,16 @@ function queuePage() {
   }).join('');
   const live = ui.queue.filter(queueLive);
   const masterWrite = live.some((c) => c.action === 'Revert' && role(c.t) === 'Master');
-  const needReason = live.some((c) => c.action !== 'Revert');
+  const needReason = live.some((c) => c.action !== 'Revert' && c.action !== 'AcceptRisk');
   const disabled = live.length ? '' : ' disabled';
-  return `<div class="phead"><div><h1>Selection list</h1><div class="muted">Revert, Promote or Exclude drifted items on the Drift review page. They collect here; nothing is applied until you run the list, or export the DSC configuration of the Revert items as a .ps1 file to run later on a pipeline agent.</div></div>
+  return `<div class="phead"><div><h1>Selection list</h1><div class="muted">Revert, Promote or Exclude drifted items on the Drift review page, and Adopt or Accept risk on the Standards page. They collect here; nothing is applied until you run the list, or export the DSC configuration of the Revert items as a .ps1 file to run later on a pipeline agent.</div></div>
     <div class="btns"><button class="btn" data-act="queue-clear"${ui.queue.length ? '' : ' disabled'}>Clear list</button>
       <button class="btn" data-act="queue-preview"${disabled}>Review the DSC configuration</button>
       <button class="btn" data-act="queue-export"${live.some((c) => c.action === 'Revert') ? '' : ' disabled'} title="Saves the DSC configuration of the Revert items as a .ps1 plus a .psd1 of placeholders per tenant and workload, to fill in and apply by hand. Promote and Exclude are not in it.">Export DSC configuration (.ps1 + .psd1)</button>
       <button class="${masterWrite ? 'btn dan' : 'btn pri'}" data-act="queue-run"${disabled}>Run ${plural(live.length, 'item')}…</button></div></div>
     ${sections || '<section class="card"><div class="empty muted">The selection list is empty. Choose Revert, Promote or Exclude on the Drift review page or an item row.</div></section>'}
     ${live.length < ui.queue.length ? '<div class="banner b-grey" role="status"><span class="warn">!</span><div>Items marked ⊘ are not sent when the list runs or is exported. Remove them, or take a new snapshot and choose them again.</div></div>' : ''}
-    ${live.length ? `<section class="card"><label class="lab" for="sel-reason">Reason ${needReason ? '(needed for Promote and Exclude)' : '(optional)'}</label><textarea id="sel-reason" placeholder="Why? Recorded with the blueprint version and the exclusions when you run the list.">${esc(ui.selReason || '')}</textarea></section>` : ''}
+    ${live.length ? `<section class="card"><label class="lab" for="sel-reason">Reason ${needReason ? '(needed for Promote, Adopt and Exclude)' : '(optional)'}</label><textarea id="sel-reason" placeholder="Why? Recorded with the blueprint version and the exclusions when you run the list.">${esc(ui.selReason || '')}</textarea></section>` : ''}
     ${selectionReview()}
     <div class="muted sub">The export is the configuration shown above for the Revert items only (Promote and Exclude change the blueprint and the exclusions, not a tenant, so run them here), as a <code>.ps1</code> and a <code>.psd1</code> of placeholders for ApplicationId, CertificateThumbprint, OrganizationName, TenantGuid and TenantId. Fill in the .psd1 and run the .ps1.</div>`;
 }
@@ -1514,7 +1519,7 @@ async function submitDialog() {
   if (jobs.length) ui.toast = { text: `Request ${jobs.join(', ')} queued.`, job: jobs[0] };
   if (errors.length) {
     // Keep only the groups that failed, so trying again never sends a request that was already queued.
-    if (d.queueRun) d.groups.forEach((g, i) => { if (!left.includes(i)) queueRemove(g.tenantId, g.items.map((it) => it.itemId)); });
+    if (d.queueRun) d.groups.forEach((g, i) => { if (!left.includes(i)) queueRemoveGroup(g); });
     d.groups = left.map((i) => d.groups[i]);
     d.previews = left.map((i) => d.previews[i]);
     d.loading = false;
@@ -1523,7 +1528,7 @@ async function submitDialog() {
     render();
     return;
   }
-  if (d.queueRun) d.groups.forEach((g) => queueRemove(g.tenantId, g.items.map((it) => it.itemId)));
+  if (d.queueRun) d.groups.forEach((g) => queueRemoveGroup(g));
   ui.dialog = null;
   ui.sel.clear();
   await refreshActivity();
@@ -1612,6 +1617,7 @@ function onClick(e) {
   else if (act === 'rename-save') renameTenant();
 }
 function onInput(e) {
+  if (standardsInput(e)) return;
   if (e.target.dataset && e.target.dataset.rn && ui.rename) { ui.rename.text = e.target.value; return; }
   if (e.target.dataset && (e.target.dataset.up || e.target.dataset.upwl)) {
     if (e.target.dataset.up) ui.upload[e.target.dataset.up] = e.target.checked;
@@ -1676,7 +1682,7 @@ function render() {
   const valid = !['workload', 'type', 'item'].includes(r.screen) || tenant(r.t);
   const body = valid ? screens[r.screen](r) : notFound();
   const toast = ui.toast ? `<div class="toast" role="status"><span>${esc(ui.toast.text)}</span>${ui.toast.job ? link(path.activity(ui.toast.job), 'View in Activity') : ''}<button class="lnk" data-act="toast-close" aria-label="Dismiss">✕</button></div>` : '';
-  app.innerHTML = topbar(r) + `<main id="main" class="main">${['workload', 'type', 'item', 'drift'].includes(r.screen) ? contextStrip(curTenant()) : ''}${crumbs(r)}${body}</main>` + dialogView() + snapshotDialogView() + toast;
+  app.innerHTML = topbar(r) + `<main id="main" class="main">${['workload', 'type', 'item', 'drift'].includes(r.screen) ? contextStrip(curTenant()) : ''}${crumbs(r)}${body}</main>` + dialogView() + riskDialogView() + snapshotDialogView() + toast;
   document.title = (document.querySelector('h1') ? document.querySelector('h1').textContent + ' · ' : '') + 'Drift Engine';
   const again = focusId && document.getElementById(focusId);
   if (again) again.focus();
@@ -1709,7 +1715,7 @@ document.addEventListener('click', onClick);
 document.addEventListener('input', onInput);
 document.addEventListener('change', onChange);
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && ui.dialog) { ui.dialog = null; render(); }
+    if (e.key === 'Escape' && (ui.dialog || ui.riskDialog)) { ui.dialog = null; ui.riskDialog = null; render(); }
     else if (e.target && e.target.dataset && e.target.dataset.rn && ui.rename) { if (e.key === 'Enter') { e.preventDefault(); renameTenant(); } else if (e.key === 'Escape') { ui.rename = null; render(); } }
   });
 window.addEventListener('popstate', () => { render(); });

@@ -68,7 +68,7 @@ function Set-PETenant
         [string]$DataRoot
     )
 
-    foreach ($follow in @($Blueprints))
+    foreach ($follow in @($Blueprints | Where-Object { $_ }))
     {
         Assert-PEBlueprintNotStandard -Name $follow -Action 'follow it as a tenant blueprint' -DataRoot $DataRoot
     }

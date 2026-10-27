@@ -904,3 +904,68 @@ function Remove-PETenantNameDifference
             $d
         })
 }
+
+function Select-PESubsetTarget
+{
+    # The target state reduced to what the blueprint states (Compare-PEState -Subset): only the records whose match key the
+    # blueprint has, each with only the properties the blueprint's record names (case-insensitive). Duplicates of a kept key
+    # stay, so they still read as Ambiguous. NotChecked and Meta are carried over unchanged.
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory)]
+        $Blueprint,
+
+        [Parameter(Mandatory)]
+        $Target
+    )
+
+    $stated = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new([System.StringComparer]::Ordinal)
+    foreach ($record in @($Blueprint.Records))
+    {
+        if ([string]::IsNullOrEmpty([string]$record.Key))
+        {
+            continue
+        }
+        $matchKey = Get-PEMatchKey -ResourceType ([string]$record.ResourceType) -Key ([string]$record.Key)
+        if (-not $stated.ContainsKey($matchKey))
+        {
+            $stated[$matchKey] = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        }
+        foreach ($name in (Get-PEPropertyBag -Record $record).get_Keys())
+        {
+            [void]$stated[$matchKey].Add([string]$name)
+        }
+    }
+
+    $kept = foreach ($record in @($Target.Records))
+    {
+        if ([string]::IsNullOrEmpty([string]$record.Key))
+        {
+            continue
+        }
+        $matchKey = Get-PEMatchKey -ResourceType ([string]$record.ResourceType) -Key ([string]$record.Key)
+        if (-not $stated.ContainsKey($matchKey))
+        {
+            continue
+        }
+        $properties = [ordered]@{}
+        $bag = Get-PEPropertyBag -Record $record
+        foreach ($name in $bag.get_Keys())
+        {
+            if ($stated[$matchKey].Contains([string]$name))
+            {
+                $properties[$name] = $bag[$name]
+            }
+        }
+        [pscustomobject]@{
+            ResourceType = $record.ResourceType
+            Key          = $record.Key
+            Workload     = $record.Workload
+            TenantId     = $(if ($record.PSObject.Properties['TenantId']) { $record.TenantId } else { $null })
+            Properties   = $properties
+        }
+    }
+
+    New-PEState -Records @($kept) -NotChecked @($Target.NotChecked) -Meta $Target.Meta
+}

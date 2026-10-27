@@ -80,8 +80,17 @@ function Compare-PEState
         [string[]]$IncludeTypes = @(),
 
         [ValidateSet('Auto', 'Yes', 'No')]
-        [string]$CrossTenant = 'Auto'
+        [string]$CrossTenant = 'Auto',
+
+        # Compare only what the blueprint states (a standard): target records and properties it does not name are left out
+        # (Select-PESubsetTarget), so nothing is TargetOnly and a property only the target has is not a difference.
+        [switch]$Subset
     )
+
+    if ($Subset)
+    {
+        $Target = Select-PESubsetTarget -Blueprint $Blueprint -Target $Target
+    }
 
     $isCrossTenant = switch ($CrossTenant)
     {

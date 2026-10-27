@@ -41,6 +41,7 @@ Secrets and certificates live outside the repo, in `~\.m365dsc-policy\`.
 
 **Decisions and noise**
 - Findings can be marked Unmanaged, Remove or Promote. Noise rules are global.
+- A property can be excluded for one tenant (decision kind `PropertyExcluded`, for one item or every item of a type): it stays visible in the item, is not counted as drift, and a Revert leaves it as the tenant has it. See `docs/handover.md`, "Excluding a property for one tenant".
 
 **Applying changes**
 - **Selection list** (GUI): Revert, Promote and Exclude (hover for what each means) add a drifted item to the selection list instead of acting at once. Revert puts the tenant back (a DSC configuration), Promote takes the drift into the tenant's blueprint, Exclude ignores it. The list page shows what they add up to, including the combined DSC configuration. Run applies it (Exclude, then Promote, then Revert; one job per action, tenant and workload). Export saves the DSC configuration of the Revert items per tenant and workload as a `.ps1` (the same text as the review) plus a `.psd1` of placeholders (ApplicationId, CertificateThumbprint, OrganizationName, TenantGuid, TenantId, laid out like a Microsoft365DSC export) to fill in and apply by hand.

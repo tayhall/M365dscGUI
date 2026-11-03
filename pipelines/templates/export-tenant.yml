@@ -1,16 +1,12 @@
 # Shared steps: export one tenant with Microsoft365DSC and publish the result as an artifact.
+# The tenant's identifiers (domain, Key Vault, short name, app id) come from pipelines/config/<environment>.psd1 at run time.
 parameters:
-  - name: tenantSlug          # dev | preprod (the tool's tenant slug)
+  - name: environment         # Dev | PreProd: names the config file and the tenant
     type: string
-  - name: tenantDomain        # contoso-dev.onmicrosoft.com
-    type: string
-  - name: applicationId       # Reader app registration's application (client) id
-    type: string
+    values:
+      - Dev
+      - PreProd
   - name: serviceConnection
-    type: string
-  - name: keyVaultName
-    type: string
-  - name: shortName           # the Key Vault secret is <shortName>-Cert-Reader (base64 PFX)
     type: string
   - name: workloads           # comma-joined DSC name prefixes, for example AAD,Intune,EXO,Teams
     type: string
@@ -24,30 +20,28 @@ steps:
 
   # Az PowerShell is already signed in through the service connection.
   - task: AzurePowerShell@5
-    displayName: 'Sign in app: import Reader certificate (${{ parameters.tenantSlug }})'
+    displayName: 'Sign in app: import Reader certificate (${{ parameters.environment }})'
     inputs:
       azureSubscription: ${{ parameters.serviceConnection }}
       azurePowerShellVersion: LatestVersion
       pwsh: true
       ScriptType: InlineScript
       Inline: |
-        & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Slug '${{ parameters.tenantSlug }}' -Role Reader `
-            -VaultName '${{ parameters.keyVaultName }}' -ShortName '${{ parameters.shortName }}' `
-            -ApplicationId '${{ parameters.applicationId }}' -TenantId '${{ parameters.tenantDomain }}'
+        & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Environment '${{ parameters.environment }}' -Role Reader
 
   - pwsh: |
       # The workloads come in through the environment and are validated, never written into the script text.
       if ($env:PE_WORKLOADS -notmatch '^[A-Za-z0-9,]+$') { throw 'The workloads parameter may only hold letters, digits and commas.' }
       $out = Join-Path '$(Build.ArtifactStagingDirectory)' 'export'
-      & '$(Build.SourcesDirectory)/tools/Export-M365DscTenant.ps1' -Role Reader -Tenant '${{ parameters.tenantSlug }}' -Workloads $env:PE_WORKLOADS -OutputPath $out
+      & '$(Build.SourcesDirectory)/tools/Export-M365DscTenant.ps1' -Role Reader -Tenant '${{ lower(parameters.environment) }}' -Workloads $env:PE_WORKLOADS -OutputPath $out
       if ($LASTEXITCODE) { exit $LASTEXITCODE }
-    displayName: 'Export ${{ parameters.tenantSlug }} (Microsoft365DSC)'
+    displayName: 'Export ${{ parameters.environment }} (Microsoft365DSC)'
     env:
       PE_WORKLOADS: ${{ parameters.workloads }}
 
   # Always runs, so a failed export does not leave the tenant certificate on the agent.
-  - pwsh: '& "$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1" -Slug "${{ parameters.tenantSlug }}" -Role Reader'
-    displayName: 'Remove ${{ parameters.tenantSlug }} certificate from the agent'
+  - pwsh: '& "$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1" -Slug "${{ lower(parameters.environment) }}" -Role Reader'
+    displayName: 'Remove ${{ parameters.environment }} certificate from the agent'
     condition: always()
 
   - task: PublishPipelineArtifact@1

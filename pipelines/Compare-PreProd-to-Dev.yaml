@@ -10,21 +10,11 @@ resources:
     - pipeline: devExport
       source: '__EXPORT_DEV_PIPELINE__'
 
+# Dev's identifiers (tenant, Key Vault, Writer app id, organization name) are in pipelines/config/Dev.psd1, read at run time. The MOF
+# holds the Writer app id and the certificate thumbprint (taken from <short name>-Cert-Writer in Key Vault), not the key.
 variables:
-  - name: DEV_TENANT_DOMAIN
-    value: '__DEV_TENANT_DOMAIN__'
   - name: SERVICECONNECTION
     value: '__SERVICE_CONNECTION__'
-  - name: KEYVAULT_NAME
-    value: '__DEV_KEYVAULT__'
-  - name: SHORT_NAME
-    value: '__DEV_SHORT_NAME__'
-  # The Dev Writer app the MOF files will run as (the MOF holds the app id and the certificate thumbprint, not the key). The thumbprint
-  # is taken from the Writer certificate in Key Vault (<short name>-Cert-Writer) in the first step and set as DEV_WRITER_THUMBPRINT.
-  - name: DEV_WRITER_APP_ID
-    value: '__DEV_WRITER_APP_ID__'
-  - name: DEV_ORGANIZATION_NAME
-    value: '__DEV_ORGANIZATION_NAME__'
 
 parameters:
   - name: mofLayout
@@ -65,27 +55,25 @@ stages:
               pwsh: true
               ScriptType: InlineScript
               Inline: |
-                & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Role Writer -VaultName '$(KEYVAULT_NAME)' -ShortName '$(SHORT_NAME)' `
-                    -ThumbprintOnly -VariableName DEV_WRITER_THUMBPRINT
+                & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Environment Dev -Role Writer -ThumbprintOnly -VariableName DEV_WRITER_THUMBPRINT
 
           - pwsh: |
               # Free-form parameters come in through the environment and are validated, never written into the script text.
               if ($env:PE_COMPLETE_WORKLOADS -notmatch '^[A-Za-z0-9,]*$') { throw 'completeWorkloads may only hold letters, digits and commas.' }
               if ($env:PE_THUMBPRINT -notmatch '^[0-9A-Fa-f]{40}$') { throw 'The Dev Writer thumbprint is not a 40-character hex thumbprint.' }
-              $parsed = [guid]::Empty
-              if (-not [guid]::TryParseExact($env:PE_APP_ID, 'D', [ref]$parsed)) { throw 'The Dev Writer application id is not a GUID.' }
+              # Dev's identifiers, read and validated from pipelines/config/Dev.psd1.
+              $dev = & '$(Build.SourcesDirectory)/pipelines/scripts/Get-PipelineConfig.ps1' -Environment Dev -Require TenantDomain, OrganizationName, WriterAppId
               & '$(Build.SourcesDirectory)/tools/Invoke-PEPipelineCompare.ps1' `
                   -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
                   -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
-                  -TargetTenantDomain '$(DEV_TENANT_DOMAIN)' `
+                  -TargetTenantDomain $dev.TenantDomain `
                   -CompleteWorkload $env:PE_COMPLETE_WORKLOADS `
                   -MofLayout '${{ parameters.mofLayout }}' `
                   -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
-                  -Compile -ApplicationId $env:PE_APP_ID -CertificateThumbprint $env:PE_THUMBPRINT -OrganizationName '$(DEV_ORGANIZATION_NAME)'
+                  -Compile -ApplicationId $dev.WriterAppId -CertificateThumbprint $env:PE_THUMBPRINT -OrganizationName $dev.OrganizationName
             displayName: 'Compare PreProd to Dev, generate configuration, compile MOF'
             env:
               PE_COMPLETE_WORKLOADS: ${{ parameters.completeWorkloads }}
-              PE_APP_ID: $(DEV_WRITER_APP_ID)
               PE_THUMBPRINT: $(DEV_WRITER_THUMBPRINT)
 
           - pwsh: |

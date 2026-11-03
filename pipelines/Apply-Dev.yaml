@@ -11,14 +11,7 @@ resources:
 variables:
   - name: SERVICECONNECTION
     value: '__SERVICE_CONNECTION__'
-  - name: KEYVAULT_NAME
-    value: '__DEV_KEYVAULT__'
-  - name: SHORT_NAME
-    value: '__DEV_SHORT_NAME__'
-  - name: DEV_TENANT_DOMAIN
-    value: '__DEV_TENANT_DOMAIN__'
-  - name: DEV_WRITER_APP_ID
-    value: '__DEV_WRITER_APP_ID__'
+  # Dev's identifiers (tenant, Key Vault, Writer app id) are in pipelines/config/Dev.psd1, read at run time.
 
 parameters:
   - name: mode
@@ -68,9 +61,7 @@ stages:
                     Inline: |
                       $expected = (Import-PowerShellDataFile -Path '$(Pipeline.Workspace)/compare/DriftReport/ConfigurationData.psd1').NonNodeData.CertificateThumbprint
                       if ($expected -notmatch '^[0-9A-Fa-f]{40}$') { throw 'No valid certificate thumbprint in the compare run''s ConfigurationData.psd1.' }
-                      & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Slug dev -Role Writer `
-                          -VaultName '$(KEYVAULT_NAME)' -ShortName '$(SHORT_NAME)' `
-                          -ApplicationId '$(DEV_WRITER_APP_ID)' -TenantId '$(DEV_TENANT_DOMAIN)' -ExpectedThumbprint $expected
+                      & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Environment Dev -Role Writer -ExpectedThumbprint $expected
 
                 # The LCM only runs from Windows PowerShell 5.1; the resources run in PowerShell 7 through its relay.
                 - powershell: |

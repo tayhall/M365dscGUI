@@ -3,37 +3,26 @@
     Reads a tenant app's certificate from Key Vault, imports it, and writes the app details file that tools\Export-M365DscTenant.ps1
     (and the apply tools) read. With -ThumbprintOnly it only reports the certificate's thumbprint.
 .DESCRIPTION
-    The Key Vault secret <ShortName>-Cert-<Role> holds the certificate as a base64 PFX (no password),
-    read with Get-AzKeyVaultSecret (the step must be an AzurePowerShell task, which is already signed in), and the thumbprint is taken
-    from the certificate itself, so no thumbprint is stored anywhere. The application id comes from the settings file.
+    The environment's identifiers (Key Vault, short name, application id, tenant domain) come from pipelines\config\<Environment>.psd1
+    through Get-PipelineConfig.ps1, which validates them. The Key Vault secret <ShortName>-Cert-<Role> holds the certificate as a base64
+    PFX (no password), read with Get-AzKeyVaultSecret (the step must be an AzurePowerShell task, which is already signed in). The
+    thumbprint is taken from the certificate itself, so no thumbprint is stored anywhere.
     Reader certificates go to CurrentUser\My; a Writer certificate goes to LocalMachine\My because the Local Configuration Manager runs
     as SYSTEM. The key is not exportable. Disconnect-PipelineTenant.ps1 removes it again.
 .EXAMPLE
-    Connect-PipelineTenant.ps1 -Slug dev -Role Reader -VaultName dev-kv -ShortName dev -ApplicationId <guid> -TenantId contoso-dev.onmicrosoft.com
+    Connect-PipelineTenant.ps1 -Environment Dev -Role Reader
 .EXAMPLE
-    Connect-PipelineTenant.ps1 -Role Writer -VaultName dev-kv -ShortName dev -ThumbprintOnly
+    Connect-PipelineTenant.ps1 -Environment Dev -Role Writer -ThumbprintOnly -VariableName DEV_WRITER_THUMBPRINT
 #>
 param
 (
-    [ValidatePattern('(?-i)\A[a-z0-9][a-z0-9-]{0,39}\z')]
-    [string]$Slug,
+    [Parameter(Mandatory)]
+    [ValidateSet('Dev', 'PreProd')]
+    [string]$Environment,
 
     [Parameter(Mandatory)]
     [ValidateSet('Reader', 'Writer')]
     [string]$Role,
-
-    [Parameter(Mandatory)]
-    [ValidatePattern('\A[A-Za-z0-9-]{3,24}\z')]
-    [string]$VaultName,
-
-    # The environment's short name: the secret is <ShortName>-Cert-<Role>.
-    [Parameter(Mandatory)]
-    [ValidatePattern('\A[A-Za-z0-9-]{1,24}\z')]
-    [string]$ShortName,
-
-    [string]$ApplicationId,
-
-    [string]$TenantId,
 
     # When given, the certificate must have this thumbprint (nothing is kept if not).
     [string]$ExpectedThumbprint,
@@ -41,24 +30,24 @@ param
     # Report the thumbprint (and set the pipeline variable named by -VariableName) without importing anything.
     [switch]$ThumbprintOnly,
 
-    [string]$VariableName
+    [ValidatePattern('\A[A-Z][A-Z0-9_]{0,63}\z')]
+    [string]$VariableName,
+
+    [string]$ConfigPath = (Join-Path $PSScriptRoot '..\config')
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+$appIdKey = "${Role}AppId"
+$require = @('KeyVault', 'ShortName', $appIdKey)
+if (-not $ThumbprintOnly) { $require += 'TenantDomain' }
+$config = & (Join-Path $PSScriptRoot 'Get-PipelineConfig.ps1') -Environment $Environment -Require $require -ConfigPath $ConfigPath
+$slug = $Environment.ToLowerInvariant()
+if (-not $ThumbprintOnly) { . (Join-Path $repoRoot 'tools\PEAppPath.ps1') }
 
-if (-not $ThumbprintOnly)
-{
-    if (-not $Slug) { throw '-Slug is needed to import the certificate.' }
-    $parsed = [guid]::Empty
-    if (-not [guid]::TryParseExact(([string]$ApplicationId).Trim(), 'D', [ref]$parsed)) { throw '-ApplicationId must be a GUID.' }
-    if (-not $TenantId) { throw '-TenantId is needed to import the certificate.' }
-    . (Join-Path $repoRoot 'tools\PEAppPath.ps1')
-}
-
-$secretName = "$ShortName-Cert-$Role"
-$secret = Get-AzKeyVaultSecret -VaultName $VaultName -Name $secretName
-if (-not $secret) { throw "Key Vault secret $secretName was not found in $VaultName." }
+$secretName = "$($config.ShortName)-Cert-$Role"
+$secret = Get-AzKeyVaultSecret -VaultName $config.KeyVault -Name $secretName
+if (-not $secret) { throw "Key Vault secret $secretName was not found in $($config.KeyVault)." }
 $pfxBase64 = ConvertFrom-SecureString -SecureString $secret.SecretValue -AsPlainText
 $bytes = [Convert]::FromBase64String(($pfxBase64 -replace '\s', ''))
 
@@ -91,9 +80,9 @@ finally
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
 }
 
-$infoPath = Get-PEAppInfoPath -Role $Role -Tenant $Slug
+$infoPath = Get-PEAppInfoPath -Role $Role -Tenant $slug
 New-Item -ItemType Directory -Force -Path (Split-Path $infoPath -Parent) | Out-Null
-[ordered]@{ ApplicationId = $parsed.ToString(); TenantId = $TenantId; Thumbprint = $cert.Thumbprint } |
+[ordered]@{ ApplicationId = ([guid]$config[$appIdKey]).ToString(); TenantId = $config.TenantDomain; Thumbprint = $cert.Thumbprint } |
     ConvertTo-Json | Set-Content -LiteralPath $infoPath -Encoding utf8
 
-"$Role certificate $($cert.Thumbprint) ($secretName) imported to $store; app details written for tenant '$Slug'."
+"$Role certificate $($cert.Thumbprint) ($secretName) imported to $store; app details written for tenant '$slug'."

@@ -22,16 +22,6 @@ $pipelines = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 $tokens = [ordered]@{
     Pool                    = '__POOL__'
     ServiceConnection       = '__SERVICE_CONNECTION__'
-    DevTenantDomain         = '__DEV_TENANT_DOMAIN__'
-    DevOrganizationName     = '__DEV_ORGANIZATION_NAME__'
-    DevKeyVault             = '__DEV_KEYVAULT__'
-    DevShortName            = '__DEV_SHORT_NAME__'
-    DevReaderAppId          = '__DEV_READER_APP_ID__'
-    DevWriterAppId          = '__DEV_WRITER_APP_ID__'
-    PreProdTenantDomain     = '__PREPROD_TENANT_DOMAIN__'
-    PreProdKeyVault         = '__PREPROD_KEYVAULT__'
-    PreProdShortName        = '__PREPROD_SHORT_NAME__'
-    PreProdReaderAppId      = '__PREPROD_READER_APP_ID__'
     DevEnvironment          = '__DEV_ENVIRONMENT__'
     ExportPreProdPipeline   = '__EXPORT_PREPROD_PIPELINE__'
     ExportDevPipeline       = '__EXPORT_DEV_PIPELINE__'
@@ -49,6 +39,10 @@ if (-not (Test-Path -LiteralPath $SettingsPath))
     throw "No settings file at $SettingsPath. Copy pipelines\pipeline.settings.example.psd1 to pipelines\pipeline.settings.psd1 and fill it in."
 }
 $settings = Import-PowerShellDataFile -Path $SettingsPath
+# Earlier versions of this file also held the tenant identifiers. They now live in pipelines\config\<Environment>.psd1, read at run time.
+$moved = @($settings.Keys | Where-Object { $_ -match '^(Dev|PreProd)(TenantDomain|OrganizationName|KeyVault|ShortName|ReaderAppId|WriterAppId|ReaderCertSecret|WriterCertSecret|WriterThumbprint)$' })
+if ($moved) { Write-Warning "Ignored (these now belong in pipelines\config\Dev.psd1 / PreProd.psd1, and you can delete them here): $($moved -join ', ')" }
+$settings = $settings.GetEnumerator() | Where-Object { $_.Key -notin $moved } | ForEach-Object -Begin { $kept = @{} } -Process { $kept[$_.Key] = $_.Value } -End { $kept }
 $unknown = @($settings.Keys | Where-Object { -not $tokens.Contains($_) })
 if ($unknown) { throw "Unknown setting(s): $($unknown -join ', '). Known: $($tokens.Keys -join ', ')." }
 
@@ -59,9 +53,7 @@ foreach ($name in $tokens.Keys)
     $value = if ($settings.ContainsKey($name)) { [string]$settings[$name] } else { [string]$defaults[$name] }
     if (-not $value) { $problems += "$name is missing"; continue }
     if ($value -match 'CHANGE-ME') { $problems += "$name still has the example value (CHANGE-ME)"; continue }
-    if ($name -like '*AppId' -and -not [guid]::TryParseExact($value.Trim(), 'D', [ref][guid]::Empty)) { $problems += "$name is not a GUID"; continue }
-    if ($name -like '*ShortName' -and $value -notmatch '\A[A-Za-z0-9-]{1,24}\z') { $problems += "$name may only hold letters, digits and hyphens (24 at most)"; continue }
-    if ($name -like '*KeyVault' -and $value -notmatch '\A[A-Za-z0-9-]{3,24}\z') { $problems += "$name is not a Key Vault name (3-24 letters, digits, hyphens)"; continue }
+    if ($value -match '[\r\n]') { $problems += "$name must be one line"; continue }
     # The value goes inside a single-quoted YAML string.
     $values[$name] = $value -replace "'", "''"
 }

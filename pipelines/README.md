@@ -20,16 +20,22 @@ Shared pieces: `templates\install-dependencies.yml`, `templates\export-tenant.ym
 `C:\Program Files\WindowsPowerShell\Modules`, added to the machine `PSModulePath`) and `scripts\Connect-PipelineTenant.ps1`
 (certificate import plus the app details file the existing tools read).
 
-## Making the YAML ready for Azure DevOps (once, then whenever the YAML here changes)
-The YAML holds `__TOKEN__` placeholders, never real values.
-1. Copy `pipelines\pipeline.settings.example.psd1` to `pipelines\pipeline.settings.psd1` (git-ignored) and fill in the pool, service
-   connection, tenant domains, Key Vault names, each environment's **short name** and the Reader/Writer application (client) ids.
-   Nothing sensitive goes in the file. Certificates are read from Key Vault when a pipeline runs: the secret `<ShortName>-Cert-Reader` (and `<ShortName>-Cert-Writer` for Dev) holds the certificate as a base64 PFX without a password,
-   read with `Get-AzKeyVaultSecret`. The thumbprint is taken from the certificate itself, so it is not stored anywhere.
+## Configuration: two places
+**1. Tenant config files, read at run time: `pipelines\config\Dev.psd1` and `PreProd.psd1`.** Fill in the tenant domain, Key Vault name,
+the environment's short name and the Reader (and, for Dev, Writer) application (client) ids; Dev also has the Exchange organization name.
+Commit them to your ADO repo: they hold identifiers only, never a secret. `scripts\Get-PipelineConfig.ps1` reads them as data, allows only
+those keys, checks each value (GUID, domain, name) and refuses `CHANGE-ME`, so a typo or a pasted secret stops the run. Changing a value
+needs no regenerating: edit the file and run the pipeline.
+Certificates are read from Key Vault: the secret `<ShortName>-Cert-Reader` (and `<ShortName>-Cert-Writer` for Dev) holds the certificate as a
+base64 PFX without a password, read with `Get-AzKeyVaultSecret`. The thumbprint is taken from the certificate itself and is not stored.
+
+**2. Settings for the YAML itself (once, then whenever the YAML here changes).** Azure DevOps needs the agent pool, the service connection,
+the environment and the pipeline names before any script runs, so those are tokens (`__POOL__` and so on) in the YAML.
+1. Copy `pipelines\pipeline.settings.example.psd1` to `pipelines\pipeline.settings.psd1` (git-ignored) and fill in the pool and service connection.
 2. Run `pwsh -NoProfile -File pipelines\scripts\New-PipelineYaml.ps1`. It writes the finished files to `pipelines\dist\` (git-ignored) and
-   stops on a missing value, an example value left in, or a token it does not know.
-3. Copy the contents of `dist\` over the `pipelines\` folder of your ADO repo (`pipelines\scripts\` and `tools\` are used as they are).
-   Create the four pipelines from the YAML files, named as in the settings file (the `resources:` blocks look them up by name), and create
+   stops on a missing value, an example value left in, or a token it does not know. Old tenant keys in the settings file are ignored with a warning.
+3. Copy the contents of `dist\` over the `pipelines\` folder of your ADO repo (`pipelines\config\`, `pipelines\scripts\` and `tools\` are used as
+   they are). Create the four pipelines from the YAML files, named as in the settings file (the `resources:` blocks look them up by name), and create
    the `m365-dev` environment with an approval check.
 
 ## Agent needs

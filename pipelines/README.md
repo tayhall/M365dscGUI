@@ -4,7 +4,7 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 
 | Pipeline | Does |
 | --- | --- |
-| `Export-PreProd.yaml`, `Export-Dev.yaml` | Imports the tenant's Reader certificate from Key Vault, runs `tools\Export-M365DscTenant.ps1`, publishes `PreProdExport` / `DevExport`. |
+| `Export-PreProd.yaml`, `Export-Dev.yaml` (generated from the `.yaml.template` files) | Imports the tenant's Reader certificate from Key Vault, runs `tools\Export-M365DscTenant.ps1`, publishes `PreProdExport` / `DevExport`. |
 | `Compare-PreProd-to-Dev.yaml` | Takes the latest of both exports, runs `tools\Invoke-PEPipelineCompare.ps1`, publishes `DriftReport` (`drift.csv`, `drift.json`, `Changes.ps1`, `Removals.ps1`, `Manual.json`, `MOF\Changes`, `MOF\Removals`). |
 | `Apply-Dev.yaml` | Applies the MOFs to Dev through the LCM (`tools\Invoke-PELcm.ps1`). Default mode is `Test`; Removals only when asked; gated by the `m365-dev` environment approval. |
 
@@ -38,26 +38,30 @@ needs no regenerating: edit the file and run the pipeline.
 Certificates are read from Key Vault: the secret `<ShortName>-Cert-Reader` (and `<ShortName>-Cert-Writer` for Dev) holds the certificate as a
 base64 PFX without a password, read with `Get-AzKeyVaultSecret`. The thumbprint is taken from the certificate itself and is not stored.
 
-**2. Settings for the YAML itself (once, then whenever the YAML here changes).** Azure DevOps needs the agent pool, the service connection,
-the environment and the pipeline names before any script runs, so those are tokens (`__POOL__` and so on) in the YAML.
-1. Copy `pipelines\pipeline.settings.example.psd1` to `pipelines\pipeline.settings.psd1` (git-ignored) and fill in the pool and service connection.
-2. Run `pwsh -NoProfile -File pipelines\scripts\New-PipelineYaml.ps1`. It writes the finished files to `pipelines\dist\` (git-ignored) and
-   stops on a missing value, an example value left in, or a token it does not know. Old tenant keys in the settings file are ignored with a warning.
-3. Copy the contents of `dist\` over the `pipelines\` folder of your ADO repo (`pipelines\config\`, `pipelines\scripts\` and `tools\` are used as
-   they are). Create the four pipelines from the YAML files, named as in the settings file (the `resources:` blocks look them up by name), and create
-   the `m365-dev` environment with an approval check.
+**2. Settings for the YAML itself (once, then whenever a template or a setting changes).** Azure DevOps needs the agent pool, the service connections,
+the environment and the pipeline names before any script runs, so those are tokens (`__POOL__` and so on) in the **`*.yaml.template`** files.
+The templates are not YAML as far as Azure DevOps is concerned, so they never show up when you pick an existing pipeline file; only the generated
+`*.yaml` do.
+1. Copy `pipelines\pipeline.settings.example.psd1` to `pipelines\pipeline.settings.psd1` (git-ignored) and fill in the pool and one service connection per tenant (`DevServiceConnection`, used by Export Dev, Compare and Apply, and `PreProdServiceConnection`, used by Export PreProd). An old single `ServiceConnection` line still works as the default for both.
+2. Run `pwsh -NoProfile -File pipelines\scripts\New-PipelineYaml.ps1`. It writes `Export-Dev.yaml`, `Export-PreProd.yaml`, `Compare-PreProd-to-Dev.yaml`
+   and `Apply-Dev.yaml` next to the templates, each with a header line saying it is generated. It stops on a missing value, an example value left in,
+   or a token it does not know, and it never deletes anything. Old tenant keys in the settings file are ignored with a warning.
+3. Create the four pipelines in Azure DevOps from those `*.yaml` files, named as in the settings file (the `resources:` blocks look them up by name),
+   and create the `m365-dev` environment with an approval check.
 
 ## Where the project sits in the ADO repo
 The project can live in a folder of a repo that holds other things (for example `M365dscGUI\`, with `pipelines\`, `src\`, `tools\` and the rest
 beneath it). Nothing else in the repo is touched or read.
+- **Do the setup inside the ADO repo.** Copy the project in (the `.template` files and `pipeline.settings.example.psd1` come with it, your own settings file
+  does not), make `pipeline.settings.psd1` there, run the generator there, and commit the generated `*.yaml` together with the `config\` files.
+- **`.gitignore`:** copy it into `M365dscGUI\` (it applies to that folder only). It keeps `pipelines\pipeline.settings.psd1` and `data\` out of the repo and
+  also ignores the generated `pipelines\*.yaml`, which is right for the GitHub repo but not for ADO: **delete the `pipelines/*.yaml` line** (it has a
+  comment above it) in the ADO copy so the generated files are committed. Do not commit the settings file.
 - **`RepoFolder`** in `pipeline.settings.psd1` (default `M365dscGUI`; use forward slashes for a deeper folder, `.` for the repo root) is put in front of
-  every script path in the YAML: `$(Build.SourcesDirectory)/M365dscGUI/pipelines/scripts/...`. Change it and run `New-PipelineYaml.ps1` again if you
-  use another folder name.
+  every script path in the YAML: `$(Build.SourcesDirectory)/M365dscGUI/pipelines/scripts/...`. Change it and generate again if you use another folder name.
 - **The scripts need no setting.** They find `src\`, `tools\` and `config\` relative to their own location, so they work from any folder.
 - **Creating each pipeline in ADO:** choose the existing YAML file at `M365dscGUI/pipelines/<name>.yaml`. The pipeline's own YAML path is the only other
   place the folder name appears.
-- **Copy the `.gitignore` as well** (it goes in `M365dscGUI\`, where it applies to that folder only): it keeps `pipelines\pipeline.settings.psd1`, `pipelines\dist\`
-  and `data\` out of the repo. Do not commit the settings file or `dist\`; `dist\` is only what you paste into the repo.
 - The checkout is the whole repo, so a large legacy repo is cloned each run; shallow fetching is available if that is slow.
 
 ## Agent needs

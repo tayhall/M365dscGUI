@@ -17,7 +17,7 @@ param(
     [string]$DataRoot,
     # A Microsoft365DSC export folder (export.ps1) to set the GUI up from; see the description.
     [string]$ExportPath,
-    # The tenant's domain. Optional when ConfigurationData.psd1 sits next to the export.
+    # The tenant's domain. Optional: read from ConfigurationData.psd1 next to the export, else a placeholder is used.
     [string]$TenantDomain,
     # The name shown in the GUI; default: the export folder's name.
     [string]$DisplayName,

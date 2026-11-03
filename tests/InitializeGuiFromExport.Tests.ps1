@@ -40,9 +40,13 @@ Describe 'Initialize-PEGuiFromExport' {
         (Get-PETenant -Slug 'dev' -DataRoot $root).TenantId | Should -Be 'fromfile.onmicrosoft.com'
     }
 
-    It 'asks for -TenantDomain when it cannot find one' {
+    It 'needs only the export folder: with no domain it uses a placeholder and says so' {
         $folder = New-ExportFolder -Parent (Join-Path $TestDrive 'nodomain') -Log
-        { & $script:Tool -ExportPath $folder -DataRoot (Join-Path $TestDrive 'data4') } | Should -Throw '*-TenantDomain*'
+        $root = Join-Path $TestDrive 'data4'
+        & $script:Tool -ExportPath $folder -DataRoot $root -WarningVariable warned -WarningAction SilentlyContinue | Out-Null
+        (Get-PETenant -Slug 'dev' -DataRoot $root).TenantId | Should -Be 'dev.invalid'
+        ($warned -join ' ') | Should -BeLike '*placeholder*'
+        Test-Path (Join-Path $root 'gui\index.json') | Should -BeTrue
     }
 
     It 'refuses a folder without export.ps1' {

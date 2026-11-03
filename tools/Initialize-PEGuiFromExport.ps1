@@ -58,7 +58,12 @@ if (-not $TenantDomain)
         }
     }
 }
-if (-not $TenantDomain) { throw "The tenant domain is needed (for example contoso-dev.onmicrosoft.com) and was not found next to the export. Pass -TenantDomain." }
+if (-not $TenantDomain)
+{
+    # Only used to tell tenants apart; a placeholder is fine for one offline tenant. Pass -TenantDomain to set the real one.
+    $TenantDomain = "$slug.invalid"
+    Write-Warning "No tenant domain given or found next to the export, so '$TenantDomain' is used as a placeholder. Pass -TenantDomain contoso-dev.onmicrosoft.com to set it."
+}
 
 $root = if ($DataRoot) { $DataRoot } else { Join-Path (Split-Path $PSScriptRoot -Parent) 'data' }
 $arguments = @{ DataRoot = $root }

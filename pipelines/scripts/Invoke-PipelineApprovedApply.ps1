@@ -61,6 +61,13 @@ param
 )
 
 $ErrorActionPreference = 'Stop'
+# The test hook parameters exist so the whole run can be tested offline. They swap the scripts that run against Dev and the folder the
+# location guard checks, so they are refused unless the environment variable PE_TEST_HOOKS is 1 (the pipeline never sets it).
+$usedHooks = @('ApprovalsRoot', 'ConfigPath', 'BuildScript', 'LcmScript', 'LcmHost', 'ConnectScript', 'DisconnectScript' | Where-Object { $PSBoundParameters.ContainsKey($_) })
+if ($usedHooks.Count -gt 0 -and $env:PE_TEST_HOOKS -ne '1')
+{
+    throw "The parameter(s) $($usedHooks -join ', ') are test hooks and are only accepted when PE_TEST_HOOKS is 1. Nothing was done."
+}
 $withRemovals = ($IncludeRemovals -eq 'True')
 
 # G9: only from the default branch, only a list that was committed to the approvals folder. Before any tenant access.
@@ -104,6 +111,7 @@ $runLcm = {
     $json | ConvertFrom-Json
 }
 $configResults = [System.Collections.Generic.List[object]]::new()
+$aborted = $null
 $testFailures = [System.Collections.Generic.List[string]]::new()
 $testInDesired = @{}
 
@@ -122,7 +130,14 @@ try
             try
             {
                 $test = & $runLcm $mof.FullName 'Test'
-                "In desired state: $(@($test.InDesiredState).Count); not in desired state: $(@($test.NotInDesiredState).Count) (a create is expected to be not in the desired state yet)"
+                if ($test.PSObject.Properties['Detailed'] -and $test.Detailed -eq $false)
+                {
+                    "The LCM test returned only an overall result (in the desired state: $($test.Overall)), not a list per resource, so what is already done is judged after the apply."
+                }
+                else
+                {
+                    "In desired state: $(@($test.InDesiredState).Count); not in desired state: $(@($test.NotInDesiredState).Count) (a create is expected to be not in the desired state yet)"
+                }
                 $testInDesired[[string]$config.ConfigurationName] = @($test.InDesiredState)
                 if ($test.Error) { $testFailures.Add("$($config.Name): $($test.Error)") }
             }
@@ -157,6 +172,11 @@ try
         }
     }
 }
+catch
+{
+    # Do not lose what was done: result.json is still written below (items not reached are Failed), then the run stops with this reason.
+    $aborted = $_.Exception.Message
+}
 finally
 {
     & $DisconnectScript -Slug dev -Role Writer
@@ -179,6 +199,7 @@ foreach ($config in $configs)
 $result = & (Join-Path $PSScriptRoot 'Get-ApplyResult.ps1') -Item $outcomes -ConfigResult $configResults.ToArray() -Mode $Mode -IncludeRemovals:$withRemovals
 [ordered]@{
     Mode            = $Mode
+    Aborted         = $aborted
     IncludeRemovals = $withRemovals
     List            = (Split-Path $listFull -Leaf)
     GeneratedAtUtc  = [datetime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -191,6 +212,7 @@ $t = $result.Totals
 'Outcomes: Applied {0}, NoActionRequired {1}, NotGenerated {2}, Failed {3}, Skipped {4}{5} (of {6} approved items)' -f $t.Applied, $t.NoActionRequired, $t.NotGenerated, $t.Failed, $t.Skipped, $(if ($Mode -eq 'Test') { ", would apply $($t.ToApply)" } else { '' }), $t.Items
 foreach ($row in @($result.Left)) { "  $($row.Outcome): $($row.Action) $($row.ResourceType) '$($row.Key)'$(if ($row.Reason) { ': ' + $row.Reason })" }
 
+if ($aborted) { throw "The run stopped: $aborted. result.json lists what was done (items not reached are Failed)." }
 if ($testFailures.Count -gt 0)
 {
     $testFailures | ForEach-Object { Write-Host "##vso[task.logissue type=warning]LCM test did not run cleanly: $_" }

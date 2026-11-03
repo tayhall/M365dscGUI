@@ -18,6 +18,11 @@ param
 )
 
 $ErrorActionPreference = 'Stop'
+$defaultRoot = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'approvals'
+if ([System.IO.Path]::GetFullPath($ApprovalsRoot).TrimEnd('\', '/') -ine [System.IO.Path]::GetFullPath($defaultRoot).TrimEnd('\', '/') -and $env:PE_TEST_HOOKS -ne '1')
+{
+    throw "A different approvals folder ($ApprovalsRoot) is a test hook and is only accepted when PE_TEST_HOOKS is 1. Nothing was done."
+}
 $branch = [string]$env:BUILD_SOURCEBRANCH
 if ($branch -cne "refs/heads/$DefaultBranch")
 {

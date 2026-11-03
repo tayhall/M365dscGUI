@@ -38,6 +38,7 @@ Add-Content $env:PE_FAKE_LOG "disconnect $Slug $Role"
         $env:PE_FAKE_BUILD_DIR = Join-Path $root 'scenario'
         $env:BUILD_SOURCEBRANCH = 'refs/heads/main'
         $env:PE_FAKE_BUILD_FAIL = $null
+        $env:PE_TEST_HOOKS = '1'
         [pscustomobject]@{ Root = $root; Out = (Join-Path $root 'out\apply'); Log = $env:PE_FAKE_LOG }
     }
 
@@ -243,5 +244,35 @@ Describe 'pipelines\scripts\Invoke-PipelineApprovedApply.ps1 convergence and ear
         ($apply.Items | Where-Object Key -eq 'Finance').Outcome | Should -Be 'NoActionRequired'
         ($apply.Items | Where-Object Key -eq 'Sales').Outcome | Should -Be 'Applied'
         $apply.Complete | Should -BeTrue
+    }
+}
+
+Describe 'pipelines\scripts\Invoke-PipelineApprovedApply.ps1 hardening' {
+    It 'refuses the test hook parameters unless test hooks are switched on' {
+        $w = New-World
+        Set-Scenario $w @((Row Create 'Finance' 'PE_AADGroup_Changes')) @{}
+        $env:PE_TEST_HOOKS = $null
+        { Invoke-ApprovedApply $w } | Should -Throw '*test hook*'
+        @(Get-Log $w).Count | Should -Be 0
+        $env:PE_TEST_HOOKS = '1'
+    }
+
+    It 'says so when the LCM test returned only an overall True/False, and does not pretend to list resources' {
+        $w = New-World
+        Set-Scenario $w @((Row Create 'Finance' 'PE_AADGroup_Changes')) @{ '01-AADGroup-Changes|Test' = @{ Detailed = $false; Overall = $false; InDesiredState = @(); NotInDesiredState = @() } }
+        $messages = Invoke-ApprovedApply $w
+        ($messages -join "`n") | Should -Match 'only an overall result'
+        ($messages -join "`n") | Should -Not -Match 'In desired state: 0; not in desired state: 0'
+    }
+
+    It 'still writes result.json, and then stops with the reason, when the run is aborted part way' {
+        $w = New-World
+        Set-Scenario $w @((Row Create 'Finance' 'PE_AADGroup_Changes')) @{}
+        Remove-Item -LiteralPath (Join-Path $w.Root 'scenario\MOF\01-AADGroup-Changes\localhost.mof') -Force
+        { Invoke-ApprovedApply $w -Mode Apply } | Should -Throw '*run stopped*'
+        $result = Get-Content (Join-Path $w.Out 'result.json') -Raw | ConvertFrom-Json
+        $result.Aborted | Should -BeLike '*No MOF*'
+        $result.Items[0].Outcome | Should -Be 'Failed'
+        (Get-Log $w)[-1] | Should -Be 'disconnect dev Writer'
     }
 }

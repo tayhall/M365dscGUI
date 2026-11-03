@@ -74,6 +74,7 @@ jobs:
                 & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/New-ExportRetentionLease.ps1' `
                     -PreProdRun '$(PREPROD_RUN)' -DevRun '$(DEV_RUN)' -PreProdDefinitionId '__EXPORT_PREPROD_PIPELINE_ID__' -DevDefinitionId '__EXPORT_DEV_PIPELINE_ID__'
               displayName: Keep the two export runs
+              condition: eq('${{ parameters.mode }}', 'Apply')
               env:
                 SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 

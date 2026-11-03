@@ -125,3 +125,13 @@ Describe 'New-PEApprovedConfig generation' -Tag 'Slow' {
         @($r.Configs).Count | Should -Be 1
     }
 }
+
+Describe 'New-PEApprovedConfig when the generator returns no text' {
+    It 'marks the items NotGenerated instead of leaving them ToApply with no configuration' {
+        Mock -ModuleName PolicyEngine ConvertTo-PEDscConfig { '' }
+        $r = Get-Approved @((Item Create 'Finance'))
+        $r.Items[0].Outcome | Should -Be 'NotGenerated'
+        $r.Items[0].Reason | Should -BeLike '*no configuration*'
+        @($r.Configs).Count | Should -Be 0
+    }
+}

@@ -178,5 +178,12 @@ if (-not $NoCompile -and $names.Count -gt 0)
         $mofPath = Join-Path $OutputPath "MOF\$($names[$i])"
         $null = Invoke-M365DSCConfigurationBuild -Path (Join-Path $OutputPath "$($names[$i]).ps1") -ConfigurationDataPath $dataPath -ConfigurationName $built.Configs[$i].ConfigurationName -OutputPath $mofPath -Engine Standard
         "Compiled $($names[$i]) -> $mofPath ($(@(Get-ChildItem -LiteralPath $mofPath -Filter *.mof).Count) MOF)"
+        # Pre-flight: the apply result is matched to the approved items by the resource ids Microsoft365DSC wrote into the MOF. If they are
+        # not the ones expected, stop now (nothing has touched Dev) instead of ending with every item Failed.
+        $rows = @($built.Items | Where-Object { $_.Outcome -eq 'ToApply' -and $_.ConfigurationName -eq $built.Configs[$i].ConfigurationName })
+        $unknown = @($rows | Where-Object { -not $_.ResourceId })
+        if ($unknown.Count -gt 0) { throw "$($names[$i]): the DSC resource id of $($unknown.Count) approved item(s) could not be worked out, so the apply result could not be matched to them. Nothing was applied." }
+        $missing = @(Test-PEResourceIdInMof -ExpectedId @($rows.ResourceId) -Path $mofPath)
+        if ($missing.Count -gt 0) { throw "$($names[$i]): the compiled MOF does not contain the resource id(s) $($missing -join ', ') that the apply result is matched by. Nothing was applied." }
     }
 }

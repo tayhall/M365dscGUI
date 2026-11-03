@@ -82,3 +82,10 @@ Describe 'pipelines\scripts\New-PipelineYaml.ps1 and the approved-apply pipeline
         $steps[-1].condition | Should -Not -BeNullOrEmpty
     }
 }
+
+Describe 'the retention step of the approved apply' {
+    It 'only runs when applying, so repeated Test runs do not pile up leases' {
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Apply-Approved-Dev.yaml') -Raw
+        $text | Should -Match "(?s)displayName: Keep the two export runs.*?condition: eq\('\$\{\{ parameters.mode \}\}', 'Apply'\)"
+    }
+}

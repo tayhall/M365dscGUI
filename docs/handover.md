@@ -441,11 +441,18 @@ Things to know:
 - Convergence: the build compares with the exported Dev the list pins (G7), so after a partial apply the done items still look ToApply there. What makes a re-run converge is the
   LCM test at run time: a ToApply item whose resource the test finds already in the desired state becomes NoActionRequired. An item is Applied only when the LCM reports its
   resource id (`[AADGroup]AADGroup-Finance`, worked out from the generated block) in the desired state; one failed resource does not fail the others in its configuration.
-  FIRST LIVE RUN: check that the LCM's ResourceId format matches; if it does not, every item shows Failed ('the LCM did not report this resource') and the fix is in New-PEApprovedConfig.
+  The id is the one Microsoft365DSC writes as `ResourceID = "[AADGroup]AADGroup-Finance";` in the compiled MOF (checked on a real compile), and the build now cross-checks every
+  expected id against the compiled MOF (`Get-PEMofResourceId`, `Test-PEResourceIdInMof`) and stops before Dev is touched if one is missing. What is still unchecked is that the live
+  LCM reports the same string; if it does not, items show Failed ('the LCM did not report this resource') and the fix is in `New-PEApprovedConfig`.
+- `tools\Invoke-PELcm.ps1`: `Detailed` was always true; it is now false until the per-resource lists exist. `Test-DscConfiguration -ReferenceConfiguration` may return only True/False,
+  in which case the preview says so and what is already done is judged after the apply (the apply path returns per-resource lists).
 - `ExportedAt` of the Dev export in the list comes from the export file's modification time, which after an artifact download may be the download time: the age guard (G8)
   may then be too lenient. Use the export run's finish time if that proves true in Azure DevOps.
 - The apply script takes test hooks (`-BuildScript`, `-LcmScript`, `-LcmHost`, `-ConnectScript`, `-DisconnectScript`, `-ApprovalsRoot`, `-ConfigPath`) with the real scripts as defaults;
-  the pipeline never sets them. `Invoke-PipelineApprovedApply.ps1` accepts an export folder directly or one level down (a folder named after the artifact).
+  the pipeline never sets them, and the script refuses them unless the environment variable `PE_TEST_HOOKS` is `1` (as does `Test-ApprovalLocation.ps1` for another approvals folder).
+  If the run stops part way, `result.json` is still written (with `Aborted`; items not reached are Failed) and the step then fails. `Invoke-PipelineApprovedApply.ps1` accepts an export folder directly or one level down (a folder named after the artifact).
 - Verified locally: all tests, and a real compile of an approved list into one MOF per type and phase (`tools\Invoke-PEApprovedBuild.ps1` without `-NoCompile`).
+- Known and left alone: the retention lease is created only in Apply mode but again on every Apply (duplicates expire after 60 days); one compile error on a type stops the whole build
+  (nothing is applied); the location guard is lexical (a committed symlink inside `approvals/` would pass); the LCM result is the last output line that starts with `{` (the wrapper prints one JSON line).
 - NOT verified (needs Azure DevOps and the Dev tenant): the YAML run itself (the `DownloadPipelineArtifact@2` input names were checked against Microsoft's page, the folder the
   artifact lands in was not), the retention lease permission, the Key Vault certificate import, the LCM apply on the agent, and the `SucceededWithIssues` result.

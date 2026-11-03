@@ -29,7 +29,7 @@ $errorText = $null
 $inDesired = @()
 $notInDesired = @()
 $overall = $null
-$detailed = $true
+$detailed = $false
 try
 {
     if ($Mode -eq 'Test')

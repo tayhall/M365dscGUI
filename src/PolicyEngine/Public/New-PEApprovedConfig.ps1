@@ -171,7 +171,12 @@ function New-PEApprovedConfig
         $refusedEntries = [System.Collections.Generic.HashSet[object]]::new([System.Collections.Generic.ReferenceEqualityComparer]::Instance)
         foreach ($refusal in @($safe.Refused)) { [void]$refusedEntries.Add($refusal.Entry); $refusal.Entry.Row.Outcome = 'NotGenerated'; $refusal.Entry.Row.Reason = $refusal.Reason }
         $accepted = @($entries | Where-Object { -not $refusedEntries.Contains($_) })
-        if (-not $safe.Text) { continue }
+        if (-not $safe.Text)
+        {
+            # The generator returned nothing (and refused nothing): never leave an item ToApply with no configuration behind it.
+            foreach ($entry in $accepted) { $entry.Row.Outcome = 'NotGenerated'; $entry.Row.Reason = 'the generator returned no configuration for it' }
+            continue
+        }
 
         # The blocks come out in the order of the entries: the first line of a block names the instance the LCM will report.
         $parts = Split-PEDscConfigText -Text $safe.Text

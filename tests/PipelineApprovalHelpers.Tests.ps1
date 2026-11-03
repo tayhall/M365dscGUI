@@ -4,6 +4,7 @@ BeforeAll {
 
     function New-Approvals
     {
+        $env:PE_TEST_HOOKS = '1'
         $root = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-ah-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path (Join-Path $root 'approvals') -Force | Out-Null
         $side = { param ($run) @{ Run = $run; ExportedAt = '2026-11-03T10:00:00Z'; Fingerprint = ('a' * 64) } }
@@ -105,5 +106,15 @@ Describe 'pipelines\scripts\New-ExportRetentionLease.ps1' {
     It 'refuses a run id or a definition id that is not digits' {
         { & (Join-Path $script:Dir 'New-ExportRetentionLease.ps1') -PreProdRun '12a' -DevRun 2 -PreProdDefinitionId 21 -DevDefinitionId 22 } | Should -Throw
         { & (Join-Path $script:Dir 'New-ExportRetentionLease.ps1') -PreProdRun 1 -DevRun 2 -PreProdDefinitionId 'x' -DevDefinitionId 22 } | Should -Throw
+    }
+}
+
+Describe 'pipelines\scripts\Test-ApprovalLocation.ps1 test hook' {
+    It 'refuses another approvals folder unless test hooks are switched on' {
+        $a = New-Approvals
+        $env:BUILD_SOURCEBRANCH = 'refs/heads/main'
+        $env:PE_TEST_HOOKS = $null
+        { & (Join-Path $script:Dir 'Test-ApprovalLocation.ps1') -ListPath $a.List -ApprovalsRoot $a.Approvals } | Should -Throw '*test hook*'
+        $env:PE_TEST_HOOKS = '1'
     }
 }

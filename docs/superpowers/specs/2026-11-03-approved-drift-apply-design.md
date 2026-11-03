@@ -61,20 +61,30 @@ carry a changed setting into Dev.
 
 ## Apply: the guards
 
-Each guard fails the run, with a message that names the items, unless it says otherwise.
+G1, G6, G7, G8 and G9 are checks on the run as a whole: they stop it **before anything is written**, with a message that names the cause. G2,
+G3 and G5 work item by item: they report each item's outcome and carry on, so that one bad item never blocks the others.
 
 - **G1 Complete exports.** Neither export may have a failed component (`Failed exports` above 0 in `export.log`) or a Graph shortfall
   warning ("Graph reported N items but only M were returned"). Re-export instead of overriding.
-- **G2 Still valid.** Every approved item must still be an Open finding of the same kind in the new comparison (for example "Missing group
-  X" is still missing). An item that no longer differs, or now differs in another way, is reported as stale and stops the run.
-- **G3 Only what was approved, all or nothing.** Nothing outside the list is written. The configuration is generated for every approved
-  item first. If any approved item cannot be generated (the engine refuses it, see above), nothing is applied: the run fails with the items
-  and reasons, and the list is corrected and committed again. The number of resources generated must equal the approved count.
+- **G2 Re-runnable: already done is fine, anything else is skipped.** Each approved item is compared with Dev as it is now. If Dev already
+  has the approved outcome (an approved Create that now exists and matches, an Update that now matches, a Remove that is gone), the item is
+  **"no action required"** and the run carries on: this is what makes a re-run converge. If Dev is in a state the approval did not
+  expect (an approved Create that exists but differs, an Update whose object has gone), that item is skipped and listed with the reason; the
+  other items are not held up.
+- **G3 Only what was approved, and every item accounted for.** Nothing outside the list is written. Configuration is generated for every
+  approved item that can be generated. An item the engine refuses (see above) is **not generated**, is listed with the engine's reason, and
+  does not hold up the others. A resource that depends on another one in the same list is not a reason to refuse it: both are generated.
+  Every approved item ends in exactly one outcome: **Applied**, **No action required**, **Not generated** (reason), **Failed** (DSC's error)
+  or **Skipped** (G2). The run's summary shows the five counts and they add up to the number of approved items.
 - **G4 Counts at the gate.** The log and the pipeline summary show per type and action, for example `Create 10 AADGroup`, `Update 2
   AADConditionalAccessPolicy`, before the environment approval and again before applying.
-- **G5 Test first, then stop on the first failure.** The LCM test runs for every type before any apply. Apply then goes type by type in a
-  fixed order and stops at the first type that fails; later types do not run. The run ends red and reports which types were applied, which
-  failed and which were skipped. There is no rollback (DSC has none); the Test run is the prediction, not a guarantee.
+- **G5 Test first, then apply what can be applied, then report what is left.** The LCM test runs for every type first and is the preview
+  of what will change (it is not a gate: items that are about to be created are expected to be "not in desired state"). Apply then goes
+  type by type in a fixed order (groups before the types that reference them) and **carries on after a failure**: it applies what it can,
+  and a resource that fails does not stop the others. When a resource depends on one that has not been created yet, the dependent one fails
+  and is reported as Failed, and the next run creates it. The run is green only when every approved item is Applied or No action required.
+  Otherwise it finishes **with issues**, lists the items that are left, and a re-run of the same list only has those to do (the done ones
+  are "no action required"). There is no rollback (DSC has none).
 - **G6 Removals only if approved and asked for.** A `Remove` item needs to be in the list and the `includeRemovals` option ticked.
 - **G7 Pinned, unchanged exports.** Apply uses the export runs named in the list, and their SHA-256 must match the list. If a run's
   artifact is gone (retention) or differs, the run fails and says so. The two runs an approval names are marked to be retained when the list
@@ -91,8 +101,9 @@ Goals: item-level review and apply; resource-type MOFs; guards G1 to G9; no new 
 Non-goals: the GUI inside Azure DevOps; automating the approval; other tenants than PreProd to Dev; changing how the exports work;
 removing the existing Compare pipeline (it stays as the drift report).
 
-Anti-goals (a failure even if it technically works): applying anything that was not reviewed; a partly applied run that ends green; an
-approval that can be reused after the tenant has changed.
+Anti-goals (a failure even if it technically works): applying anything that was not reviewed; a run with items left over that ends green; an
+approval that can be reused after the tenant has changed; a run that fails as a whole because of one item (it should apply the rest and say
+what is left).
 
 ## Constraints
 
@@ -106,14 +117,15 @@ approval that can be reused after the tenant has changed.
 ## Calls I made (change any of them)
 
 - The list holds no property values (above), only the item and its excluded properties.
-- A stale approved item fails the run; there is no "skip stale" option.
+- An approved item whose outcome is already in Dev is "no action required"; one that is in an unexpected state is skipped and listed, and does
+  not stop the others (G2).
 - G1 has no override.
 - Apply pins the exports named in the list rather than taking the latest, and checks them by hash.
 - No dependency analysis between resources (for example a Conditional Access policy that names a group). A reference to something missing in
   Dev is caught by DSC and by the Test run, and the per-type order (a short fixed list, groups before the types that reference them) puts the
   usual dependencies first. Approving the group and the policy in one list is the way to do both.
-- An approved list that cannot be fully generated applies nothing (G3).
-- A run stops at the first failing type and ends red (G5); no rollback.
+- An item that cannot be generated is listed as "Not generated" and the rest is applied (G3); the run finishes with issues.
+- The run carries on after a failed resource or type and finishes with issues; re-running the same list finishes the job (G5). No rollback.
 - The new Apply is a **new pipeline beside the existing Apply-Dev**, not a replacement. The old one stays until the owner decides to remove
   it. Compare stays as the drift report.
 

@@ -21,7 +21,14 @@ param
 
     # Workloads whose Dev export is complete, comma separated, for example AAD,Intune,EXO,Teams.
     [ValidatePattern('\A[A-Za-z0-9,]*\z')]
-    [string]$CompleteWorkloads = 'AAD,Intune,EXO,Teams'
+    [string]$CompleteWorkloads = 'AAD,Intune,EXO,Teams',
+
+    # Names of the two export runs this comparison used, recorded in summary.json so Apply can show them.
+    [ValidatePattern('\A[\w .#()-]{0,100}\z')]
+    [string]$PreProdRun = '',
+
+    [ValidatePattern('\A[\w .#()-]{0,100}\z')]
+    [string]$DevRun = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,5 +41,10 @@ $thumbprint = & (Join-Path $PSScriptRoot 'Connect-PipelineTenant.ps1') -Environm
     -TargetTenantDomain $dev.TenantDomain -CompleteWorkload $CompleteWorkloads -MofLayout $MofLayout `
     -Compile -ApplicationId $dev.WriterAppId -CertificateThumbprint $thumbprint -OrganizationName $dev.OrganizationName
 
-$summary = Get-Content (Join-Path $OutputPath 'summary.json') -Raw | ConvertFrom-Json
+$summaryPath = Join-Path $OutputPath 'summary.json'
+$summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+$summary | Add-Member -NotePropertyName GeneratedAtUtc -NotePropertyValue ([datetime]::UtcNow.ToString('yyyy-MM-dd HH:mm')) -Force
+$summary | Add-Member -NotePropertyName PreProdExportRun -NotePropertyValue $(if ($PreProdRun) { $PreProdRun } else { '(unknown)' }) -Force
+$summary | Add-Member -NotePropertyName DevExportRun -NotePropertyValue $(if ($DevRun) { $DevRun } else { '(unknown)' }) -Force
+$summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Encoding utf8
 Write-Host "##vso[task.logissue type=warning]Drift: $($summary.OpenFindings) open ($($summary.ByKind)); $($summary.Manual) item(s) need manual action."

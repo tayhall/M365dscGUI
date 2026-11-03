@@ -22,8 +22,12 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
   call `Connect-PipelineTenant.ps1` (certificate from Key Vault; the thumbprint is taken from the certificate) and remove the certificate again in a
   `finally`; a last `condition: always()` step in each pipeline removes it again even if the agent process was killed (timeout, hard cancel).
 - `scripts\Get-PipelineConfig.ps1`: reads and validates `config\<Environment>.psd1`.
-- Apply checks that the Writer certificate is the one the MOFs were compiled with (the thumbprint is in the report's `ConfigurationData.psd1`).
-  It is one line in `Invoke-PipelineApply.ps1` (`-ExpectedThumbprint`) if you ever want it gone.
+- Apply logs which compare run (and which PreProd and Dev export runs) it is applying, so an approver can see what they are approving. It stops,
+  instead of applying nothing, when `workloads` does not match the compare run's layout (Combined or PerWorkload, from the report's `summary.json`) or
+  names a workload with no folder. It also refuses a report with no valid certificate thumbprint, and checks that the Writer certificate is the one the
+  MOFs were compiled with. A run with no drift ends with "Nothing to apply". In Apply mode a resource still not in the desired state fails the step and
+  Removals do not follow; in Test mode differences are only reported.
+- When you queue Apply by hand, Azure DevOps lets you pick which compare run to use (Resources); the default is the latest.
 
 ## Configuration: two places
 **1. Tenant config files, read at run time: `pipelines\config\Dev.psd1` and `PreProd.psd1`.** Fill in the tenant domain, Key Vault name,

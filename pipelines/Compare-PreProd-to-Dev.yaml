@@ -51,9 +51,12 @@ jobs:
                 -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
                 -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
                 -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
-                -MofLayout '${{ parameters.mofLayout }}' -CompleteWorkloads $env:PE_COMPLETE_WORKLOADS
+                -MofLayout '${{ parameters.mofLayout }}' -CompleteWorkloads $env:PE_COMPLETE_WORKLOADS `
+                -PreProdRun $env:PE_PREPROD_RUN -DevRun $env:PE_DEV_RUN
         env:
           PE_COMPLETE_WORKLOADS: ${{ parameters.completeWorkloads }}
+          PE_PREPROD_RUN: $(resources.pipeline.preprodExport.runID)
+          PE_DEV_RUN: $(resources.pipeline.devExport.runID)
 
       # The drift report and the generated configuration, for review and for Apply-Dev.
       - publish: $(Build.ArtifactStagingDirectory)/compare

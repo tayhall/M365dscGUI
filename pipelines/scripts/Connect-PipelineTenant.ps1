@@ -62,20 +62,25 @@ if ($ExpectedThumbprint -and $thumbprint -ine ($ExpectedThumbprint -replace '\s'
 if ($ThumbprintOnly) { return $thumbprint }
 
 $store = 'Cert:\LocalMachine\My'
+
+# The app details file is written BEFORE the import: Disconnect-PipelineTenant.ps1 finds the certificate through it, so a failure part
+# way through still gets cleaned up. The thumbprint is the one worked out above, not whatever the import returns (a PFX with a chain
+# returns several certificates).
+$infoPath = Get-PEAppInfoPath -Role $Role -Tenant $slug
+New-Item -ItemType Directory -Force -Path (Split-Path $infoPath -Parent) | Out-Null
+[ordered]@{ ApplicationId = ([guid]$config[$appIdKey]).ToString(); TenantId = $config.TenantDomain; Thumbprint = $thumbprint } |
+    ConvertTo-Json | Set-Content -LiteralPath $infoPath -Encoding utf8
+
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N') + '.pfx')
 try
 {
     [IO.File]::WriteAllBytes($temporary, $bytes)
-    $cert = Import-PfxCertificate -FilePath $temporary -CertStoreLocation $store -Password ([securestring]::new())
+    $null = Import-PfxCertificate -FilePath $temporary -CertStoreLocation $store -Password ([securestring]::new())
 }
 finally
 {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
 }
+if (-not (Test-Path -LiteralPath "$store\$thumbprint")) { throw "The certificate $thumbprint is not in $store after the import." }
 
-$infoPath = Get-PEAppInfoPath -Role $Role -Tenant $slug
-New-Item -ItemType Directory -Force -Path (Split-Path $infoPath -Parent) | Out-Null
-[ordered]@{ ApplicationId = ([guid]$config[$appIdKey]).ToString(); TenantId = $config.TenantDomain; Thumbprint = $cert.Thumbprint } |
-    ConvertTo-Json | Set-Content -LiteralPath $infoPath -Encoding utf8
-
-"$Role certificate $($cert.Thumbprint) ($secretName) imported to $store; app details written for tenant '$slug'."
+"$Role certificate $thumbprint ($secretName) imported to $store; app details written for tenant '$slug'."

@@ -3,9 +3,9 @@
     Writes the pipeline YAML with your environment values filled in, ready to copy into Azure DevOps.
 .DESCRIPTION
     The YAML in pipelines\ holds tokens such as __POOL__ instead of real values. This reads pipeline.settings.psd1 (git-ignored; start
-    from pipeline.settings.example.psd1), replaces every token and writes the result to pipelines\dist (also git-ignored), keeping the
-    templates\ folder layout. It stops if a required setting is missing or a token is left over. Copy the contents of dist\ over the
-    pipelines\ folder of your ADO repo (the scripts\ folder and tools\ are used as they are).
+    from pipeline.settings.example.psd1), replaces every token in the pipelines\*.yaml files and writes the result to pipelines\dist (also
+    git-ignored). It stops if a required setting is missing or a token is left over. Copy the contents of dist\ over the pipelines\ folder
+    of your ADO repo (the config\ and scripts\ folders and tools\ are used as they are).
 .EXAMPLE
     pwsh -NoProfile -File pipelines\scripts\New-PipelineYaml.ps1
 #>
@@ -42,7 +42,9 @@ $settings = Import-PowerShellDataFile -Path $SettingsPath
 # Earlier versions of this file also held the tenant identifiers. They now live in pipelines\config\<Environment>.psd1, read at run time.
 $moved = @($settings.Keys | Where-Object { $_ -match '^(Dev|PreProd)(TenantDomain|OrganizationName|KeyVault|ShortName|ReaderAppId|WriterAppId|ReaderCertSecret|WriterCertSecret|WriterThumbprint)$' })
 if ($moved) { Write-Warning "Ignored (these now belong in pipelines\config\Dev.psd1 / PreProd.psd1, and you can delete them here): $($moved -join ', ')" }
-$settings = $settings.GetEnumerator() | Where-Object { $_.Key -notin $moved } | ForEach-Object -Begin { $kept = @{} } -Process { $kept[$_.Key] = $_.Value } -End { $kept }
+$kept = @{}
+foreach ($key in $settings.Keys) { if ($key -notin $moved) { $kept[$key] = $settings[$key] } }
+$settings = $kept
 $unknown = @($settings.Keys | Where-Object { -not $tokens.Contains($_) })
 if ($unknown) { throw "Unknown setting(s): $($unknown -join ', '). Known: $($tokens.Keys -join ', ')." }
 

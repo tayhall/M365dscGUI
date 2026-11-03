@@ -55,9 +55,10 @@ jobs:
                 Inline: |
                   & '$(Build.SourcesDirectory)/pipelines/scripts/Invoke-PipelineApply.ps1' `
                       -ReportPath '$(Pipeline.Workspace)/compare/DriftReport' `
-                      -Mode '${{ parameters.mode }}' -Workloads $env:PE_WORKLOADS -IncludeRemovals '${{ parameters.includeRemovals }}'
+                      -Mode '${{ parameters.mode }}' -Workloads $env:PE_WORKLOADS -IncludeRemovals '${{ parameters.includeRemovals }}' -CompareRun $env:PE_COMPARE_RUN
               env:
                 PE_WORKLOADS: ${{ parameters.workloads }}
+                PE_COMPARE_RUN: $(resources.pipeline.compare.runID)
 
             - pwsh: |
                 & '$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug dev -Role Writer

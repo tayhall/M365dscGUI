@@ -173,14 +173,24 @@ if ($Compile)
     $pin = (Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot '..\src\PolicyEngine\Data\Versions.psd1')).Microsoft365DSC
     Import-Module Microsoft365DSC -RequiredVersion $pin -WarningAction SilentlyContinue
     $dataPath = Join-Path $OutputPath 'ConfigurationData.psd1'
+    # The values go into single-quoted strings of a data file that is imported later: one line each, quotes doubled.
+    $quote = {
+        param ([string]$name, [string]$value)
+        if ($value -match '[\r\n]') { throw "$name must be a single line." }
+        $value -replace "'", "''"
+    }
+    $applicationIdText = & $quote 'ApplicationId' $ApplicationId
+    $tenantText = & $quote 'TargetTenantDomain' $TargetTenantDomain
+    $thumbprintText = & $quote 'CertificateThumbprint' $CertificateThumbprint
+    $organizationText = & $quote 'OrganizationName' $OrganizationName
     @"
 @{
     AllNodes    = @(@{ NodeName = 'localhost' })
     NonNodeData = @{
-        ApplicationId         = '$ApplicationId'
-        TenantId              = '$TargetTenantDomain'
-        CertificateThumbprint = '$CertificateThumbprint'
-        OrganizationName      = '$OrganizationName'
+        ApplicationId         = '$applicationIdText'
+        TenantId              = '$tenantText'
+        CertificateThumbprint = '$thumbprintText'
+        OrganizationName      = '$organizationText'
     }
 }
 "@ | Set-Content -LiteralPath $dataPath -Encoding utf8

@@ -4,13 +4,13 @@ parameters:
     type: string
   - name: tenantDomain        # contoso-dev.onmicrosoft.com
     type: string
-  - name: applicationIdSecret # Key Vault secret holding the Reader app registration's application (client) id
+  - name: applicationId       # Reader app registration's application (client) id
     type: string
   - name: serviceConnection
     type: string
   - name: keyVaultName
     type: string
-  - name: certificateSecret   # Key Vault secret holding the Reader certificate as base64 PFX
+  - name: shortName           # the Key Vault secret is <shortName>-Cert-Reader (base64 PFX)
     type: string
   - name: workloads           # comma-joined DSC name prefixes, for example AAD,Intune,EXO,Teams
     type: string
@@ -22,21 +22,18 @@ steps:
 
   - template: install-dependencies.yml
 
-  - task: AzureCLI@2
+  # Az PowerShell is already signed in through the service connection (as in the old deploy.ps1).
+  - task: AzurePowerShell@5
     displayName: 'Sign in app: import Reader certificate (${{ parameters.tenantSlug }})'
     inputs:
       azureSubscription: ${{ parameters.serviceConnection }}
-      scriptType: pscore
-      scriptLocation: inlineScript
-      inlineScript: |
-        $env:PE_CERT_PFX_BASE64 = az keyvault secret show --vault-name '${{ parameters.keyVaultName }}' --name '${{ parameters.certificateSecret }}' --query value -o tsv
-        if ($LASTEXITCODE -ne 0) { throw 'Key Vault read failed.' }
-        $appId = az keyvault secret show --vault-name '${{ parameters.keyVaultName }}' --name '${{ parameters.applicationIdSecret }}' --query value -o tsv
-        if ($LASTEXITCODE -ne 0 -or -not $appId) { throw 'Key Vault read of the application id failed.' }
-        $parsed = [guid]::Empty
-        if (-not [guid]::TryParseExact(([string]$appId).Trim(), 'D', [ref]$parsed)) { throw 'The application id secret does not hold a GUID.' }
+      azurePowerShellVersion: LatestVersion
+      pwsh: true
+      ScriptType: InlineScript
+      Inline: |
         & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Slug '${{ parameters.tenantSlug }}' -Role Reader `
-            -ApplicationId $appId.Trim() -TenantId '${{ parameters.tenantDomain }}'
+            -VaultName '${{ parameters.keyVaultName }}' -ShortName '${{ parameters.shortName }}' `
+            -ApplicationId '${{ parameters.applicationId }}' -TenantId '${{ parameters.tenantDomain }}'
 
   - pwsh: |
       # The workloads come in through the environment and are validated, never written into the script text.

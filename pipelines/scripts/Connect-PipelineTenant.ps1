@@ -1,18 +1,20 @@
 <#
 .SYNOPSIS
-    Makes a tenant's app registration available to the repo's tools on a pipeline agent: imports its certificate and writes the
-    app details file that tools\Export-M365DscTenant.ps1 (and the apply tools) read.
+    Reads a tenant app's certificate from Key Vault, imports it, and writes the app details file that tools\Export-M365DscTenant.ps1
+    (and the apply tools) read. With -ThumbprintOnly it only reports the certificate's thumbprint.
 .DESCRIPTION
-    Values come from Key Vault through the pipeline (the certificate as a base64 PFX in an environment variable, never a parameter,
-    so it is not echoed). The details file is written where tools\PEAppPath.ps1 expects it, so the existing tools run unchanged.
-    Reader certificates go to CurrentUser\My; a Writer certificate goes to LocalMachine\My because the Local Configuration Manager
-    runs as SYSTEM.
+    Same method as the old deploy.ps1: the Key Vault secret <ShortName>-Cert-<Role> holds the certificate as a base64 PFX (no password),
+    read with Get-AzKeyVaultSecret (the step must be an AzurePowerShell task, which is already signed in), and the thumbprint is taken
+    from the certificate itself, so no thumbprint is stored anywhere. The application id comes from the settings file.
+    Reader certificates go to CurrentUser\My; a Writer certificate goes to LocalMachine\My because the Local Configuration Manager runs
+    as SYSTEM. The key is not exportable. Disconnect-PipelineTenant.ps1 removes it again.
 .EXAMPLE
-    $env:PE_CERT_PFX_BASE64 = '...'; pwsh -File Connect-PipelineTenant.ps1 -Slug dev -Role Reader -ApplicationId <guid> -TenantId contoso-dev.onmicrosoft.com
+    Connect-PipelineTenant.ps1 -Slug dev -Role Reader -VaultName dev-kv -ShortName dev -ApplicationId <guid> -TenantId contoso-dev.onmicrosoft.com
+.EXAMPLE
+    Connect-PipelineTenant.ps1 -Role Writer -VaultName dev-kv -ShortName dev -ThumbprintOnly
 #>
 param
 (
-    [Parameter(Mandatory)]
     [ValidatePattern('(?-i)\A[a-z0-9][a-z0-9-]{0,39}\z')]
     [string]$Slug,
 
@@ -21,51 +23,77 @@ param
     [string]$Role,
 
     [Parameter(Mandatory)]
+    [ValidatePattern('\A[A-Za-z0-9-]{3,24}\z')]
+    [string]$VaultName,
+
+    # The environment's short name: the secret is <ShortName>-Cert-<Role>.
+    [Parameter(Mandatory)]
+    [ValidatePattern('\A[A-Za-z0-9-]{1,24}\z')]
+    [string]$ShortName,
+
     [string]$ApplicationId,
 
-    [Parameter(Mandatory)]
     [string]$TenantId,
 
-    # When given, the imported certificate must have this thumbprint (it is removed again if not).
+    # When given, the certificate must have this thumbprint (nothing is kept if not).
     [string]$ExpectedThumbprint,
 
-    # Optional certificate password (environment variable PE_CERT_PASSWORD).
-    [string]$PfxPasswordVariable = 'PE_CERT_PASSWORD'
+    # Report the thumbprint (and set the pipeline variable named by -VariableName) without importing anything.
+    [switch]$ThumbprintOnly,
+
+    [string]$VariableName
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-. (Join-Path $repoRoot 'tools\PEAppPath.ps1')
 
-$pfxBase64 = [Environment]::GetEnvironmentVariable('PE_CERT_PFX_BASE64')
-if (-not $pfxBase64) { throw 'PE_CERT_PFX_BASE64 is not set: the pipeline must pass the Key Vault certificate secret in it.' }
-$password = [Environment]::GetEnvironmentVariable($PfxPasswordVariable)
-$securePassword = if ($password) { ConvertTo-SecureString $password -AsPlainText -Force } else { [securestring]::new() }
+if (-not $ThumbprintOnly)
+{
+    if (-not $Slug) { throw '-Slug is needed to import the certificate.' }
+    $parsed = [guid]::Empty
+    if (-not [guid]::TryParseExact(([string]$ApplicationId).Trim(), 'D', [ref]$parsed)) { throw '-ApplicationId must be a GUID.' }
+    if (-not $TenantId) { throw '-TenantId is needed to import the certificate.' }
+    . (Join-Path $repoRoot 'tools\PEAppPath.ps1')
+}
 
-$bytes = [Convert]::FromBase64String($pfxBase64)
+$secretName = "$ShortName-Cert-$Role"
+$secret = Get-AzKeyVaultSecret -VaultName $VaultName -Name $secretName
+if (-not $secret) { throw "Key Vault secret $secretName was not found in $VaultName." }
+$pfxBase64 = ConvertFrom-SecureString -SecureString $secret.SecretValue -AsPlainText
+$bytes = [Convert]::FromBase64String(($pfxBase64 -replace '\s', ''))
+
+# The thumbprint of the certificate itself (loaded in memory only, nothing persisted).
+$memoryCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($bytes, '', [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet)
+$thumbprint = $memoryCert.Thumbprint
+$memoryCert.Dispose()
+if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw "Unexpected thumbprint from $secretName." }
+if ($ExpectedThumbprint -and $thumbprint -ine ($ExpectedThumbprint -replace '\s', ''))
+{
+    throw "The certificate in $secretName has thumbprint $thumbprint, not the expected $ExpectedThumbprint. Nothing was kept."
+}
+
+if ($ThumbprintOnly)
+{
+    if ($VariableName) { "##vso[task.setvariable variable=$VariableName]$thumbprint" }
+    "$secretName thumbprint: $thumbprint"
+    return
+}
+
 $store = if ($Role -eq 'Writer') { 'Cert:\LocalMachine\My' } else { 'Cert:\CurrentUser\My' }
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N') + '.pfx')
 try
 {
     [IO.File]::WriteAllBytes($temporary, $bytes)
-    $cert = Import-PfxCertificate -FilePath $temporary -CertStoreLocation $store -Password $securePassword
+    $cert = Import-PfxCertificate -FilePath $temporary -CertStoreLocation $store -Password ([securestring]::new())
 }
 finally
 {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
 }
 
-if ($ExpectedThumbprint -and $cert.Thumbprint -ine ($ExpectedThumbprint -replace '\s', ''))
-{
-    Remove-Item -LiteralPath "$store\$($cert.Thumbprint)" -Force
-    throw "The certificate in Key Vault has thumbprint $($cert.Thumbprint), not the expected $ExpectedThumbprint. Nothing was kept."
-}
-
 $infoPath = Get-PEAppInfoPath -Role $Role -Tenant $Slug
 New-Item -ItemType Directory -Force -Path (Split-Path $infoPath -Parent) | Out-Null
-[ordered]@{ ApplicationId = $ApplicationId; TenantId = $TenantId; Thumbprint = $cert.Thumbprint } |
+[ordered]@{ ApplicationId = $parsed.ToString(); TenantId = $TenantId; Thumbprint = $cert.Thumbprint } |
     ConvertTo-Json | Set-Content -LiteralPath $infoPath -Encoding utf8
 
-# Expose the thumbprint to later steps (Azure Pipelines logging command; harmless elsewhere).
-"##vso[task.setvariable variable=$($Slug)_$($Role)_Thumbprint]$($cert.Thumbprint)"
-"$Role certificate $($cert.Thumbprint) imported to $store; app details written for tenant '$Slug'."
+"$Role certificate $($cert.Thumbprint) ($secretName) imported to $store; app details written for tenant '$Slug'."

@@ -17,12 +17,12 @@ variables:
     value: '__SERVICE_CONNECTION__'
   - name: KEYVAULT_NAME
     value: '__DEV_KEYVAULT__'
-  # The Dev Writer app the MOF files will run as (the MOF holds the app id and thumbprint, not the key). Key Vault secret names;
-  # the values are read in the first step and set as DEV_WRITER_APP_ID and DEV_WRITER_THUMBPRINT.
-  - name: DEV_WRITER_APP_ID_SECRET
-    value: '__DEV_WRITER_APP_ID_SECRET__'
-  - name: DEV_WRITER_THUMBPRINT_SECRET
-    value: '__DEV_WRITER_THUMBPRINT_SECRET__'
+  - name: SHORT_NAME
+    value: '__DEV_SHORT_NAME__'
+  # The Dev Writer app the MOF files will run as (the MOF holds the app id and the certificate thumbprint, not the key). The thumbprint
+  # is taken from the Writer certificate in Key Vault (<short name>-Cert-Writer) in the first step and set as DEV_WRITER_THUMBPRINT.
+  - name: DEV_WRITER_APP_ID
+    value: '__DEV_WRITER_APP_ID__'
   - name: DEV_ORGANIZATION_NAME
     value: '__DEV_ORGANIZATION_NAME__'
 
@@ -55,24 +55,18 @@ stages:
 
           - template: templates/install-dependencies.yml
 
-          - task: AzureCLI@2
-            displayName: 'Read the Dev Writer app id and thumbprint from Key Vault'
+          # Az PowerShell is already signed in through the service connection. The script computes the thumbprint from the certificate
+          # itself (checked as 40 hex characters before it is set as a variable); nothing is imported here.
+          - task: AzurePowerShell@5
+            displayName: 'Read the Dev Writer certificate thumbprint from Key Vault'
             inputs:
               azureSubscription: $(SERVICECONNECTION)
-              scriptType: pscore
-              scriptLocation: inlineScript
-              inlineScript: |
-                # Checked strictly before use: a value with a newline could otherwise add logging commands, and these values reach a script later.
-                $appId = (az keyvault secret show --vault-name '$(KEYVAULT_NAME)' --name '$(DEV_WRITER_APP_ID_SECRET)' --query value -o tsv)
-                if ($LASTEXITCODE -ne 0) { throw 'Key Vault read of the application id failed.' }
-                $thumbprint = (az keyvault secret show --vault-name '$(KEYVAULT_NAME)' --name '$(DEV_WRITER_THUMBPRINT_SECRET)' --query value -o tsv)
-                if ($LASTEXITCODE -ne 0) { throw 'Key Vault read of the thumbprint failed.' }
-                $appId = ([string]$appId).Trim(); $thumbprint = ([string]$thumbprint).Trim() -replace '\s', ''
-                $parsed = [guid]::Empty
-                if (-not [guid]::TryParseExact($appId, 'D', [ref]$parsed)) { throw 'The application id secret does not hold a GUID.' }
-                if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'The thumbprint secret does not hold a 40-character hex thumbprint.' }
-                Write-Host "##vso[task.setvariable variable=DEV_WRITER_APP_ID]$appId"
-                Write-Host "##vso[task.setvariable variable=DEV_WRITER_THUMBPRINT]$thumbprint"
+              azurePowerShellVersion: LatestVersion
+              pwsh: true
+              ScriptType: InlineScript
+              Inline: |
+                & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Role Writer -VaultName '$(KEYVAULT_NAME)' -ShortName '$(SHORT_NAME)' `
+                    -ThumbprintOnly -VariableName DEV_WRITER_THUMBPRINT
 
           - pwsh: |
               # Free-form parameters come in through the environment and are validated, never written into the script text.

@@ -25,15 +25,13 @@ $tokens = [ordered]@{
     DevTenantDomain         = '__DEV_TENANT_DOMAIN__'
     DevOrganizationName     = '__DEV_ORGANIZATION_NAME__'
     DevKeyVault             = '__DEV_KEYVAULT__'
-    DevReaderCertSecret     = '__DEV_READER_CERT_SECRET__'
-    DevReaderAppIdSecret     = '__DEV_READER_APP_ID_SECRET__'
-    DevWriterCertSecret     = '__DEV_WRITER_CERT_SECRET__'
-    DevWriterAppIdSecret     = '__DEV_WRITER_APP_ID_SECRET__'
-    DevWriterThumbprintSecret = '__DEV_WRITER_THUMBPRINT_SECRET__'
+    DevShortName            = '__DEV_SHORT_NAME__'
+    DevReaderAppId          = '__DEV_READER_APP_ID__'
+    DevWriterAppId          = '__DEV_WRITER_APP_ID__'
     PreProdTenantDomain     = '__PREPROD_TENANT_DOMAIN__'
     PreProdKeyVault         = '__PREPROD_KEYVAULT__'
-    PreProdReaderCertSecret = '__PREPROD_READER_CERT_SECRET__'
-    PreProdReaderAppIdSecret = '__PREPROD_READER_APP_ID_SECRET__'
+    PreProdShortName        = '__PREPROD_SHORT_NAME__'
+    PreProdReaderAppId      = '__PREPROD_READER_APP_ID__'
     DevEnvironment          = '__DEV_ENVIRONMENT__'
     ExportPreProdPipeline   = '__EXPORT_PREPROD_PIPELINE__'
     ExportDevPipeline       = '__EXPORT_DEV_PIPELINE__'
@@ -61,6 +59,9 @@ foreach ($name in $tokens.Keys)
     $value = if ($settings.ContainsKey($name)) { [string]$settings[$name] } else { [string]$defaults[$name] }
     if (-not $value) { $problems += "$name is missing"; continue }
     if ($value -match 'CHANGE-ME') { $problems += "$name still has the example value (CHANGE-ME)"; continue }
+    if ($name -like '*AppId' -and -not [guid]::TryParseExact($value.Trim(), 'D', [ref][guid]::Empty)) { $problems += "$name is not a GUID"; continue }
+    if ($name -like '*ShortName' -and $value -notmatch '\A[A-Za-z0-9-]{1,24}\z') { $problems += "$name may only hold letters, digits and hyphens (24 at most)"; continue }
+    if ($name -like '*KeyVault' -and $value -notmatch '\A[A-Za-z0-9-]{3,24}\z') { $problems += "$name is not a Key Vault name (3-24 letters, digits, hyphens)"; continue }
     # The value goes inside a single-quoted YAML string.
     $values[$name] = $value -replace "'", "''"
 }

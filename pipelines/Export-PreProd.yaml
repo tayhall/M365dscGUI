@@ -6,14 +6,14 @@ trigger: none
 variables:
   - name: SERVICECONNECTION
     value: '__SERVICE_CONNECTION__'
+  - name: SHORT_NAME
+    value: '__PREPROD_SHORT_NAME__'
   - name: KEYVAULT_NAME
     value: '__PREPROD_KEYVAULT__'
-  - name: CERT_SECRET
-    value: '__PREPROD_READER_CERT_SECRET__'
   - name: TENANT_DOMAIN
     value: '__PREPROD_TENANT_DOMAIN__'
-  - name: READER_APP_ID_SECRET
-    value: '__PREPROD_READER_APP_ID_SECRET__'
+  - name: READER_APP_ID
+    value: '__PREPROD_READER_APP_ID__'
 
 parameters:
   - name: workloads
@@ -34,9 +34,9 @@ stages:
             parameters:
               tenantSlug: preprod
               tenantDomain: $(TENANT_DOMAIN)
-              applicationIdSecret: $(READER_APP_ID_SECRET)
+              applicationId: $(READER_APP_ID)
               serviceConnection: $(SERVICECONNECTION)
               keyVaultName: $(KEYVAULT_NAME)
-              certificateSecret: $(CERT_SECRET)
+              shortName: $(SHORT_NAME)
               workloads: ${{ parameters.workloads }}
               artifactName: PreProdExport

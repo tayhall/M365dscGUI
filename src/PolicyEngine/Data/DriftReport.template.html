@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__PE_TITLE__</title>
+<style>
+:root { --bg: #f6f8fa; --card: #ffffff; --text: #1f2328; --muted: #656d76; --line: #d0d7de; --accent: #0969da; --good: #1a7f37; --warn: #9a6700; --bad: #cf222e; --focus: #0969da; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0d1117; --card: #161b22; --text: #e6edf3; --muted: #8d96a0; --line: #30363d; --accent: #4493f8; --good: #3fb950; --warn: #d29922; --bad: #f85149; --focus: #4493f8; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+main { max-width: 1200px; margin: 0 auto; padding: 16px; padding-bottom: 120px; }
+noscript { display: block; padding: 16px; }
+</style>
+</head>
+<body>
+<main>
+<div id="app"><noscript>This report needs JavaScript to select items.</noscript></div>
+</main>
+<script type="application/json" id="report-data">__PE_DATA__</script>
+<script>
+__PE_SCRIPT__
+</script>
+</body>
+</html>

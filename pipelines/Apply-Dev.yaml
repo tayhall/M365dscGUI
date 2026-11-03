@@ -58,3 +58,8 @@ jobs:
                       -Mode '${{ parameters.mode }}' -Workloads $env:PE_WORKLOADS -IncludeRemovals '${{ parameters.includeRemovals }}'
               env:
                 PE_WORKLOADS: ${{ parameters.workloads }}
+
+            - pwsh: |
+                & '$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug dev -Role Writer
+              displayName: Remove the certificate from the agent (always runs)
+              condition: always()

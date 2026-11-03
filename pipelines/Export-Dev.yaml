@@ -34,5 +34,10 @@ jobs:
         env:
           PE_WORKLOADS: ${{ parameters.workloads }}
 
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug dev -Role Reader
+        displayName: Remove the certificate from the agent (always runs)
+        condition: always()
+
       - publish: $(Build.ArtifactStagingDirectory)/export
         artifact: DevExport

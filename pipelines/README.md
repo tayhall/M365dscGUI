@@ -20,7 +20,7 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
   `C:\Program Files\WindowsPowerShell\Modules` and added to the machine `PSModulePath`.
 - `scripts\Invoke-PipelineExport.ps1`, `Invoke-PipelineCompare.ps1`, `Invoke-PipelineApply.ps1`: the three pipeline steps. They read the config file,
   call `Connect-PipelineTenant.ps1` (certificate from Key Vault; the thumbprint is taken from the certificate) and remove the certificate again in a
-  `finally`, so a failed run leaves nothing on the agent.
+  `finally`; a last `condition: always()` step in each pipeline removes it again even if the agent process was killed (timeout, hard cancel).
 - `scripts\Get-PipelineConfig.ps1`: reads and validates `config\<Environment>.psd1`.
 - Apply checks that the Writer certificate is the one the MOFs were compiled with (the thumbprint is in the report's `ConfigurationData.psd1`).
   It is one line in `Invoke-PipelineApply.ps1` (`-ExpectedThumbprint`) if you ever want it gone.

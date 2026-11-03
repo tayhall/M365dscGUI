@@ -3,7 +3,7 @@
     Reads a tenant app's certificate from Key Vault, imports it, and writes the app details file that tools\Export-M365DscTenant.ps1
     (and the apply tools) read. With -ThumbprintOnly it only reports the certificate's thumbprint.
 .DESCRIPTION
-    Same method as the old deploy.ps1: the Key Vault secret <ShortName>-Cert-<Role> holds the certificate as a base64 PFX (no password),
+    The Key Vault secret <ShortName>-Cert-<Role> holds the certificate as a base64 PFX (no password),
     read with Get-AzKeyVaultSecret (the step must be an AzurePowerShell task, which is already signed in), and the thumbprint is taken
     from the certificate itself, so no thumbprint is stored anywhere. The application id comes from the settings file.
     Reader certificates go to CurrentUser\My; a Writer certificate goes to LocalMachine\My because the Local Configuration Manager runs

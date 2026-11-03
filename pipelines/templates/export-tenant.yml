@@ -22,7 +22,7 @@ steps:
 
   - template: install-dependencies.yml
 
-  # Az PowerShell is already signed in through the service connection (as in the old deploy.ps1).
+  # Az PowerShell is already signed in through the service connection.
   - task: AzurePowerShell@5
     displayName: 'Sign in app: import Reader certificate (${{ parameters.tenantSlug }})'
     inputs:

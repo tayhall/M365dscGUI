@@ -47,4 +47,17 @@ $summary | Add-Member -NotePropertyName GeneratedAtUtc -NotePropertyValue ([date
 $summary | Add-Member -NotePropertyName PreProdExportRun -NotePropertyValue $(if ($PreProdRun) { $PreProdRun } else { '(unknown)' }) -Force
 $summary | Add-Member -NotePropertyName DevExportRun -NotePropertyValue $(if ($DevRun) { $DevRun } else { '(unknown)' }) -Force
 $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Encoding utf8
+
+# The HTML drift report: tick the items to apply, download approved.json. It records the two export run ids so Apply can fetch the very same
+# exports, so without numeric run ids (a manual run outside the pipeline) it is not built.
+if ($PreProdRun -match '\A\d{1,12}\z' -and $DevRun -match '\A\d{1,12}\z')
+{
+    & (Join-Path $repoRoot 'tools\New-PEDriftReport.ps1') `
+        -SourceExportPath $SourceExportPath -TargetExportPath $TargetExportPath -OutputPath $OutputPath `
+        -TargetTenantDomain $dev.TenantDomain -CompleteWorkload $CompleteWorkloads -SourceRun $PreProdRun -TargetRun $DevRun
+}
+else
+{
+    Write-Host 'The export run ids are not numeric, so drift-report.html was not built (it needs them to pin the exports).'
+}
 Write-Host "##vso[task.logissue type=warning]Drift: $($summary.OpenFindings) open ($($summary.ByKind)); $($summary.Manual) item(s) need manual action."

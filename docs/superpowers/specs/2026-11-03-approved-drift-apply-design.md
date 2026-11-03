@@ -1,6 +1,6 @@
 # Approved-drift apply: review in the GUI, apply only what was approved
 
-Status: draft for approval. Date: 2026-11-03.
+Status: pipeline part implemented and tested locally (not yet run in Azure DevOps); the review half is the HTML drift report (`2026-11-03-html-drift-report-design.md`); the GUI "Save approved list" action is not built. Date: 2026-11-03.
 
 ## Intent and why
 

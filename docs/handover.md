@@ -419,3 +419,29 @@ Things to know:
 - The report tool runs the comparison a second time (the compare tool already ran one): the two stay thin, at the cost of compare time.
 - Not verified yet: running it in Azure DevOps, and the approved-apply pipeline that consumes `approved.json` (plan
   `2026-11-03-approved-apply-pipeline.md`, Tasks 4 to 8).
+
+## Approved apply (2026-11-03)
+
+What it is: `pipelines/Apply-Approved-Dev.yaml.template` (generated to `Apply-Approved-Dev.yaml`). It applies exactly the items of one approved list
+(`approvals/*.json`, made in `drift-report.html` and committed to the default branch) to Dev. Design: `docs/superpowers/specs/2026-11-03-approved-drift-apply-design.md`;
+plan: `docs/superpowers/plans/2026-11-03-approved-apply-pipeline.md` (tasks 1 to 8; the GUI half, `...-approved-apply-gui.md`, is still unbuilt).
+
+Pieces: `Get-PEExportFingerprint` / `Test-PEExportComplete` (`ExportIntegrity.ps1`), `New-/Save-/Read-PEApprovedList` (strict format; the order of `Counts` rows is not part
+of it), `Invoke-PEExportComparison`, `New-PERectifyPlanSafe` and `ConvertTo-PEDscConfigSafe` (`Private\`: ask the engine in groups and split a refused group until the
+refused item is alone, because every `New-PERectifyPlan` call indexes all records), `New-PEApprovedConfig` (the five outcomes), `tools\Invoke-PEApprovedBuild.ps1` (the
+run-level guards, then MOFs), and in `pipelines\scripts`: `Test-ApprovalLocation.ps1` (G9), `Read-ApprovedList.ps1`, `New-ExportRetentionLease.ps1`, `Get-ApplyResult.ps1`
+and `Invoke-PipelineApprovedApply.ps1`. The report tool (`tools\New-PEDriftReport.ps1`) and the list use the same comparison, so the report offers what Apply can build.
+
+Things to know:
+- The guards: G1 complete exports (no failed component, no "Graph reported N items but only M were returned" line, an export.log), G7 the exports are the ones the list names
+  (SHA-256) and are kept by retention leases, G8 the Dev export is not older than `maxAgeDays`, G9 default branch and a path inside `approvals/`, and the list's tenant must be `dev`.
+  G6: an approved Remove is only applied with `includeRemovals`. The build stops before writing anything; item-level problems never stop the other items.
+- Test first (the counts per type and action and the LCM preview, nothing written), then Apply behind the environment approval. Apply carries on after a failed resource and ends
+  "with issues" while any item is not Applied or NoActionRequired; the same list run again only has the rest to do. No rollback.
+- `ExportedAt` of the Dev export in the list comes from the export file's modification time, which after an artifact download may be the download time: the age guard (G8)
+  may then be too lenient. Use the export run's finish time if that proves true in Azure DevOps.
+- The apply script takes test hooks (`-BuildScript`, `-LcmScript`, `-LcmHost`, `-ConnectScript`, `-DisconnectScript`, `-ApprovalsRoot`, `-ConfigPath`) with the real scripts as defaults;
+  the pipeline never sets them. `Invoke-PipelineApprovedApply.ps1` accepts an export folder directly or one level down (a folder named after the artifact).
+- Verified locally: all tests, and a real compile of an approved list into one MOF per type and phase (`tools\Invoke-PEApprovedBuild.ps1` without `-NoCompile`).
+- NOT verified (needs Azure DevOps and the Dev tenant): the YAML run itself (the `DownloadPipelineArtifact@2` input names were checked against Microsoft's page, the folder the
+  artifact lands in was not), the retention lease permission, the Key Vault certificate import, the LCM apply on the agent, and the `SucceededWithIssues` result.

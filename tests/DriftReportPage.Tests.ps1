@@ -50,5 +50,21 @@ Describe 'The drift report page source' {
         $script:Ui | Should -Not -Match 'PreProd to Dev'
         $script:Ui | Should -Not -Match "'Dev now'"
     }
+
+    It 'has an overview, a review by workload and a single-resource view, reached by the address after #' {
+        foreach ($word in 'Overview', 'Review', 'hashchange', 'workloadTree', 'orderProps', 'routeToHash', 'parseRoute')
+        {
+            $script:Ui | Should -Match $word -Because "the page must use $word"
+        }
+        $script:Ui | Should -Match 'All properties'
+        $script:Ui | Should -Match 'Workload'
+    }
+
+    It 'lets every level of the tree be collapsed and selected' {
+        $script:Ui | Should -Match 'Expand all'
+        $script:Ui | Should -Match 'Collapse all'
+        $script:Ui | Should -Match 'selectAll'
+        $script:Ui | Should -Match 'countSelected'
+    }
 }
 

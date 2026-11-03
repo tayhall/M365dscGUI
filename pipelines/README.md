@@ -11,6 +11,13 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 **Drift report (choose what to apply, in the browser).** The compare pipeline also publishes `drift-report.html` in the `DriftReport` artifact
 (`tools\New-PEDriftReport.ps1`, built from the engine's own comparison, not a second one).
 1. Download the `DriftReport` artifact and open `drift-report.html` (a double click; it is one file, needs no server and makes no network calls).
+   It has three screens, and the browser's back button works between them:
+   - **Overview**: totals, then one row per workload (records in each export, how many are missing, different or only in the target, cannot be
+     approved, not compared, and how many you have selected). Every number is a link into Review.
+   - **Review**: workload, then resource type, then item, each level collapsible and with its own totals ("master 100 / replica 98 / 5 drifted")
+     and its own select box. Filters: workload, resource type, kind and a key search. Workloads start collapsed.
+   - **One resource** (Details on an item): every property of both exports side by side, with a state per property (different, same, only in one
+     side, ignored because the engine does not compare it). Only drifted resources are listed; matching ones are only counted.
 2. Open a resource type (for example `AADGroup`) and tick the items to create, update or remove. The type checkbox ticks everything shown; the
    filters (Create / Update / Remove / Cannot be approved / Not compared, a type list and a key search) narrow what "Select all shown" ticks. On an
    Update, open "differences" and tick "Keep ... value" for a property you do not want changed. Removals are only selectable after ticking

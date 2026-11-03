@@ -403,6 +403,12 @@ Pieces (all in `src\PolicyEngine`): `Invoke-PEExportComparison` (the comparison,
 (`Get-PEExportFingerprint`, `Test-PEExportComplete`) and `ApprovedList.ps1` (`New-/Save-/Read-PEApprovedList`, the strict list format), taken from the apply plan.
 
 Things to know:
+- Screens (redesign, same day): Overview (totals and one row per workload), Review (workload > type > item, each level collapsible, selectable and
+  with its own totals, workload / type / kind / key filters) and One resource (every property of both exports side by side). The screen is the
+  address after `#`, so the back button works. The data carries `Props` (every property of the record(s) behind a drifted finding, with a state:
+  different, excluded, same, ignored, only-source, only-target), `Types` (record counts per type on both sides) and `Meta.WorkloadOrder`; matching
+  resources are still only counted. A 20,000-record comparison with 988 drifted items is a 0.7 MB page and every action is under 20 ms.
+  Findings that say something was not compared are kept apart ("Not compared"); the wording is `Missing in <target>`, `Different`, `Only in <target>`.
 - Tenant text is only ever set with `textContent`; `tests\DriftReportPage.Tests.ps1` forbids innerHTML, eval and network calls in the page source.
 - The page builds the list in the browser; `tests\DriftReportJs.Tests.ps1` proves `Read-PEApprovedList` accepts it (including a Unicode key).
   The order of `Counts` rows is not part of the format (a browser and PowerShell sort differently).

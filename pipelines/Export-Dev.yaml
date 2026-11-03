@@ -1,0 +1,43 @@
+name: 'M365DSC - Export Dev tenant'
+
+trigger: none
+
+# Dev's tenant, Key Vault and app id are in pipelines/config/Dev.psd1, read by the script.
+parameters:
+  - name: workloads
+    displayName: Workloads (DSC prefixes, comma separated)
+    type: string
+    default: 'AAD,Intune,EXO,Teams'
+
+pool:
+  name: '__POOL__'   # needs pwsh 7.6+ and local admin
+
+jobs:
+  - job: ExportDev
+    timeoutInMinutes: 180
+    steps:
+      - checkout: self
+
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Install-PipelineDependencies.ps1'
+        displayName: Install PowerShell modules
+
+      - task: AzurePowerShell@5
+        displayName: Export Dev
+        inputs:
+          azureSubscription: '__SERVICE_CONNECTION__'
+          azurePowerShellVersion: LatestVersion
+          pwsh: true
+          ScriptType: InlineScript
+          Inline: |
+            & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineExport.ps1' -Environment Dev -Workloads $env:PE_WORKLOADS -OutputPath '$(Build.ArtifactStagingDirectory)/export'
+        env:
+          PE_WORKLOADS: ${{ parameters.workloads }}
+
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug dev -Role Reader
+        displayName: Remove the certificate from the agent (always runs)
+        condition: always()
+
+      - publish: $(Build.ArtifactStagingDirectory)/export
+        artifact: DevExport

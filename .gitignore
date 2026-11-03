@@ -17,3 +17,7 @@ Microsoft365DSC/
 
 # Browser tool scratch (Playwright)
 .playwright-mcp/
+
+# Pipeline environment values and the YAML generated from them
+pipelines/pipeline.settings.psd1
+pipelines/dist/

@@ -67,7 +67,7 @@ Describe 'Get-PEDriftReportData' {
 
     It 'marks an item the engine refuses as not approvable with its reason' {
         Mock -ModuleName PolicyEngine New-PERectifyPlan { throw "refused for test`nsecond line" } -ParameterFilter { @($Findings)[0].Key -eq 'Sales' }
-        Mock -ModuleName PolicyEngine New-PERectifyPlan { [pscustomobject]@{ Action = $Action } } -ParameterFilter { @($Findings)[0].Key -ne 'Sales' }
+        Mock -ModuleName PolicyEngine New-PERectifyPlan { @($Findings | ForEach-Object { [pscustomobject]@{ ResourceType = $_.ResourceType; Key = $_.Key } }) } -ParameterFilter { @($Findings)[0].Key -ne 'Sales' }
         $d = Get-Data $script:Cmp
         $sales = $d.Items | Where-Object Key -eq 'Sales'
         $sales.Approvable | Should -BeFalse
@@ -172,7 +172,7 @@ Describe 'Get-PEDriftReportData' {
         }
 
         It 'asks the engine once per action when nothing is refused (each call indexes every record)' {
-            Mock -ModuleName PolicyEngine New-PERectifyPlan { @() }
+            Mock -ModuleName PolicyEngine New-PERectifyPlan { @($Findings | ForEach-Object { [pscustomobject]@{ ResourceType = $_.ResourceType; Key = $_.Key } }) }
             $cmp = Get-WithMany (1..8 | ForEach-Object { "many$_" })
             $d = Get-Data $cmp
             @($d.Items | Where-Object { $_.Action -eq 'Create' -and -not $_.Approvable }).Count | Should -Be 0
@@ -181,7 +181,7 @@ Describe 'Get-PEDriftReportData' {
 
         It 'still finds the one refused item among many and gives it the engine message, in far fewer calls than items' {
             $global:PEPlanCalls = 0
-            Mock -ModuleName PolicyEngine New-PERectifyPlan { $global:PEPlanCalls++; if (@($Findings).Key -contains 'many5') { throw 'many5 is refused' }; @() }
+            Mock -ModuleName PolicyEngine New-PERectifyPlan { $global:PEPlanCalls++; if (@($Findings).Key -contains 'many5') { throw 'many5 is refused' }; @($Findings | ForEach-Object { [pscustomobject]@{ ResourceType = $_.ResourceType; Key = $_.Key } }) }
             $cmp = Get-WithMany (1..40 | ForEach-Object { "many$_" })
             $d = Get-Data $cmp
             $refused = @($d.Items | Where-Object { $_.Action -eq 'Create' -and -not $_.Approvable })

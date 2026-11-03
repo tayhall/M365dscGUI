@@ -110,39 +110,23 @@ function Get-PEDriftReportData
         elseif ($kind -eq 'Ambiguous' -and $null -ne $finding.PSObject.Properties['BlueprintCount']) { $matchingTaken += [int]$finding.BlueprintCount }
     }
 
-    # Pass 2: ask the engine per action, in groups.
-    $ask = {
-        param ([object[]]$group)
-        $arguments = @{ Source = $state; Blueprint = $blueprint }
-        if ($group[0].Action -eq 'Remove')
-        {
-            $arguments.Decisions = @($group | ForEach-Object {
-                    [pscustomobject]@{ Kind = 'Remove'; ResourceType = [string]$_.Finding.ResourceType; Key = $_.Key; Property = $null; Value = $null; Reason = 'drift report (not stored)'; At = '2026-01-01T00:00:00.000Z' }
-                })
-        }
-        try
-        {
-            New-PERectifyPlan -Findings @($group | ForEach-Object { $_.Finding }) -Action $group[0].Action @arguments | Out-Null
-            foreach ($entry in $group) { $entry.Approvable = $true }
-        }
-        catch
-        {
-            if ($group.Count -eq 1)
-            {
-                $group[0].Reason = (([string]$_.Exception.Message) -split "`r?`n")[0].Trim()
-            }
-            else
-            {
-                $half = [int][Math]::Ceiling($group.Count / 2)
-                & $ask @($group[0..($half - 1)])
-                & $ask @($group[$half..($group.Count - 1)])
-            }
-        }
-    }
+    # Pass 2: ask the engine per action, in groups (New-PERectifyPlanSafe splits a refused group until the refused finding is alone).
+    $entryOf = [System.Collections.Generic.Dictionary[object, object]]::new([System.Collections.Generic.ReferenceEqualityComparer]::Instance)
+    foreach ($entry in $entries) { $entryOf[$entry.Finding] = $entry }
     foreach ($action in 'Create', 'Update', 'Remove')
     {
         $group = @($entries | Where-Object { $_.Ask -and $_.Action -eq $action })
-        if ($group.Count) { & $ask $group }
+        if ($group.Count -eq 0) { continue }
+        $decisions = @()
+        if ($action -eq 'Remove')
+        {
+            $decisions = @($group | ForEach-Object {
+                    [pscustomobject]@{ Kind = 'Remove'; ResourceType = [string]$_.Finding.ResourceType; Key = $_.Key; Property = $null; Value = $null; Reason = 'drift report (not stored)'; At = '2026-01-01T00:00:00.000Z' }
+                })
+        }
+        $result = New-PERectifyPlanSafe -Finding @($group | ForEach-Object { $_.Finding }) -Action $action -Source $state -Blueprint $blueprint -Decision $decisions
+        foreach ($planned in $result.Planned) { $entryOf[$planned.Finding].Approvable = $true }
+        foreach ($refusal in $result.Refused) { $entryOf[$refusal.Finding].Reason = $refusal.Reason }
     }
 
     $items = foreach ($entry in $entries)

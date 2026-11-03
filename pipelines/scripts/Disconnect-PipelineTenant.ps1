@@ -24,7 +24,7 @@ $infoPath = Get-PEAppInfoPath -Role $Role -Tenant $Slug
 if (Test-Path -LiteralPath $infoPath)
 {
     $thumbprint = [string](Get-Content -LiteralPath $infoPath -Raw | ConvertFrom-Json).Thumbprint
-    $store = if ($Role -eq 'Writer') { 'Cert:\LocalMachine\My' } else { 'Cert:\CurrentUser\My' }
+    $store = 'Cert:\LocalMachine\My'
     if ($thumbprint -match '^[0-9A-Fa-f]{40}$' -and (Test-Path -LiteralPath "$store\$thumbprint"))
     {
         Remove-Item -LiteralPath "$store\$thumbprint" -Force

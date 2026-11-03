@@ -7,8 +7,9 @@
     through Get-PipelineConfig.ps1, which validates them. The Key Vault secret <ShortName>-Cert-<Role> holds the certificate as a base64
     PFX (no password), read with Get-AzKeyVaultSecret (the step must be an AzurePowerShell task, which is already signed in). The
     thumbprint is taken from the certificate itself, so no thumbprint is stored anywhere.
-    Reader certificates go to CurrentUser\My; a Writer certificate goes to LocalMachine\My because the Local Configuration Manager runs
-    as SYSTEM. The key is not exportable. Disconnect-PipelineTenant.ps1 removes it again.
+    Both certificates go to LocalMachine\My: the Writer because the Local Configuration Manager runs as SYSTEM, the Reader so the export
+    finds it whichever account the agent uses. The key is not exportable. Needs an elevated session. Disconnect-PipelineTenant.ps1
+    removes it again.
 .EXAMPLE
     Connect-PipelineTenant.ps1 -Environment Dev -Role Reader
 .EXAMPLE
@@ -60,7 +61,7 @@ if ($ExpectedThumbprint -and $thumbprint -ine ($ExpectedThumbprint -replace '\s'
 
 if ($ThumbprintOnly) { return $thumbprint }
 
-$store = if ($Role -eq 'Writer') { 'Cert:\LocalMachine\My' } else { 'Cert:\CurrentUser\My' }
+$store = 'Cert:\LocalMachine\My'
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N') + '.pfx')
 try
 {

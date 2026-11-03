@@ -7,6 +7,7 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 | `Export-PreProd.yaml`, `Export-Dev.yaml` (generated from the `.yaml.template` files) | Imports the tenant's Reader certificate from Key Vault, runs `tools\Export-M365DscTenant.ps1`, publishes `PreProdExport` / `DevExport`. |
 | `Compare-PreProd-to-Dev.yaml` | Takes the latest of both exports, runs `tools\Invoke-PEPipelineCompare.ps1`, publishes `DriftReport` (`drift-report.html`, `drift.csv`, `drift.json`, `Changes.ps1`, `Removals.ps1`, `Manual.json`, `MOF\Changes`, `MOF\Removals`). |
 | `Apply-Dev.yaml` | Applies the MOFs to Dev through the LCM (`tools\Invoke-PELcm.ps1`). Default mode is `Test`; Removals only when asked; gated by the `m365-dev` environment approval. |
+| `Apply-Approved-Dev.yaml` | Applies exactly the items of one approved list (`approvals/*.json`, from the drift report). Default mode `Test`; gated by the `m365-dev` environment approval. See "Approved apply" below. |
 
 **Drift report (choose what to apply, in the browser).** The compare pipeline also publishes `drift-report.html` in the `DriftReport` artifact
 (`tools\New-PEDriftReport.ps1`, built from the engine's own comparison, not a second one).
@@ -33,6 +34,27 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 Outside the pipeline (for example two local exports) run `tools\New-PEDriftReport.ps1` yourself; `-SourceLabel`, `-TargetLabel` and `-Tenant` name the two
 sides in the page and the list (the defaults are PreProd, Dev and `dev`). The report needs the two export run ids; the compare pipeline passes them.
 A manual run of `Invoke-PipelineCompare.ps1` without numeric `-PreProdRun` / `-DevRun` skips the report and says so.
+
+**Approved apply (`Apply-Approved-Dev.yaml`): apply only what was approved.** Parameters: `approvalFile` (a path inside `approvals/`), `mode`
+(Test or Apply), `includeRemovals`, `maxAgeDays` (default 7). The safe order is a `Test` run first, then an `Apply` run:
+1. **Before anything else**: the run must be on the default branch (setting `DefaultBranch`, default `main`) and the list must be inside
+   `approvals/` and pass the strict format rules. It then downloads the two export runs the list names (by run id, from the pipelines whose
+   numbers are in `ExportPreProdPipelineId` / `ExportDevPipelineId`) and asks Azure DevOps to keep them, so the same list can be applied again later
+   (a warning, not a failure, if the build identity may not manage retention).
+2. **The build** (`tools\Invoke-PEApprovedBuild.ps1`) stops before writing anything if an export is incomplete (a failed component, a Graph
+   "reported N items but only M were returned" line, or no `export.log`), if an export is not the one the list names (SHA-256), if the Dev export is
+   older than `maxAgeDays`, or if the list is for another tenant than `dev`. Then it compiles one MOF per resource type and phase for the approved
+   items only, and prints the counts per type and action ("Create 10 AADGroup") before the approval and again at the end.
+3. **Test mode** runs the LCM test of every configuration (the preview of what would change) and writes nothing to Dev. **Apply mode** runs every
+   test first, then applies the configurations in order (all Changes, then Removals only with `includeRemovals`), and carries on after a failed
+   resource: it applies what it can and reports what is left. There is no rollback (DSC has none).
+4. **Every approved item ends in exactly one outcome**, listed in `result.json` (artifact `ApprovedApplyReport`): `Applied`, `NoActionRequired`
+   (Dev already had the approved outcome), `NotGenerated` (the engine refused it; the reason is given), `Failed` (DSC's error) or `Skipped` (Dev
+   was not in the state the approval expected, or a Remove without `includeRemovals`). The run is green only when every item is `Applied` or
+   `NoActionRequired`; otherwise it finishes **with issues** and lists what is left. Running the same list again only has the rest to do.
+Settings: add `ExportPreProdPipelineId`, `ExportDevPipelineId` (and optionally `DefaultBranch`) to `pipeline.settings.psd1`; the other pipelines
+generate without them. In Azure DevOps, a branch policy that requires a pull request review on `approvals/` is recommended: the pipeline checks the
+branch and the folder, not who reviewed the change.
 
 **MOF layout** (`mofLayout` on the compare pipeline, `Invoke-PEPipelineCompare.ps1 -MofLayout`):
 - `Combined` (default): `MOF\Changes` and `MOF\Removals`. Run Apply-Dev with `workloads` empty.

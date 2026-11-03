@@ -1,0 +1,110 @@
+name: 'M365DSC - Apply approved drift to Dev'
+
+trigger: none
+
+# Applies exactly the items of ONE approved list (approvals/*.json): made in drift-report.html, committed to the default branch.
+# DEV ONLY: the target is fixed in the script. Dev's tenant and Writer app id are in pipelines/config/Dev.psd1.
+# Safe order: run with mode Test first (the counts per type and action, the LCM preview, nothing written to Dev), then run Apply, which waits
+# for the approval on the environment. Running the same list again only has what is left to do (what is already done is "no action required").
+parameters:
+  - name: approvalFile
+    displayName: 'Approved list: a path inside the approvals folder of the project, for example approvals/2026-11-03-groups.json'
+    type: string
+  - name: mode
+    displayName: Test only reports what would change; Apply changes Dev
+    type: string
+    default: Test
+    values:
+      - Test
+      - Apply
+  - name: includeRemovals
+    displayName: Also apply the approved Removes (deletes objects in Dev that PreProd does not have)
+    type: boolean
+    default: false
+  - name: maxAgeDays
+    displayName: The Dev export named in the list may not be older than this many days
+    type: number
+    default: 7
+
+pool:
+  name: '__POOL__'   # needs pwsh 7.6+ and local admin
+
+jobs:
+  # An approval and check on the environment '__DEV_ENVIRONMENT__' is the gate before anything is written.
+  - deployment: ApprovedApplyToDev
+    environment: '__DEV_ENVIRONMENT__'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+
+            # Default branch, a path inside approvals/, the format rules; sets PREPROD_RUN and DEV_RUN (the two export runs the list names).
+            - pwsh: |
+                & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Read-ApprovedList.ps1' `
+                    -ListPath (Join-Path '$(Build.SourcesDirectory)/__REPO_FOLDER__' $env:PE_APPROVAL_FILE) -DefaultBranch '__DEFAULT_BRANCH__'
+              displayName: Check the approved list and find its export runs
+              env:
+                PE_APPROVAL_FILE: ${{ parameters.approvalFile }}
+
+            # The very exports the list was reviewed against, by run id (the list pins them by hash too).
+            - task: DownloadPipelineArtifact@2
+              displayName: Download the PreProd export the list names
+              inputs:
+                buildType: 'specific'
+                project: '$(System.TeamProjectId)'
+                definition: '__EXPORT_PREPROD_PIPELINE_ID__'
+                buildVersionToDownload: 'specific'
+                pipelineId: '$(PREPROD_RUN)'
+                artifactName: 'PreProdExport'
+                targetPath: '$(Pipeline.Workspace)/preprodExport'
+            - task: DownloadPipelineArtifact@2
+              displayName: Download the Dev export the list names
+              inputs:
+                buildType: 'specific'
+                project: '$(System.TeamProjectId)'
+                definition: '__EXPORT_DEV_PIPELINE_ID__'
+                buildVersionToDownload: 'specific'
+                pipelineId: '$(DEV_RUN)'
+                artifactName: 'DevExport'
+                targetPath: '$(Pipeline.Workspace)/devExport'
+
+            # Keep both runs so the same list can be applied again later (a warning, not a failure, if this is not allowed).
+            - pwsh: |
+                & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/New-ExportRetentionLease.ps1' `
+                    -PreProdRun '$(PREPROD_RUN)' -DevRun '$(DEV_RUN)' -PreProdDefinitionId '__EXPORT_PREPROD_PIPELINE_ID__' -DevDefinitionId '__EXPORT_DEV_PIPELINE_ID__'
+              displayName: Keep the two export runs
+              env:
+                SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+            - pwsh: |
+                & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Install-PipelineDependencies.ps1'
+              displayName: Install PowerShell modules
+
+            - task: AzurePowerShell@5
+              displayName: '${{ parameters.mode }} the approved items on Dev'
+              inputs:
+                azureSubscription: '__DEV_SERVICE_CONNECTION__'
+                azurePowerShellVersion: LatestVersion
+                pwsh: true
+                ScriptType: InlineScript
+                Inline: |
+                  & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineApprovedApply.ps1' `
+                      -ListPath (Join-Path '$(Build.SourcesDirectory)/__REPO_FOLDER__' $env:PE_APPROVAL_FILE) `
+                      -PreProdExportPath '$(Pipeline.Workspace)/preprodExport' -DevExportPath '$(Pipeline.Workspace)/devExport' `
+                      -OutputPath '$(Build.ArtifactStagingDirectory)/apply' `
+                      -Mode '${{ parameters.mode }}' -IncludeRemovals '${{ parameters.includeRemovals }}' -MaxAgeDays ${{ parameters.maxAgeDays }} `
+                      -DefaultBranch '__DEFAULT_BRANCH__'
+              env:
+                PE_APPROVAL_FILE: ${{ parameters.approvalFile }}
+
+            # What happened to every approved item (result.json), also when the step failed.
+            - publish: $(Build.ArtifactStagingDirectory)/apply
+              artifact: ApprovedApplyReport
+              displayName: Publish the result
+              condition: succeededOrFailed()
+
+            - pwsh: |
+                & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug dev -Role Writer
+              displayName: Remove the certificate from the agent (always runs)
+              condition: always()

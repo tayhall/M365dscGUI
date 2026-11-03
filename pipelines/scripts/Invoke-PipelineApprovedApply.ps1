@@ -66,6 +66,17 @@ $withRemovals = ($IncludeRemovals -eq 'True')
 # G9: only from the default branch, only a list that was committed to the approvals folder. Before any tenant access.
 $listFull = & (Join-Path $PSScriptRoot 'Test-ApprovalLocation.ps1') -ListPath $ListPath -ApprovalsRoot $ApprovalsRoot -DefaultBranch $DefaultBranch
 
+# The download task may put the artifact's files straight into the target folder or into a folder named after the artifact: accept both.
+$resolveExport = {
+    param ([string]$path, [string]$artifact, [string]$label)
+    if (Test-Path -LiteralPath (Join-Path $path 'export.ps1')) { return $path }
+    $inner = Join-Path $path $artifact
+    if (Test-Path -LiteralPath (Join-Path $inner 'export.ps1')) { return $inner }
+    throw "No export.ps1 in the $label export download folder $path (or in $inner). Check the download step for the $artifact artifact. Nothing was done."
+}
+$PreProdExportPath = & $resolveExport $PreProdExportPath 'PreProdExport' 'PreProd'
+$DevExportPath = & $resolveExport $DevExportPath 'DevExport' 'Dev'
+
 $dev = & (Join-Path $PSScriptRoot 'Get-PipelineConfig.ps1') -Environment Dev -Require TenantDomain, OrganizationName, WriterAppId -ConfigPath $ConfigPath
 $thumbprint = & $ConnectScript -Environment Dev -Role Writer -ThumbprintOnly -ConfigPath $ConfigPath
 

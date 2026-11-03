@@ -28,6 +28,10 @@ $tokens = [ordered]@{
     ExportPreProdPipeline   = '__EXPORT_PREPROD_PIPELINE__'
     ExportDevPipeline       = '__EXPORT_DEV_PIPELINE__'
     ComparePipeline         = '__COMPARE_PIPELINE__'
+    # Only the approved-apply pipeline uses these three; the others generate without them.
+    ExportPreProdPipelineId = '__EXPORT_PREPROD_PIPELINE_ID__'
+    ExportDevPipelineId     = '__EXPORT_DEV_PIPELINE_ID__'
+    DefaultBranch           = '__DEFAULT_BRANCH__'
 }
 $defaults = @{
     RepoFolder            = 'M365dscGUI'
@@ -35,7 +39,10 @@ $defaults = @{
     ExportPreProdPipeline = 'M365DSC - Export PreProd tenant'
     ExportDevPipeline     = 'M365DSC - Export Dev tenant'
     ComparePipeline       = 'M365DSC - Compare PreProd to Dev and build MOFs'
+    DefaultBranch         = 'main'
 }
+# Settings with no default that a template may leave unused: needed (and checked) only by the templates that contain their token.
+$optional = @('ExportPreProdPipelineId', 'ExportDevPipelineId')
 
 if (-not (Test-Path -LiteralPath $SettingsPath))
 {
@@ -63,11 +70,15 @@ $problems = @()
 foreach ($name in $tokens.Keys)
 {
     $value = if ($settings.ContainsKey($name)) { [string]$settings[$name] } else { [string]$defaults[$name] }
+    if (-not $value -and $optional -contains $name) { continue }
     if (-not $value) { $problems += "$name is missing"; continue }
     if ($value -match 'CHANGE-ME') { $problems += "$name still has the example value (CHANGE-ME)"; continue }
     if ($value -match '[\r\n]') { $problems += "$name must be one line"; continue }
     # The folder of this project inside the repo, with forward slashes ('.' when the project is at the repo root): no '..', no drive or leading slash.
     if ($name -eq 'RepoFolder' -and $value -cnotmatch '\A(\.|[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*)\z') { $problems += "$name must be a folder path such as M365dscGUI or tools/M365dscGUI (forward slashes), or . for the repo root"; continue }
+    # Pipeline (definition) ids are digits; the branch is a plain branch name (it ends up in a command line).
+    if ($name -in 'ExportPreProdPipelineId', 'ExportDevPipelineId' -and $value -cnotmatch '\A\d{1,9}\z') { $problems += "$name must be the number of the pipeline (digits only, from its address in Azure DevOps)"; continue }
+    if ($name -eq 'DefaultBranch' -and $value -cnotmatch '\A[A-Za-z0-9._/-]{1,100}\z') { $problems += "$name must be a branch name such as main"; continue }
     # The value goes inside a single-quoted YAML string.
     $values[$name] = $value -replace "'", "''"
 }
@@ -79,15 +90,24 @@ $OutputPath = (Resolve-Path -LiteralPath $OutputPath).ProviderPath
 # Only the files this script generates are written (X.yaml from X.yaml.template); nothing in the output folder is deleted.
 $sources = @(Get-ChildItem -LiteralPath $pipelines -Filter '*.yaml.template' -File)
 if ($sources.Count -eq 0) { throw "No *.yaml.template files in $pipelines." }
+$failed = @()
 foreach ($file in $sources)
 {
     $text = [IO.File]::ReadAllText($file.FullName)
-    foreach ($name in $tokens.Keys) { $text = $text.Replace($tokens[$name], $values[$name]) }
+    foreach ($name in $tokens.Keys) { if ($values.ContainsKey($name)) { $text = $text.Replace($tokens[$name], $values[$name]) } }
     $left = [regex]::Matches($text, '__[A-Z][A-Z_]*__') | ForEach-Object { $_.Value } | Sort-Object -Unique
-    if ($left) { throw "$($file.Name) still has token(s) $($left -join ', '): add them to the token table in this script." }
+    if ($left)
+    {
+        # One template that cannot be filled does not stop the others from being written; the problems are reported at the end.
+        $needs = @($optional | Where-Object { $left -contains $tokens[$_] })
+        $failed += $(if ($needs) { "$($file.Name) needs the setting(s) $($needs -join ', ') in $SettingsPath (the number of each export pipeline, from its address in Azure DevOps)." }
+            else { "$($file.Name) still has token(s) $($left -join ', '): add them to the token table in this script." })
+        continue
+    }
     $targetName = $file.Name -replace '\.template$', ''
     $text = "# Generated from $($file.Name) by scripts/New-PipelineYaml.ps1. Change the template or the settings and generate again, not this file.`n" + $text
     [IO.File]::WriteAllText((Join-Path $OutputPath $targetName), $text, [Text.UTF8Encoding]::new($false))
     "wrote $targetName"
 }
+if ($failed) { throw "Not written:`n  $($failed -join "`n  ")" }
 "Done: the pipeline YAML is in $OutputPath. Create the pipelines in Azure DevOps from these *.yaml files."

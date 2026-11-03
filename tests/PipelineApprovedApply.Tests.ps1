@@ -12,6 +12,7 @@ BeforeAll {
         Set-Content (Join-Path $fakes 'Build.ps1') -Value @'
 param ($ListPath, $SourceExportPath, $TargetExportPath, $TargetTenantDomain, $OutputPath, $MaxAgeDays, $ApplicationId, $CertificateThumbprint, $OrganizationName)
 Add-Content $env:PE_FAKE_LOG "build thumb=$CertificateThumbprint app=$ApplicationId"
+Add-Content $env:PE_FAKE_LOG "paths src=$SourceExportPath tgt=$TargetExportPath"
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 Copy-Item -Path (Join-Path $env:PE_FAKE_BUILD_DIR '*') -Destination $OutputPath -Recurse -Force
 '@
@@ -67,10 +68,17 @@ Add-Content $env:PE_FAKE_LOG "disconnect $Slug $Role"
 
     function Invoke-ApprovedApply
     {
-        param ($World, [string]$Mode = 'Test', [string]$IncludeRemovals = 'False', [string]$List)
+        param ($World, [string]$Mode = 'Test', [string]$IncludeRemovals = 'False', [string]$List, [string]$PreProd, [string]$Dev)
         if (-not $List) { $List = Join-Path $World.Root 'approvals\a.json' }
+        foreach ($name in 'pre', 'dev')
+        {
+            $dir = Join-Path $World.Root "exp\$name"
+            if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null; Set-Content (Join-Path $dir 'export.ps1') -Value '# x' }
+        }
+        if (-not $PreProd) { $PreProd = Join-Path $World.Root 'exp\pre' }
+        if (-not $Dev) { $Dev = Join-Path $World.Root 'exp\dev' }
         $fakes = Join-Path $World.Root 'fakes'
-        $messages = & $script:Script -ListPath $List -PreProdExportPath 'x' -DevExportPath 'y' -OutputPath $World.Out -Mode $Mode -IncludeRemovals $IncludeRemovals `
+        $messages = & $script:Script -ListPath $List -PreProdExportPath $PreProd -DevExportPath $Dev -OutputPath $World.Out -Mode $Mode -IncludeRemovals $IncludeRemovals `
             -ApprovalsRoot (Join-Path $World.Root 'approvals') -ConfigPath (Join-Path $World.Root 'cfg') `
             -BuildScript (Join-Path $fakes 'Build.ps1') -LcmScript (Join-Path $fakes 'Lcm.ps1') -LcmHost $script:Pwsh `
             -ConnectScript (Join-Path $fakes 'Connect.ps1') -DisconnectScript (Join-Path $fakes 'Disconnect.ps1') 6>&1 3>$null
@@ -118,6 +126,32 @@ Describe 'pipelines\scripts\Invoke-PipelineApprovedApply.ps1 guards' {
         $result = Get-Content (Join-Path $w.Out 'result.json') -Raw | ConvertFrom-Json
         $result.Items[0].Outcome | Should -Be 'Failed'
         $result.Items[0].Reason | Should -BeLike '*LCM exploded*'
+    }
+}
+
+Describe 'pipelines\scripts\Invoke-PipelineApprovedApply.ps1 export folders' {
+    It 'finds export.ps1 directly in the download folder or one folder down, named after the artifact' {
+        $w = New-World
+        Set-Scenario $w @((Row Create 'Finance' 'PE_AADGroup_Changes')) @{}
+        $pre = Join-Path $w.Root 'pre'
+        $dev = Join-Path $w.Root 'dev'
+        New-Item -ItemType Directory -Path (Join-Path $pre 'PreProdExport') -Force | Out-Null
+        New-Item -ItemType Directory -Path $dev -Force | Out-Null
+        Set-Content (Join-Path $pre 'PreProdExport\export.ps1') -Value '# x'
+        Set-Content (Join-Path $dev 'export.ps1') -Value '# x'
+        Invoke-ApprovedApply $w -PreProd $pre -Dev $dev | Out-Null
+        $paths = @(Get-Log $w | Where-Object { $_ -like 'paths *' })[0]
+        $paths | Should -BeLike "*src=$(Join-Path $pre 'PreProdExport') *"
+        $paths | Should -BeLike "*tgt=$dev"
+    }
+
+    It 'stops with a clear message when a download folder has no export.ps1' {
+        $w = New-World
+        Set-Scenario $w @((Row Create 'Finance' 'PE_AADGroup_Changes')) @{}
+        $empty = Join-Path $w.Root 'empty'
+        New-Item -ItemType Directory -Path $empty | Out-Null
+        { Invoke-ApprovedApply $w -PreProd $empty -Dev $empty } | Should -Throw '*export.ps1*PreProdExport*'
+        @(Get-Log $w).Count | Should -Be 0
     }
 }
 

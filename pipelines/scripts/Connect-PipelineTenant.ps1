@@ -44,8 +44,47 @@ $slug = $Environment.ToLowerInvariant()
 if (-not $ThumbprintOnly) { . (Join-Path $repoRoot 'tools\PEAppPath.ps1') }
 
 $secretName = "$($config.ShortName)-Cert-$Role"
-$secret = Get-AzKeyVaultSecret -VaultName $config.KeyVault -Name $secretName
-if (-not $secret) { throw "Key Vault secret $secretName was not found in $($config.KeyVault)." }
+$vault = $config.KeyVault
+$vaultFile = "pipelines\config\$Environment.psd1"
+$context = Get-AzContext
+$who = if ($context) { "$($context.Account.Id) in subscription '$($context.Subscription.Name)'" } else { 'no Azure context' }
+Write-Host "Reading secret '$secretName' from Key Vault '$vault' (https://$vault.vault.azure.net) as $who."
+try
+{
+    $secret = Get-AzKeyVaultSecret -VaultName $vault -Name $secretName -ErrorAction Stop
+}
+catch
+{
+    $detail = $_.Exception.Message
+    $inner = $_.Exception.InnerException
+    while ($inner) { $detail += " | $($inner.Message)"; $inner = $inner.InnerException }
+    $hint = switch -Regex ($detail)
+    {
+        'no data of the requested type|No such host|name or service not known|could not be resolved|nodename nor servname|NameResolutionFailure'
+        {
+            "The name '$vault.vault.azure.net' does not resolve. Either the Key Vault name '$vault' (KeyVault in $vaultFile) is wrong or the vault does not exist, or the vault is in another cloud, or it is behind a private endpoint the agent cannot resolve. Check the exact name in the Azure portal, and that the agent can reach it."
+            break
+        }
+        'Forbidden|403|not authorized|does not have secrets get permission|AuthorizationFailed|Caller is not authorized'
+        {
+            "The vault '$vault' exists but the identity of the service connection ($who) may not read secrets from it. Give it 'Key Vault Secrets User' (RBAC) or Get on secrets (access policy). If the vault has a firewall, the agent's address must be allowed."
+            break
+        }
+        'SecretNotFound|404|not found'
+        {
+            "The vault '$vault' was reached but has no secret named '$secretName' (name is ShortName '$($config.ShortName)' + '-Cert-$Role'). Check the secret name and that it is enabled and not deleted."
+            break
+        }
+        'AADSTS|Unauthorized|401|token'
+        {
+            "Sign-in to the vault failed. Check the service connection belongs to the tenant that owns '$vault' and that the AzurePowerShell step uses the right one (Dev vs PreProd)."
+            break
+        }
+        default { 'Could not read the secret. See the message below.' }
+    }
+    throw "Key Vault read failed for secret '$secretName' in vault '$vault'. $hint`nAzure said: $detail"
+}
+if (-not $secret) { throw "Key Vault '$vault' was reached but returned nothing for secret '$secretName' (it may be disabled, expired or deleted)." }
 $pfxBase64 = ConvertFrom-SecureString -SecureString $secret.SecretValue -AsPlainText
 $bytes = [Convert]::FromBase64String(($pfxBase64 -replace '\s', ''))
 

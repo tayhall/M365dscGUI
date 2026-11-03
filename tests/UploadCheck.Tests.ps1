@@ -163,6 +163,20 @@ Describe 'New-PEUploadCheck' {
         @($check.State.Records | Where-Object ResourceType -eq 'AADGroup').Count | Should -Be 2
     }
 
+    It 'keeps two different instances that share a key when they are in one file' {
+        # Two Intune store apps (or groups) may have one display name: a blueprint made from the same export keeps both, so the
+        # snapshot must too, or every such key looks like 2 blueprint records against 1 target record.
+        $text = (Get-UploadFile 'entra.ps1').Text
+        $block = [regex]::Match($text, '(?s)        AADGroup "AADGroup-Sales"\r?\n        \{.*?\r?\n        \}').Value
+        $twin = $block.Replace('AADGroup-Sales', 'AADGroup-Sales-2').Replace('11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333')
+        $twice = $text.Replace($block, $block + "`n" + $twin)
+        $result = New-PEUploadCheck -Tenant 'acme' -File @([pscustomobject]@{ Name = 'export.ps1'; Text = $twice }) -DataRoot $script:Temp -TenantDomain 'acme.example'
+        @($result.Warnings).Count | Should -Be 0
+        $check = Get-PECheck -CheckId $result.CheckId -DataRoot $script:Temp
+        @($check.State.Records | Where-Object { $_.ResourceType -eq 'AADGroup' -and $_.Key -eq 'Sales' }).Count | Should -Be 2
+        @($check.State.Records | Where-Object ResourceType -eq 'AADGroup').Count | Should -Be 3
+    }
+
     It 'treats a tenant that follows only the master blueprint as having no own blueprint' {
         Set-PETenant -Slug 'acme' -Blueprints @('main') -DataRoot $script:Temp | Out-Null
         $result = New-PEUploadCheck -Tenant 'acme' -File @(Get-UploadFile 'entra.ps1') -TenantDomain 'acme.example' -DataRoot $script:Temp

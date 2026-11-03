@@ -77,3 +77,17 @@ Describe 'New-PEApprovedList / Save / Read' {
         { Read-PEApprovedList -Path $path } | Should -Throw 'Approved list*'
     }
 }
+
+Describe 'Read-PEApprovedList Counts order' {
+    It 'accepts Counts rows in any order (the order is not part of the format)' {
+        $items = @(
+            @{ Action = 'Update'; ResourceType = 'AADGroup'; Key = 'Sales'; ExcludedProperties = @() }
+            @{ Action = 'Create'; ResourceType = 'AADGroup'; Key = 'Finance'; ExcludedProperties = @() }
+            @{ Action = 'Create'; ResourceType = 'EXOAcceptedDomain'; Key = 'contoso.com'; ExcludedProperties = @() }
+        )
+        $j = (New-PEApprovedList -Tenant 'dev' -ApprovedBy 'a' -Source (New-Side '1') -Target (New-Side '2') -Item $items -ModuleVersion '2.26.1021.1' | ConvertTo-Json -Depth 8) | ConvertFrom-Json -DateKind String
+        $j.Counts = @($j.Counts[2], $j.Counts[0], $j.Counts[1])
+        $path = Save-Json ($j | ConvertTo-Json -Depth 8)
+        { Read-PEApprovedList -Path $path } | Should -Not -Throw
+    }
+}

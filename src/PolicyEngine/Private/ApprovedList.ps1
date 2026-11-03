@@ -95,5 +95,10 @@ function Assert-PEApprovedList
     $counts = @($List.Counts)
     foreach ($row in $counts) { & $checkNames $row @('ResourceType', 'Action', 'Count') 'a Counts row' }
     $actual = @($counts | ForEach-Object { "$($_.ResourceType)|$($_.Action)|$($_.Count)" })
-    if (($expected -join ';') -cne ($actual -join ';')) { & $fail 'Counts does not match the items.' }
+    # The row order is not part of the format (a browser and PowerShell sort strings differently), so compare as sets.
+    $expectedSorted = [string[]]$expected
+    $actualSorted = [string[]]$actual
+    [Array]::Sort($expectedSorted, [System.StringComparer]::Ordinal)
+    [Array]::Sort($actualSorted, [System.StringComparer]::Ordinal)
+    if (($expectedSorted -join ';') -cne ($actualSorted -join ';')) { & $fail 'Counts does not match the items.' }
 }

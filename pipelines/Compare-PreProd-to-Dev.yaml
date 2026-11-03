@@ -2,19 +2,13 @@ name: 'M365DSC - Compare PreProd to Dev and build MOFs'
 
 trigger: none
 
-# The two export pipelines must exist in Azure DevOps under these names. The latest successful run of each is used.
+# The latest successful run of each export pipeline is used. Dev's tenant, Writer app id and organization are in pipelines/config/Dev.psd1.
 resources:
   pipelines:
     - pipeline: preprodExport
       source: '__EXPORT_PREPROD_PIPELINE__'
     - pipeline: devExport
       source: '__EXPORT_DEV_PIPELINE__'
-
-# Dev's identifiers (tenant, Key Vault, Writer app id, organization name) are in pipelines/config/Dev.psd1, read at run time. The MOF
-# holds the Writer app id and the certificate thumbprint (taken from <short name>-Cert-Writer in Key Vault), not the key.
-variables:
-  - name: SERVICECONNECTION
-    value: '__SERVICE_CONNECTION__'
 
 parameters:
   - name: mofLayout
@@ -32,61 +26,35 @@ parameters:
 pool:
   name: '__POOL__'   # needs pwsh 7.6+ and local admin
 
-stages:
-  - stage: Compare
-    jobs:
-      - job: CompareAndBuild
-        steps:
-          - checkout: self
-          - download: preprodExport
-            artifact: PreProdExport
-          - download: devExport
-            artifact: DevExport
+jobs:
+  - job: CompareAndBuild
+    steps:
+      - checkout: self
+      - download: preprodExport
+        artifact: PreProdExport
+      - download: devExport
+        artifact: DevExport
 
-          - template: templates/install-dependencies.yml
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/pipelines/scripts/Install-PipelineDependencies.ps1'
+        displayName: Install PowerShell modules
 
-          # Az PowerShell is already signed in through the service connection. The script computes the thumbprint from the certificate
-          # itself (checked as 40 hex characters before it is set as a variable); nothing is imported here.
-          - task: AzurePowerShell@5
-            displayName: 'Read the Dev Writer certificate thumbprint from Key Vault'
-            inputs:
-              azureSubscription: $(SERVICECONNECTION)
-              azurePowerShellVersion: LatestVersion
-              pwsh: true
-              ScriptType: InlineScript
-              Inline: |
-                & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Environment Dev -Role Writer -ThumbprintOnly -VariableName DEV_WRITER_THUMBPRINT
+      - task: AzurePowerShell@5
+        displayName: Compare PreProd to Dev and build MOFs
+        inputs:
+          azureSubscription: '__SERVICE_CONNECTION__'
+          azurePowerShellVersion: LatestVersion
+          pwsh: true
+          ScriptType: InlineScript
+          Inline: |
+            & '$(Build.SourcesDirectory)/pipelines/scripts/Invoke-PipelineCompare.ps1' `
+                -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
+                -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
+                -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
+                -MofLayout '${{ parameters.mofLayout }}' -CompleteWorkloads $env:PE_COMPLETE_WORKLOADS
+        env:
+          PE_COMPLETE_WORKLOADS: ${{ parameters.completeWorkloads }}
 
-          - pwsh: |
-              # Free-form parameters come in through the environment and are validated, never written into the script text.
-              if ($env:PE_COMPLETE_WORKLOADS -notmatch '^[A-Za-z0-9,]*$') { throw 'completeWorkloads may only hold letters, digits and commas.' }
-              if ($env:PE_THUMBPRINT -notmatch '^[0-9A-Fa-f]{40}$') { throw 'The Dev Writer thumbprint is not a 40-character hex thumbprint.' }
-              # Dev's identifiers, read and validated from pipelines/config/Dev.psd1.
-              $dev = & '$(Build.SourcesDirectory)/pipelines/scripts/Get-PipelineConfig.ps1' -Environment Dev -Require TenantDomain, OrganizationName, WriterAppId
-              & '$(Build.SourcesDirectory)/tools/Invoke-PEPipelineCompare.ps1' `
-                  -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
-                  -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
-                  -TargetTenantDomain $dev.TenantDomain `
-                  -CompleteWorkload $env:PE_COMPLETE_WORKLOADS `
-                  -MofLayout '${{ parameters.mofLayout }}' `
-                  -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
-                  -Compile -ApplicationId $dev.WriterAppId -CertificateThumbprint $env:PE_THUMBPRINT -OrganizationName $dev.OrganizationName
-            displayName: 'Compare PreProd to Dev, generate configuration, compile MOF'
-            env:
-              PE_COMPLETE_WORKLOADS: ${{ parameters.completeWorkloads }}
-              PE_THUMBPRINT: $(DEV_WRITER_THUMBPRINT)
-
-          - pwsh: |
-              $summary = Get-Content '$(Build.ArtifactStagingDirectory)/compare/summary.json' -Raw | ConvertFrom-Json
-              Write-Host "##vso[task.logissue type=warning]Drift: $($summary.OpenFindings) open ($($summary.ByKind)); $($summary.Manual) item(s) need manual action."
-              "## Drift PreProd -> Dev`n`n$($summary | ConvertTo-Json)" | Set-Content '$(Build.ArtifactStagingDirectory)/compare/summary.md'
-              Write-Host "##vso[task.uploadsummary]$(Build.ArtifactStagingDirectory)/compare/summary.md"
-            displayName: 'Summarise drift'
-
-          # The drift report and the generated configuration, for review.
-          - task: PublishPipelineArtifact@1
-            displayName: 'Publish DriftReport'
-            inputs:
-              targetPath: '$(Build.ArtifactStagingDirectory)/compare'
-              artifact: DriftReport
-              publishLocation: pipeline
+      # The drift report and the generated configuration, for review and for Apply-Dev.
+      - publish: $(Build.ArtifactStagingDirectory)/compare
+        artifact: DriftReport

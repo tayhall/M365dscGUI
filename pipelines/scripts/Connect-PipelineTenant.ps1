@@ -12,7 +12,7 @@
 .EXAMPLE
     Connect-PipelineTenant.ps1 -Environment Dev -Role Reader
 .EXAMPLE
-    Connect-PipelineTenant.ps1 -Environment Dev -Role Writer -ThumbprintOnly -VariableName DEV_WRITER_THUMBPRINT
+    $thumbprint = Connect-PipelineTenant.ps1 -Environment Dev -Role Writer -ThumbprintOnly
 #>
 param
 (
@@ -27,11 +27,8 @@ param
     # When given, the certificate must have this thumbprint (nothing is kept if not).
     [string]$ExpectedThumbprint,
 
-    # Report the thumbprint (and set the pipeline variable named by -VariableName) without importing anything.
+    # Return the certificate's thumbprint without importing anything.
     [switch]$ThumbprintOnly,
-
-    [ValidatePattern('\A[A-Z][A-Z0-9_]{0,63}\z')]
-    [string]$VariableName,
 
     [string]$ConfigPath = (Join-Path $PSScriptRoot '..\config')
 )
@@ -61,12 +58,7 @@ if ($ExpectedThumbprint -and $thumbprint -ine ($ExpectedThumbprint -replace '\s'
     throw "The certificate in $secretName has thumbprint $thumbprint, not the expected $ExpectedThumbprint. Nothing was kept."
 }
 
-if ($ThumbprintOnly)
-{
-    if ($VariableName) { "##vso[task.setvariable variable=$VariableName]$thumbprint" }
-    "$secretName thumbprint: $thumbprint"
-    return
-}
+if ($ThumbprintOnly) { return $thumbprint }
 
 $store = if ($Role -eq 'Writer') { 'Cert:\LocalMachine\My' } else { 'Cert:\CurrentUser\My' }
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N') + '.pfx')

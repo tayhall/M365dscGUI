@@ -1,4 +1,0 @@
-# Shared step: PowerShell 7.6+ with the pinned Microsoft365DSC modules in the Windows PowerShell 5.1 all-users path.
-steps:
-  - pwsh: '& "$(Build.SourcesDirectory)/pipelines/scripts/Install-PipelineDependencies.ps1"'
-    displayName: 'Install PowerShell modules (all users, 5.1 path)'

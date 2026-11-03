@@ -63,7 +63,7 @@ if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 $OutputPath = (Resolve-Path -LiteralPath $OutputPath).ProviderPath
 
-$sources = @(Get-ChildItem -LiteralPath $pipelines -Filter '*.yaml' -File) + @(Get-ChildItem -LiteralPath (Join-Path $pipelines 'templates') -Filter '*.yml' -File)
+$sources = @(Get-ChildItem -LiteralPath $pipelines -Filter '*.yaml' -File)
 foreach ($file in $sources)
 {
     $text = [IO.File]::ReadAllText($file.FullName)

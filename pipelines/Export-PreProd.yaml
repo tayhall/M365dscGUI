@@ -2,11 +2,7 @@ name: 'M365DSC - Export PreProd tenant'
 
 trigger: none
 
-# Environment-specific identifiers (tenant, Key Vault, app id) are in pipelines/config/PreProd.psd1, read at run time.
-variables:
-  - name: SERVICECONNECTION
-    value: '__SERVICE_CONNECTION__'
-
+# PreProd's tenant, Key Vault and app id are in pipelines/config/PreProd.psd1, read by the script.
 parameters:
   - name: workloads
     displayName: Workloads (DSC prefixes, comma separated)
@@ -16,15 +12,27 @@ parameters:
 pool:
   name: '__POOL__'   # needs pwsh 7.6+ and local admin
 
-stages:
-  - stage: Export
-    jobs:
-      - job: ExportPreProd
-        timeoutInMinutes: 180
-        steps:
-          - template: templates/export-tenant.yml
-            parameters:
-              environment: PreProd
-              serviceConnection: $(SERVICECONNECTION)
-              workloads: ${{ parameters.workloads }}
-              artifactName: PreProdExport
+jobs:
+  - job: ExportPreProd
+    timeoutInMinutes: 180
+    steps:
+      - checkout: self
+
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/pipelines/scripts/Install-PipelineDependencies.ps1'
+        displayName: Install PowerShell modules
+
+      - task: AzurePowerShell@5
+        displayName: Export PreProd
+        inputs:
+          azureSubscription: '__SERVICE_CONNECTION__'
+          azurePowerShellVersion: LatestVersion
+          pwsh: true
+          ScriptType: InlineScript
+          Inline: |
+            & '$(Build.SourcesDirectory)/pipelines/scripts/Invoke-PipelineExport.ps1' -Environment PreProd -Workloads $env:PE_WORKLOADS -OutputPath '$(Build.ArtifactStagingDirectory)/export'
+        env:
+          PE_WORKLOADS: ${{ parameters.workloads }}
+
+      - publish: $(Build.ArtifactStagingDirectory)/export
+        artifact: PreProdExport

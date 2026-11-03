@@ -15,10 +15,15 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
   Each workload is its own run of the same comparison with only that workload's PreProd records as the expected state. `drift.*` and
   `Manual.json` always come from the full comparison.
 
-Shared pieces: `templates\install-dependencies.yml`, `templates\export-tenant.yml`, `scripts\Install-PipelineDependencies.ps1`
-(pinned Microsoft365DSC, its dependency manifest and Microsoft.Graph.Authentication, saved to
-`C:\Program Files\WindowsPowerShell\Modules`, added to the machine `PSModulePath`) and `scripts\Connect-PipelineTenant.ps1`
-(certificate import plus the app details file the existing tools read).
+**The YAML stays thin.** Each pipeline is: install modules, one script step, publish. The logic and the checks live in the scripts, not in the YAML:
+- `scripts\Install-PipelineDependencies.ps1`: pinned Microsoft365DSC, its dependency manifest and Microsoft.Graph.Authentication, saved to
+  `C:\Program Files\WindowsPowerShell\Modules` and added to the machine `PSModulePath`.
+- `scripts\Invoke-PipelineExport.ps1`, `Invoke-PipelineCompare.ps1`, `Invoke-PipelineApply.ps1`: the three pipeline steps. They read the config file,
+  call `Connect-PipelineTenant.ps1` (certificate from Key Vault; the thumbprint is taken from the certificate) and remove the certificate again in a
+  `finally`, so a failed run leaves nothing on the agent.
+- `scripts\Get-PipelineConfig.ps1`: reads and validates `config\<Environment>.psd1`.
+- Apply checks that the Writer certificate is the one the MOFs were compiled with (the thumbprint is in the report's `ConfigurationData.psd1`).
+  It is one line in `Invoke-PipelineApply.ps1` (`-ExpectedThumbprint`) if you ever want it gone.
 
 ## Configuration: two places
 **1. Tenant config files, read at run time: `pipelines\config\Dev.psd1` and `PreProd.psd1`.** Fill in the tenant domain, Key Vault name,

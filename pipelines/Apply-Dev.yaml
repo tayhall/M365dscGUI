@@ -2,16 +2,12 @@ name: 'M365DSC - Apply compared MOF files to Dev'
 
 trigger: none
 
-# Applies what "M365DSC - Compare PreProd to Dev and build MOFs" produced. DEV ONLY: nothing here can target another tenant.
+# Applies what "Compare PreProd to Dev and build MOFs" produced. DEV ONLY: the target is fixed in the script.
+# Dev's tenant and Writer app id are in pipelines/config/Dev.psd1.
 resources:
   pipelines:
     - pipeline: compare
       source: '__COMPARE_PIPELINE__'
-
-variables:
-  - name: SERVICECONNECTION
-    value: '__SERVICE_CONNECTION__'
-  # Dev's identifiers (tenant, Key Vault, Writer app id) are in pipelines/config/Dev.psd1, read at run time.
 
 parameters:
   - name: mode
@@ -33,67 +29,32 @@ parameters:
 pool:
   name: '__POOL__'   # needs pwsh 7.6+ and local admin
 
-stages:
-  - stage: ApplyDev
-    jobs:
-      # An approval and check on the environment '__DEV_ENVIRONMENT__' is the gate before anything is written.
-      - deployment: ApplyToDev
-        environment: '__DEV_ENVIRONMENT__'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
-                - download: compare
-                  artifact: DriftReport
+jobs:
+  # An approval and check on the environment '__DEV_ENVIRONMENT__' is the gate before anything is written.
+  - deployment: ApplyToDev
+    environment: '__DEV_ENVIRONMENT__'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+            - download: compare
+              artifact: DriftReport
 
-                - template: templates/install-dependencies.yml
+            - pwsh: |
+                & '$(Build.SourcesDirectory)/pipelines/scripts/Install-PipelineDependencies.ps1'
+              displayName: Install PowerShell modules
 
-                # Az PowerShell is already signed in through the service connection. The certificate must be the one the MOFs were
-                # compiled with: its thumbprint is in the compare run's ConfigurationData.psd1.
-                - task: AzurePowerShell@5
-                  displayName: 'Import Dev Writer certificate'
-                  inputs:
-                    azureSubscription: $(SERVICECONNECTION)
-                    azurePowerShellVersion: LatestVersion
-                    pwsh: true
-                    ScriptType: InlineScript
-                    Inline: |
-                      $expected = (Import-PowerShellDataFile -Path '$(Pipeline.Workspace)/compare/DriftReport/ConfigurationData.psd1').NonNodeData.CertificateThumbprint
-                      if ($expected -notmatch '^[0-9A-Fa-f]{40}$') { throw 'No valid certificate thumbprint in the compare run''s ConfigurationData.psd1.' }
-                      & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Environment Dev -Role Writer -ExpectedThumbprint $expected
-
-                # The LCM only runs from Windows PowerShell 5.1; the resources run in PowerShell 7 through its relay.
-                - powershell: |
-                    $ErrorActionPreference = 'Stop'
-                    $report = '$(Pipeline.Workspace)/compare/DriftReport'
-                    # Combined run: DriftReport\MOF. PerWorkload run: DriftReport\<Prefix>\MOF, applied in the order given.
-                    # The workloads come in through the environment and are validated, never written into the script text.
-                    if ($env:PE_WORKLOADS -notmatch '^[A-Za-z0-9,]*$') { throw 'The workloads parameter may only hold letters, digits and commas.' }
-                    $roots = @(@($env:PE_WORKLOADS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) | ForEach-Object { Join-Path (Join-Path $report $_) 'MOF' })
-                    if ($roots.Count -eq 0) { $roots = @(Join-Path $report 'MOF') }
-                    $kinds = @('Changes')
-                    if ('${{ parameters.includeRemovals }}' -eq 'True') { $kinds += 'Removals' }   # Changes first, then Removals
-                    # With several workloads: all Changes in order first, then all Removals.
-                    foreach ($kind in $kinds)
-                    {
-                        foreach ($root in $roots)
-                        {
-                            $mof = Get-ChildItem -LiteralPath (Join-Path $root $kind) -Filter *.mof -ErrorAction SilentlyContinue | Select-Object -First 1
-                            if (-not $mof) { "No $kind MOF under ${root}: skipped."; continue }
-                            "== $kind ($($mof.FullName)) mode ${{ parameters.mode }}"
-                            $json = & '$(Build.SourcesDirectory)/tools/Invoke-PELcm.ps1' -MofPath $mof.FullName -Mode '${{ parameters.mode }}'
-                            $result = $json | ConvertFrom-Json
-                            "In desired state: $(@($result.InDesiredState).Count); not in desired state: $(@($result.NotInDesiredState).Count)"
-                            $result.NotInDesiredState | ForEach-Object { "  $($_.ResourceId) $($_.Error)" }
-                            if ($result.Error) { throw "LCM error in $kind ($root): $($result.Error)" }
-                        }
-                    }
-                  displayName: '${{ parameters.mode }} MOF files on Dev (LCM)'
-                  env:
-                    PE_WORKLOADS: ${{ parameters.workloads }}
-
-                # Always runs, so a failed apply does not leave the Writer certificate (LocalMachine) on the agent.
-                - pwsh: '& "$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1" -Slug dev -Role Writer'
-                  displayName: 'Remove Dev Writer certificate from the agent'
-                  condition: always()
+            - task: AzurePowerShell@5
+              displayName: '${{ parameters.mode }} MOF files on Dev'
+              inputs:
+                azureSubscription: '__SERVICE_CONNECTION__'
+                azurePowerShellVersion: LatestVersion
+                pwsh: true
+                ScriptType: InlineScript
+                Inline: |
+                  & '$(Build.SourcesDirectory)/pipelines/scripts/Invoke-PipelineApply.ps1' `
+                      -ReportPath '$(Pipeline.Workspace)/compare/DriftReport' `
+                      -Mode '${{ parameters.mode }}' -Workloads $env:PE_WORKLOADS -IncludeRemovals '${{ parameters.includeRemovals }}'
+              env:
+                PE_WORKLOADS: ${{ parameters.workloads }}

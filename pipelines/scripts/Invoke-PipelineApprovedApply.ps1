@@ -15,7 +15,7 @@
            after a failed resource or configuration: it applies what it can and reports what is left
       6    result.json gives every approved item exactly one outcome: Applied, NoActionRequired, NotGenerated, Failed or Skipped. Apply mode ends
            with issues (never green) while any item is not Applied or NoActionRequired; running the same list again finishes the job, because
-           what is already done is NoActionRequired. There is no rollback (DSC has none).
+           what is already in the desired state when the LCM tests it is NoActionRequired. There is no rollback (DSC has none).
     The LCM only runs from Windows PowerShell 5.1, so tools\Invoke-PELcm.ps1 is run with powershell.exe.
 #>
 param
@@ -80,12 +80,13 @@ $DevExportPath = & $resolveExport $DevExportPath 'DevExport' 'Dev'
 $dev = & (Join-Path $PSScriptRoot 'Get-PipelineConfig.ps1') -Environment Dev -Require TenantDomain, OrganizationName, WriterAppId -ConfigPath $ConfigPath
 $thumbprint = & $ConnectScript -Environment Dev -Role Writer -ThumbprintOnly -ConfigPath $ConfigPath
 
-New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
-$OutputPath = (Resolve-Path -LiteralPath $OutputPath).ProviderPath
+# The output folder is created by the build, after its guards have held: a run that is stopped leaves nothing behind.
 $buildPath = Join-Path $OutputPath 'build'
 & $BuildScript -ListPath $listFull -SourceExportPath $PreProdExportPath -TargetExportPath $DevExportPath -TargetTenantDomain $dev.TenantDomain `
     -OutputPath $buildPath -MaxAgeDays $MaxAgeDays -ApplicationId $dev.WriterAppId -CertificateThumbprint $thumbprint -OrganizationName $dev.OrganizationName
 
+New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
+$OutputPath = (Resolve-Path -LiteralPath $OutputPath).ProviderPath
 $summary = Get-Content -LiteralPath (Join-Path $buildPath 'summary.json') -Raw | ConvertFrom-Json
 $outcomes = @(Get-Content -LiteralPath (Join-Path $buildPath 'outcomes.json') -Raw | ConvertFrom-Json)
 "Approved list: $(Split-Path $listFull -Leaf); mode $Mode; removals $IncludeRemovals"
@@ -104,6 +105,7 @@ $runLcm = {
 }
 $configResults = [System.Collections.Generic.List[object]]::new()
 $testFailures = [System.Collections.Generic.List[string]]::new()
+$testInDesired = @{}
 
 try
 {
@@ -121,6 +123,7 @@ try
             {
                 $test = & $runLcm $mof.FullName 'Test'
                 "In desired state: $(@($test.InDesiredState).Count); not in desired state: $(@($test.NotInDesiredState).Count) (a create is expected to be not in the desired state yet)"
+                $testInDesired[[string]$config.ConfigurationName] = @($test.InDesiredState)
                 if ($test.Error) { $testFailures.Add("$($config.Name): $($test.Error)") }
             }
             catch { $testFailures.Add("$($config.Name): $($_.Exception.Message)") }
@@ -159,6 +162,20 @@ finally
     & $DisconnectScript -Slug dev -Role Writer
 }
 
+# What the LCM test found already in the desired state travels with each configuration (a stub when nothing was applied).
+$byName = @{}
+foreach ($entry in $configResults) { $byName[[string]$entry.ConfigurationName] = $entry }
+foreach ($config in $configs)
+{
+    $name = [string]$config.ConfigurationName
+    if (-not $byName.ContainsKey($name))
+    {
+        $stub = [pscustomobject]@{ ConfigurationName = $name; Ran = $false; Error = $null; InDesiredState = @(); NotInDesiredState = @() }
+        $configResults.Add($stub)
+        $byName[$name] = $stub
+    }
+    $byName[$name] | Add-Member -NotePropertyName TestInDesiredState -NotePropertyValue @($testInDesired[$name]) -Force
+}
 $result = & (Join-Path $PSScriptRoot 'Get-ApplyResult.ps1') -Item $outcomes -ConfigResult $configResults.ToArray() -Mode $Mode -IncludeRemovals:$withRemovals
 [ordered]@{
     Mode            = $Mode

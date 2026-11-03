@@ -4,7 +4,7 @@ trigger: none
 
 # Applies exactly the items of ONE approved list (approvals/*.json): made in drift-report.html, committed to the default branch.
 # DEV ONLY: the target is fixed in the script. Dev's tenant and Writer app id are in pipelines/config/Dev.psd1.
-# Safe order: run with mode Test first (the counts per type and action, the LCM preview, nothing written to Dev), then run Apply, which waits
+# Safe order: run with mode Test first (the counts per type and action, the LCM preview, nothing written to Dev), then run Apply. Both modes wait
 # for the approval on the environment. Running the same list again only has what is left to do (what is already done is "no action required").
 parameters:
   - name: approvalFile

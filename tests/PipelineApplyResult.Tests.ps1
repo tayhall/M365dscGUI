@@ -10,8 +10,8 @@ BeforeAll {
     }
     function Cfg
     {
-        param ($Name, [string[]]$In = @(), [object[]]$NotIn = @(), $Error = $null, [bool]$Ran = $true)
-        [pscustomobject]@{ ConfigurationName = $Name; Ran = $Ran; Error = $Error; InDesiredState = $In; NotInDesiredState = $NotIn }
+        param ($Name, [string[]]$In = @(), [object[]]$NotIn = @(), $Error = $null, [bool]$Ran = $true, [string[]]$TestIn = @())
+        [pscustomobject]@{ ConfigurationName = $Name; Ran = $Ran; Error = $Error; InDesiredState = $In; NotInDesiredState = $NotIn; TestInDesiredState = $TestIn }
     }
     function Get-Result { param ($Items, $Cfgs, $Mode = 'Apply', [switch]$IncludeRemovals) & $script:Script -Item $Items -ConfigResult $Cfgs -Mode $Mode -IncludeRemovals:$IncludeRemovals }
 }
@@ -81,12 +81,44 @@ Describe 'pipelines\scripts\Get-ApplyResult.ps1' {
         $r.Totals.Applied | Should -Be 0
     }
 
-    It 'treats an item with no resource id as Applied only when its whole configuration is in the desired state' {
+    It 'never says Applied for an item with no resource id: the LCM result cannot be checked for it' {
         $noId = Row Create 'Finance'
         $noId.ResourceId = $null
-        (Get-Result @($noId) @(Cfg 'PE_AADGroup_Changes')).Items[0].Outcome | Should -Be 'Applied'
-        $bad = Cfg 'PE_AADGroup_Changes' -NotIn @([pscustomobject]@{ ResourceId = '[AADGroup]AADGroup-Other'; Error = 'e' })
-        (Get-Result @($noId) @($bad)).Items[0].Outcome | Should -Be 'Failed'
+        $r = Get-Result @($noId) @(Cfg 'PE_AADGroup_Changes' -In @('[AADGroup]AADGroup-Other'))
+        $r.Items[0].Outcome | Should -Be 'Failed'
+        $r.Items[0].Reason | Should -BeLike '*resource id*'
+    }
+
+    It 'never says Applied for an item the LCM did not report, even when the lists are empty' {
+        $r = Get-Result @((Row Create 'Finance')) @(Cfg 'PE_AADGroup_Changes')
+        $r.Items[0].Outcome | Should -Be 'Failed'
+        $r.Items[0].Reason | Should -BeLike '*did not report*'
+        $r.Complete | Should -BeFalse
+    }
+
+    It 'judges each resource on its own when the LCM returned an error and the per-resource lists: one failure does not fail the others' {
+        $cfg = Cfg 'PE_AADGroup_Changes' -Error 'Start-DscConfiguration: a resource failed' -In @('[AADGroup]AADGroup-Finance') `
+            -NotIn @([pscustomobject]@{ ResourceId = '[AADGroup]AADGroup-Sales'; Error = 'Insufficient privileges' })
+        $r = Get-Result @((Row Create 'Finance'), (Row Update 'Sales'), (Row Update 'Other')) @($cfg)
+        ($r.Items | Where-Object Key -eq 'Finance').Outcome | Should -Be 'Applied'
+        ($r.Items | Where-Object Key -eq 'Sales').Outcome | Should -Be 'Failed'
+        ($r.Items | Where-Object Key -eq 'Sales').Reason | Should -Be 'Insufficient privileges'
+        $other = $r.Items | Where-Object Key -eq 'Other'
+        $other.Outcome | Should -Be 'Failed'
+        $other.Reason | Should -BeLike '*a resource failed*'
+    }
+
+    It 'is NoActionRequired for an item the LCM test found already in the desired state, in both modes' {
+        $cfg = Cfg 'PE_AADGroup_Changes' -TestIn @('[AADGroup]AADGroup-Finance') -In @('[AADGroup]AADGroup-Finance', '[AADGroup]AADGroup-Sales')
+        $items = @((Row Create 'Finance'), (Row Update 'Sales'))
+        $apply = Get-Result $items @($cfg)
+        ($apply.Items | Where-Object Key -eq 'Finance').Outcome | Should -Be 'NoActionRequired'
+        ($apply.Items | Where-Object Key -eq 'Finance').Reason | Should -BeLike '*already*'
+        ($apply.Items | Where-Object Key -eq 'Sales').Outcome | Should -Be 'Applied'
+        $test = Get-Result $items @($cfg) -Mode Test
+        ($test.Items | Where-Object Key -eq 'Finance').Outcome | Should -Be 'NoActionRequired'
+        ($test.Items | Where-Object Key -eq 'Sales').Outcome | Should -Be 'ToApply'
+        $apply.Complete | Should -BeTrue
     }
 
     It 'fails an item the LCM did not report when the configuration still has resources not in the desired state' {

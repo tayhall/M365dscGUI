@@ -12,6 +12,7 @@ BeforeAll {
         Set-Content (Join-Path $fakes 'Build.ps1') -Value @'
 param ($ListPath, $SourceExportPath, $TargetExportPath, $TargetTenantDomain, $OutputPath, $MaxAgeDays, $ApplicationId, $CertificateThumbprint, $OrganizationName)
 Add-Content $env:PE_FAKE_LOG "build thumb=$CertificateThumbprint app=$ApplicationId"
+if ($env:PE_FAKE_BUILD_FAIL) { throw 'the export is not complete (fake)' }
 Add-Content $env:PE_FAKE_LOG "paths src=$SourceExportPath tgt=$TargetExportPath"
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 Copy-Item -Path (Join-Path $env:PE_FAKE_BUILD_DIR '*') -Destination $OutputPath -Recurse -Force
@@ -36,6 +37,7 @@ Add-Content $env:PE_FAKE_LOG "disconnect $Slug $Role"
         $env:PE_FAKE_LOG = Join-Path $root 'log.txt'
         $env:PE_FAKE_BUILD_DIR = Join-Path $root 'scenario'
         $env:BUILD_SOURCEBRANCH = 'refs/heads/main'
+        $env:PE_FAKE_BUILD_FAIL = $null
         [pscustomobject]@{ Root = $root; Out = (Join-Path $root 'out\apply'); Log = $env:PE_FAKE_LOG }
     }
 
@@ -212,5 +214,34 @@ Describe 'pipelines\scripts\Invoke-PipelineApprovedApply.ps1 test and apply' {
         ($messages -join "`n") | Should -Match 'SucceededWithIssues'
         (Get-Log $w | Where-Object { $_ -like 'lcm Apply*' }).Count | Should -Be 0
         (Get-Content (Join-Path $w.Out 'result.json') -Raw | ConvertFrom-Json).Items[0].Outcome | Should -Be 'Skipped'
+    }
+}
+
+Describe 'pipelines\scripts\Invoke-PipelineApprovedApply.ps1 convergence and early stops' {
+    It 'does not create the output folder when the build stops on a guard' {
+        $w = New-World
+        Set-Scenario $w @((Row Create 'Finance' 'PE_AADGroup_Changes')) @{}
+        $env:PE_FAKE_BUILD_FAIL = '1'
+        { Invoke-ApprovedApply $w } | Should -Throw '*not complete*'
+        (Test-Path $w.Out) | Should -BeFalse
+        (Get-Log $w) | Should -Not -Contain 'connect expected=0123456789ABCDEF0123456789ABCDEF01234567'
+        $env:PE_FAKE_BUILD_FAIL = $null
+    }
+
+    It 'runs the same list again: an item the LCM test finds already in the desired state is NoActionRequired, in Test and in Apply mode' {
+        $w = New-World
+        Set-Scenario $w @((Row Create 'Finance' 'PE_AADGroup_Changes'), (Row Update 'Sales' 'PE_AADGroup_Changes')) @{
+            '01-AADGroup-Changes|Test' = @{ InDesiredState = @('[AADGroup]AADGroup-Finance'); NotInDesiredState = @(@{ ResourceId = '[AADGroup]AADGroup-Sales'; Error = $null }) }
+            '01-AADGroup-Changes|Apply' = @{ InDesiredState = @('[AADGroup]AADGroup-Finance', '[AADGroup]AADGroup-Sales'); NotInDesiredState = @() } }
+        Invoke-ApprovedApply $w | Out-Null
+        $test = Get-Content (Join-Path $w.Out 'result.json') -Raw | ConvertFrom-Json
+        ($test.Items | Where-Object Key -eq 'Finance').Outcome | Should -Be 'NoActionRequired'
+        ($test.Items | Where-Object Key -eq 'Sales').Outcome | Should -Be 'ToApply'
+        Remove-Item -LiteralPath $w.Out -Recurse -Force
+        Invoke-ApprovedApply $w -Mode Apply | Out-Null
+        $apply = Get-Content (Join-Path $w.Out 'result.json') -Raw | ConvertFrom-Json
+        ($apply.Items | Where-Object Key -eq 'Finance').Outcome | Should -Be 'NoActionRequired'
+        ($apply.Items | Where-Object Key -eq 'Sales').Outcome | Should -Be 'Applied'
+        $apply.Complete | Should -BeTrue
     }
 }

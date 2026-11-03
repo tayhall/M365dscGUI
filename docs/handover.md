@@ -438,6 +438,10 @@ Things to know:
   G6: an approved Remove is only applied with `includeRemovals`. The build stops before writing anything; item-level problems never stop the other items.
 - Test first (the counts per type and action and the LCM preview, nothing written), then Apply behind the environment approval. Apply carries on after a failed resource and ends
   "with issues" while any item is not Applied or NoActionRequired; the same list run again only has the rest to do. No rollback.
+- Convergence: the build compares with the exported Dev the list pins (G7), so after a partial apply the done items still look ToApply there. What makes a re-run converge is the
+  LCM test at run time: a ToApply item whose resource the test finds already in the desired state becomes NoActionRequired. An item is Applied only when the LCM reports its
+  resource id (`[AADGroup]AADGroup-Finance`, worked out from the generated block) in the desired state; one failed resource does not fail the others in its configuration.
+  FIRST LIVE RUN: check that the LCM's ResourceId format matches; if it does not, every item shows Failed ('the LCM did not report this resource') and the fix is in New-PEApprovedConfig.
 - `ExportedAt` of the Dev export in the list comes from the export file's modification time, which after an artifact download may be the download time: the age guard (G8)
   may then be too lenient. Use the export run's finish time if that proves true in Azure DevOps.
 - The apply script takes test hooks (`-BuildScript`, `-LcmScript`, `-LcmHost`, `-ConnectScript`, `-DisconnectScript`, `-ApprovalsRoot`, `-ConfigPath`) with the real scripts as defaults;

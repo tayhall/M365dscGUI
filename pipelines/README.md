@@ -51,7 +51,10 @@ A manual run of `Invoke-PipelineCompare.ps1` without numeric `-PreProdRun` / `-D
 4. **Every approved item ends in exactly one outcome**, listed in `result.json` (artifact `ApprovedApplyReport`): `Applied`, `NoActionRequired`
    (Dev already had the approved outcome), `NotGenerated` (the engine refused it; the reason is given), `Failed` (DSC's error) or `Skipped` (Dev
    was not in the state the approval expected, or a Remove without `includeRemovals`). The run is green only when every item is `Applied` or
-   `NoActionRequired`; otherwise it finishes **with issues** and lists what is left. Running the same list again only has the rest to do.
+   `NoActionRequired`; otherwise it finishes **with issues** and lists what is left. Running the same list again only has the rest to do: the LCM test at run time
+   finds what is already in the desired state (`NoActionRequired`), because the exported Dev the list was reviewed against does not know what a
+   first run already did. An item is only `Applied` when the LCM reports its resource (`[Type]Name`) in the desired state; if it does not, the item
+   is `Failed` with that reason, never silently green.
 Settings: add `ExportPreProdPipelineId`, `ExportDevPipelineId` (and optionally `DefaultBranch`) to `pipeline.settings.psd1`; the other pipelines
 generate without them. In Azure DevOps, a branch policy that requires a pull request review on `approvals/` is recommended: the pipeline checks the
 branch and the folder, not who reviewed the change.

@@ -11,7 +11,7 @@
       G1 complete     neither export has a failed component, a Graph shortfall line ("Graph reported N items but only M were returned"),
                       or a missing export.log: re-export instead
       G7 pinned       each export's SHA-256 is the one the list names, so the list is applied to what was reviewed
-      G8 not too old  the Dev export in the list is not older than -MaxAgeDays
+      G8 not too old  the Dev export in the list is not older than -MaxAgeDays (and not dated in the future)
     Writes into -OutputPath: outcomes.json (one row per approved item: Action, ResourceType, Key, Outcome, Reason, ResourceId; Outcome is
     ToApply, NoActionRequired, Skipped or NotGenerated), summary.json (Totals, ByTypeAction, Lines such as "Create 10 AADGroup"),
     NN-<Type>-<Phase>.ps1 for each configuration in apply order (all Changes, then Removals) and, unless -NoCompile, MOF\NN-<Type>-<Phase>\.
@@ -82,6 +82,10 @@ foreach ($side in @(@{ Name = 'PreProd'; Path = $SourceExportPath; Pinned = $lis
 # G8: Dev can have changed since it was exported.
 $exportedAt = [datetime]::Parse($list.Target.ExportedAt, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AdjustToUniversal -bor [System.Globalization.DateTimeStyles]::AssumeUniversal)
 $ageDays = ($Now.ToUniversalTime() - $exportedAt).TotalDays
+if ($ageDays -lt (-5 / 1440))
+{
+    throw "The Dev export in the approved list (run $($list.Target.Run)) is dated in the future ($($list.Target.ExportedAt)), so its age cannot be trusted. Nothing was built."
+}
 if ($ageDays -gt $MaxAgeDays)
 {
     throw ("The Dev export in the approved list (run $($list.Target.Run)) is {0:n1} days old, older than the maximum of $MaxAgeDays. Dev may have changed since: export it again and approve again. Nothing was built." -f $ageDays)

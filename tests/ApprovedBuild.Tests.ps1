@@ -74,6 +74,11 @@ Describe 'tools\Invoke-PEApprovedBuild.ps1 run-level guards' {
         Assert-Stopped { Invoke-Build $w } 'older than|days old' $w
     }
 
+    It 'stops when the Dev export is dated in the future (a hand-edited date)' {
+        $w = New-World -TargetExportedAt ([datetime]::UtcNow.AddDays(3))
+        Assert-Stopped { Invoke-Build $w } 'future' $w
+    }
+
     It 'stops when the list is for another tenant than the one this pipeline applies to' {
         $w = New-World -Tenant 'contoso'
         Assert-Stopped { Invoke-Build $w } "tenant 'contoso'" $w

@@ -45,7 +45,7 @@ $temporary = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N
 try
 {
     [IO.File]::WriteAllBytes($temporary, $bytes)
-    $cert = Import-PfxCertificate -FilePath $temporary -CertStoreLocation $store -Password $securePassword -Exportable
+    $cert = Import-PfxCertificate -FilePath $temporary -CertStoreLocation $store -Password $securePassword
 }
 finally
 {

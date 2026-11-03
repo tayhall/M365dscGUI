@@ -97,3 +97,8 @@ stages:
                   displayName: '${{ parameters.mode }} MOF files on Dev (LCM)'
                   env:
                     PE_WORKLOADS: ${{ parameters.workloads }}
+
+                # Always runs, so a failed apply does not leave the Writer certificate (LocalMachine) on the agent.
+                - pwsh: '& "$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1" -Slug dev -Role Writer'
+                  displayName: 'Remove Dev Writer certificate from the agent'
+                  condition: always()

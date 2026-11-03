@@ -44,6 +44,11 @@ steps:
     env:
       PE_WORKLOADS: ${{ parameters.workloads }}
 
+  # Always runs, so a failed export does not leave the tenant certificate on the agent.
+  - pwsh: '& "$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1" -Slug "${{ parameters.tenantSlug }}" -Role Reader'
+    displayName: 'Remove ${{ parameters.tenantSlug }} certificate from the agent'
+    condition: always()
+
   - task: PublishPipelineArtifact@1
     displayName: 'Publish ${{ parameters.artifactName }}'
     inputs:

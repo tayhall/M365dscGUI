@@ -70,8 +70,15 @@
     if (ids.length === 0) { fail('nothing selected.'); }
     var approver = validApprover(approvedBy);
     var index = itemIndex(data);
+    // Read-PEApprovedList compares Action, type and key case-insensitively, so two items that differ only in case would be refused at apply time.
+    var seen = Object.create(null);
     ids.forEach(function (id) {
       var item = index[id];
+      if (item) {
+        var same = (item.Action + '|' + item.ResourceType + '|' + item.Key).toLowerCase();
+        if (seen[same]) { fail('"' + item.Key + '" and "' + seen[same] + '" are the same item twice (they differ only in letter case).'); }
+        seen[same] = item.Key;
+      }
       if (!item) { fail('"' + id + '" is not in this report.'); }
       if (!item.Approvable) { fail(item.ResourceType + ' "' + item.Key + '" cannot be approved: ' + item.Reason); }
       if (item.Action === 'Remove' && !includeRemovals) { fail('turn on "Include removals" to approve a removal (' + item.ResourceType + ' "' + item.Key + '").'); }

@@ -115,3 +115,16 @@ test('describes why a download is not possible', () => {
   assert.match(R.whyNotDownloadable(data, sel('Create|AADGroup|Finance'), '', false), /Approved by/);
   assert.equal(R.whyNotDownloadable(data, sel('Create|AADGroup|Finance'), 'andrew', false), '');
 });
+
+test('refuses two items whose Action, type and key differ only in letter case (the list format compares them case-insensitively)', () => {
+  const bad = { ...data, Items: [
+    { ...data.Items[0], Id: 'Create|AADGroup|Finance', Key: 'Finance' },
+    { ...data.Items[0], Id: 'Create|AADGroup|finance', Key: 'finance' },
+  ] };
+  const both = { 'Create|AADGroup|Finance': { excluded: [] }, 'Create|AADGroup|finance': { excluded: [] } };
+  assert.throws(() => R.buildApprovedList(bad, both, 'andrew', false, now), /Cannot download:.*twice|Cannot download:.*same/i);
+});
+
+test('select all with the Cannot-be-approved kind selects nothing', () => {
+  assert.deepEqual(R.selectAll(data, { kind: 'Cannot' }, { includeRemovals: true }), []);
+});

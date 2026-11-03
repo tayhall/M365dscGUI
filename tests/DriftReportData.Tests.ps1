@@ -120,4 +120,77 @@ Describe 'Get-PEDriftReportData' {
         $m.Target.Fingerprint | Should -Be $script:FpB
         $m.ModuleVersion | Should -Match '\A\d+(\.\d+){1,3}\z'
     }
+
+    Context 'eligibility rules that mirror New-PEOfflineConfig' {
+        BeforeAll {
+            function Get-WithExtra
+            {
+                param ([hashtable]$Finding)
+                $cmp = Get-Comparison
+                $extra = [pscustomobject]$Finding
+                [pscustomobject]@{ Findings = @($cmp.Findings + $extra); Check = $cmp.Check; Blueprint = $cmp.Blueprint; DataRoot = $cmp.DataRoot; SourceState = $cmp.SourceState }
+            }
+        }
+
+        It 'does not offer to remove an object of a type PreProd has no records of' {
+            $cmp = Get-WithExtra @{ Kind = 'TargetOnly'; ResourceType = 'EXOAcceptedDomain'; Key = 'contoso.com'; Workload = 'Exchange'; State = 'Open'; Hint = ''; Differences = @() }
+            $item = (Get-Data $cmp).Items | Where-Object Key -eq 'contoso.com'
+            $item.Action | Should -Be 'Remove'
+            $item.Approvable | Should -BeFalse
+            $item.Reason | Should -BeLike "*no records in PreProd*"
+        }
+
+        It 'does not offer an item that carries a hint, and shows the hint' {
+            $cmp = Get-WithExtra @{ Kind = 'Missing'; ResourceType = 'AADGroup'; Key = 'Hinted'; Workload = 'Entra ID'; State = 'Open'; Hint = 'checked by hand'; Differences = @() }
+            $item = (Get-Data $cmp).Items | Where-Object Key -eq 'Hinted'
+            $item.Approvable | Should -BeFalse
+            $item.Reason | Should -Be 'checked by hand'
+        }
+
+        It 'does not offer an actionable finding that has no key' {
+            $cmp = Get-WithExtra @{ Kind = 'Missing'; ResourceType = 'AADGroup'; Key = ''; Workload = 'Entra ID'; State = 'Open'; Hint = ''; Differences = @() }
+            $item = (Get-Data $cmp).Items | Where-Object { $_.Kind -eq 'Missing' -and $_.Key -eq '' }
+            $item.Approvable | Should -BeFalse
+            $item.Reason | Should -BeLike '*without a key'
+        }
+
+        It 'leaves out findings that are not open' {
+            $cmp = Get-WithExtra @{ Kind = 'Missing'; ResourceType = 'AADGroup'; Key = 'Closed'; Workload = 'Entra ID'; State = 'Accepted'; Hint = ''; Differences = @() }
+            @((Get-Data $cmp).Items | Where-Object Key -eq 'Closed').Count | Should -Be 0
+        }
+    }
+
+    Context 'cost at scale' {
+        BeforeAll {
+            function Get-WithMany
+            {
+                param ([string[]]$Keys)
+                $cmp = Get-Comparison
+                $extra = foreach ($k in $Keys) { [pscustomobject]@{ Kind = 'Missing'; ResourceType = 'AADGroup'; Key = $k; Workload = 'Entra ID'; State = 'Open'; Hint = ''; Differences = @() } }
+                [pscustomobject]@{ Findings = @($cmp.Findings + $extra); Check = $cmp.Check; Blueprint = $cmp.Blueprint; DataRoot = $cmp.DataRoot; SourceState = $cmp.SourceState }
+            }
+        }
+
+        It 'asks the engine once per action when nothing is refused (each call indexes every record)' {
+            Mock -ModuleName PolicyEngine New-PERectifyPlan { @() }
+            $cmp = Get-WithMany (1..8 | ForEach-Object { "many$_" })
+            $d = Get-Data $cmp
+            @($d.Items | Where-Object { $_.Action -eq 'Create' -and -not $_.Approvable }).Count | Should -Be 0
+            Should -Invoke -ModuleName PolicyEngine New-PERectifyPlan -Times 1 -Exactly -ParameterFilter { $Action -eq 'Create' }
+        }
+
+        It 'still finds the one refused item among many and gives it the engine message, in far fewer calls than items' {
+            $global:PEPlanCalls = 0
+            Mock -ModuleName PolicyEngine New-PERectifyPlan { $global:PEPlanCalls++; if (@($Findings).Key -contains 'many5') { throw 'many5 is refused' }; @() }
+            $cmp = Get-WithMany (1..40 | ForEach-Object { "many$_" })
+            $d = Get-Data $cmp
+            $refused = @($d.Items | Where-Object { $_.Action -eq 'Create' -and -not $_.Approvable })
+            @($refused.Key) | Should -Be @('many5')
+            $refused[0].Reason | Should -Be 'many5 is refused'
+            @($d.Items | Where-Object { $_.Key -like 'many*' -and $_.Approvable }).Count | Should -Be 39
+            $global:PEPlanCalls | Should -BeLessThan 25 -Because '41 Create items asked one by one would be 41 calls'
+            Remove-Variable -Name PEPlanCalls -Scope Global
+        }
+    }
 }
+

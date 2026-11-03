@@ -61,4 +61,14 @@ Describe 'tools\New-PEDriftReport.ps1' {
         [void][System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$null, [ref]$errors)
         $errors.Count | Should -Be 0
     }
+
+    It 'does not fail the Compare pipeline when the optional report cannot be built' {
+        $script = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\pipelines\scripts\Invoke-PipelineCompare.ps1') -Raw
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$null, [ref]$null)
+        $try = $ast.FindAll({ param ($n) $n -is [System.Management.Automation.Language.TryStatementAst] }, $true) |
+            Where-Object { $_.Body.Extent.Text -match 'New-PEDriftReport\.ps1' }
+        @($try).Count | Should -Be 1
+        $try[0].CatchClauses[0].Body.Extent.Text | Should -Match 'task\.logissue type=warning'
+    }
 }
+

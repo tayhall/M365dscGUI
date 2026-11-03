@@ -8,13 +8,17 @@ function Get-PEDriftReportData
     Returns [pscustomobject]@{ Meta; Totals; Items }. An item is one open finding:
       Id            '<Action>|<ResourceType>|<Key>' for an actionable finding, '<Kind>|<ResourceType>|<Key>' for any other
       Action        Create (Missing in Dev), Update (Changed), Remove (only in Dev), or $null for every other kind
-      Approvable    true only when New-PERectifyPlan accepts the finding (the engine's own rules, called once per drifted item),
-                    and, for a Remove, the blueprint (PreProd) manages the type and the finding has no hint
+      Approvable    true only when New-PERectifyPlan accepts the finding (the engine's own rules), and, for a Remove, the
+                    blueprint (PreProd) manages the type and the finding has no hint
       Reason        why it cannot be approved (the engine's message, one line), empty when it can
       Differences   @{ Property; Dev; PreProd } with display strings, cut at -MaxValueLength
     Resources that match are only counted (Totals.Matching), never listed. Totals.Create/Update/Remove count approvable items;
     Totals.CannotApprove counts the others. Totals.Matching is the PreProd records without a finding.
     No comparison happens here: the findings are the engine's.
+
+    Cost: every New-PERectifyPlan call indexes all records of the source and the blueprint, so asking once per finding would take
+    minutes on a large export. The findings of one action are asked together, and a refused group is split in halves until the
+    refused item is alone (as New-PEOfflineConfig does), so with few refusals it is a handful of calls.
     #>
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -53,15 +57,16 @@ function Get-PEDriftReportData
     $managedTypes = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($record in @($blueprint.Records)) { [void]$managedTypes.Add([string]$record.ResourceType) }
 
-    $items = [System.Collections.Generic.List[object]]::new()
+    # Pass 1: one entry per open finding; the cheap rules decide some of them, the rest wait for the engine.
+    $entries = [System.Collections.Generic.List[object]]::new()
     $matchingTaken = 0
     foreach ($finding in @($Comparison.Findings | Where-Object { $_.State -eq 'Open' }))
     {
         $kind = [string]$finding.Kind
         $action = if ($actionFor.ContainsKey($kind)) { $actionFor[$kind] } else { $null }
         $key = [string]$finding.Key
-        $approvable = $false
         $reason = ''
+        $ask = $false
 
         if ($null -eq $action)
         {
@@ -81,54 +86,78 @@ function Get-PEDriftReportData
         }
         else
         {
-            $planArguments = @{ Source = $state; Blueprint = $blueprint }
-            if ($action -eq 'Remove')
-            {
-                $planArguments.Decisions = @([pscustomobject]@{
-                        Kind = 'Remove'; ResourceType = [string]$finding.ResourceType; Key = $key; Property = $null; Value = $null
-                        Reason = 'drift report (not stored)'; At = '2026-01-01T00:00:00.000Z'
-                    })
-            }
-            try
-            {
-                New-PERectifyPlan -Findings @($finding) -Action $action @planArguments | Out-Null
-                $approvable = $true
-            }
-            catch
-            {
-                $reason = (([string]$_.Exception.Message) -split "`r?`n")[0].Trim()
-            }
+            $ask = $true
         }
 
-        $differences = @(foreach ($difference in @($finding.Differences | Where-Object { $null -ne $_ }))
-            {
-                [pscustomobject][ordered]@{ Property = [string]$difference.Property; Dev = (& $display $difference.Target); PreProd = (& $display $difference.Blueprint) }
-            })
-        $idLead = if ($action) { $action } else { $kind }
-        $items.Add([pscustomobject][ordered]@{
-                Id           = "$idLead|$($finding.ResourceType)|$key"
-                Action       = $action
-                Kind         = $kind
-                ResourceType = [string]$finding.ResourceType
-                Key          = $key
-                Workload     = [string]$finding.Workload
-                Approvable   = $approvable
-                Reason       = $reason
-                Differences  = $differences
-            })
+        $entries.Add([pscustomobject]@{ Finding = $finding; Kind = $kind; Action = $action; Key = $key; Ask = $ask; Approvable = $false; Reason = $reason })
 
         # A record of PreProd that has a finding does not match: Missing and Changed are one record each, Ambiguous holds BlueprintCount.
         if ($kind -in 'Missing', 'Changed') { $matchingTaken++ }
         elseif ($kind -eq 'Ambiguous' -and $null -ne $finding.PSObject.Properties['BlueprintCount']) { $matchingTaken += [int]$finding.BlueprintCount }
     }
 
+    # Pass 2: ask the engine per action, in groups.
+    $ask = {
+        param ([object[]]$group)
+        $arguments = @{ Source = $state; Blueprint = $blueprint }
+        if ($group[0].Action -eq 'Remove')
+        {
+            $arguments.Decisions = @($group | ForEach-Object {
+                    [pscustomobject]@{ Kind = 'Remove'; ResourceType = [string]$_.Finding.ResourceType; Key = $_.Key; Property = $null; Value = $null; Reason = 'drift report (not stored)'; At = '2026-01-01T00:00:00.000Z' }
+                })
+        }
+        try
+        {
+            New-PERectifyPlan -Findings @($group | ForEach-Object { $_.Finding }) -Action $group[0].Action @arguments | Out-Null
+            foreach ($entry in $group) { $entry.Approvable = $true }
+        }
+        catch
+        {
+            if ($group.Count -eq 1)
+            {
+                $group[0].Reason = (([string]$_.Exception.Message) -split "`r?`n")[0].Trim()
+            }
+            else
+            {
+                $half = [int][Math]::Ceiling($group.Count / 2)
+                & $ask @($group[0..($half - 1)])
+                & $ask @($group[$half..($group.Count - 1)])
+            }
+        }
+    }
+    foreach ($action in 'Create', 'Update', 'Remove')
+    {
+        $group = @($entries | Where-Object { $_.Ask -and $_.Action -eq $action })
+        if ($group.Count) { & $ask $group }
+    }
+
+    $items = foreach ($entry in $entries)
+    {
+        $differences = @(foreach ($difference in @($entry.Finding.Differences | Where-Object { $null -ne $_ }))
+            {
+                [pscustomobject][ordered]@{ Property = [string]$difference.Property; Dev = (& $display $difference.Target); PreProd = (& $display $difference.Blueprint) }
+            })
+        $idLead = if ($entry.Action) { $entry.Action } else { $entry.Kind }
+        [pscustomobject][ordered]@{
+            Id           = "$idLead|$($entry.Finding.ResourceType)|$($entry.Key)"
+            Action       = $entry.Action
+            Kind         = $entry.Kind
+            ResourceType = [string]$entry.Finding.ResourceType
+            Key          = $entry.Key
+            Workload     = [string]$entry.Finding.Workload
+            Approvable   = $entry.Approvable
+            Reason       = $(if ($entry.Approvable) { '' } else { $entry.Reason })
+            Differences  = $differences
+        }
+    }
+    $items = @($items)
+
     $sourceRecords = @($Comparison.SourceState.Records).Count
     $removeOnly = @($items | Where-Object { $_.Kind -eq 'TargetOnly' }).Count
-    $matching = [Math]::Max(0, $sourceRecords - $matchingTaken)
     $approvableItems = @($items | Where-Object Approvable)
     $totals = [pscustomobject][ordered]@{
         Total         = ($sourceRecords + $removeOnly)
-        Matching      = $matching
+        Matching      = [Math]::Max(0, $sourceRecords - $matchingTaken)
         Create        = @($approvableItems | Where-Object Action -EQ 'Create').Count
         Update        = @($approvableItems | Where-Object Action -EQ 'Update').Count
         Remove        = @($approvableItems | Where-Object Action -EQ 'Remove').Count

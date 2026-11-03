@@ -167,7 +167,8 @@
   }
 
   function filterForAction() {
-    return { type: S.filter.type, kind: (S.filter.kind === 'Cannot' ? '' : S.filter.kind), text: S.filter.text };
+    // With the "Cannot be approved" chip on, only rows nobody can tick are shown, so nothing is selectable (selectAll returns none for it).
+    return { type: S.filter.type, kind: S.filter.kind, text: S.filter.text };
   }
 
   function selectAllShown() {

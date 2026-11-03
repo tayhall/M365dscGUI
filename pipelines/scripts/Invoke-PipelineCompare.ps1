@@ -52,9 +52,18 @@ $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Enco
 # exports, so without numeric run ids (a manual run outside the pipeline) it is not built.
 if ($PreProdRun -match '\A\d{1,12}\z' -and $DevRun -match '\A\d{1,12}\z')
 {
-    & (Join-Path $repoRoot 'tools\New-PEDriftReport.ps1') `
-        -SourceExportPath $SourceExportPath -TargetExportPath $TargetExportPath -OutputPath $OutputPath `
-        -TargetTenantDomain $dev.TenantDomain -CompleteWorkload $CompleteWorkloads -SourceRun $PreProdRun -TargetRun $DevRun
+    # The report is an extra: if it cannot be built, the comparison, the configurations and the MOF files above are still good.
+    try
+    {
+        & (Join-Path $repoRoot 'tools\New-PEDriftReport.ps1') `
+            -SourceExportPath $SourceExportPath -TargetExportPath $TargetExportPath -OutputPath $OutputPath `
+            -TargetTenantDomain $dev.TenantDomain -CompleteWorkload $CompleteWorkloads -SourceRun $PreProdRun -TargetRun $DevRun
+    }
+    catch
+    {
+        $reason = (([string]$_.Exception.Message) -split "`r?`n")[0]
+        Write-Host "##vso[task.logissue type=warning]drift-report.html was not built: $reason"
+    }
 }
 else
 {

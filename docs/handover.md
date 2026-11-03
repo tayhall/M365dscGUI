@@ -388,3 +388,28 @@ The first Standards GUI had a page of its own for the differences (`/standards/:
 ## Adopt refreshes the tenant's own drift (2026-10-27)
 
 After Adopt the adopted items are compared with the new blueprint version again, from the records of the tenant's latest Full check (`Update-PECheckForItems`, as after Promote; the tenant is not read). An adopted item the tenant lacks or has differently shows in the tenant's own Drift review at once, ready to Revert. Before, it only showed after the next check. If the latest check is of another blueprint nothing is compared and the job says they show after the next check.
+
+## HTML drift report (2026-11-03)
+
+What it is: `drift-report.html`, built by the Compare pipeline (`tools\New-PEDriftReport.ps1`, called from `pipelines\scripts\Invoke-PipelineCompare.ps1`
+when both export run ids are numeric). One self-contained file (inline CSS and JavaScript, no network, works from `file://`). A reviewer ticks
+individual items (Create / Update / Remove) and downloads `approved.json`, the approved list of `docs/superpowers/specs/2026-11-03-approved-drift-apply-design.md`.
+It is the ADO-only alternative to the GUI's review; the GUI is unchanged.
+
+Pieces (all in `src\PolicyEngine`): `Invoke-PEExportComparison` (the comparison, shared with `tools\Invoke-PEPipelineCompare.ps1`),
+`Get-PEDriftReportData` (findings to items; `Approvable` comes from `New-PERectifyPlan`, so the report never offers what the engine refuses),
+`New-PEDriftReportHtml` (embeds the data with the characters `<`, `>`, `&` and the line separators U+2028 and U+2029 escaped), `Data\DriftReport.js`
+(selection logic, tested in Node), `Data\DriftReport.ui.js` (the page), `Data\DriftReport.template.html`. Also new: `ExportIntegrity.ps1`
+(`Get-PEExportFingerprint`, `Test-PEExportComplete`) and `ApprovedList.ps1` (`New-/Save-/Read-PEApprovedList`, the strict list format), taken from the apply plan.
+
+Things to know:
+- Tenant text is only ever set with `textContent`; `tests\DriftReportPage.Tests.ps1` forbids innerHTML, eval and network calls in the page source.
+- The page builds the list in the browser; `tests\DriftReportJs.Tests.ps1` proves `Read-PEApprovedList` accepts it (including a Unicode key).
+  The order of `Counts` rows is not part of the format (a browser and PowerShell sort differently).
+- A 20,000-row report opens in about 100 ms: sections are collapsed and rows are rendered 200 at a time. Matching resources are only counted.
+- The page remembers ticks in `localStorage` per report (the key is a hash of both export fingerprints); it works without storage.
+- `ExportedAt` of an export comes from the export file's modification time. After an artifact download that is the download time, so a
+  "Dev export not older than N days" guard (apply design G8) must use the export run's finish time instead.
+- The report tool runs the comparison a second time (the compare tool already ran one): the two stay thin, at the cost of compare time.
+- Not verified yet: running it in Azure DevOps, and the approved-apply pipeline that consumes `approved.json` (plan
+  `2026-11-03-approved-apply-pipeline.md`, Tasks 4 to 8).

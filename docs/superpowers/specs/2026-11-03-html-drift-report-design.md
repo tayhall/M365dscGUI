@@ -1,6 +1,6 @@
 # Drift report in HTML: review and approve inside Azure DevOps
 
-Status: draft for approval. Date: 2026-11-03. Amends `2026-11-03-approved-drift-apply-design.md` (read that first).
+Status: report implemented (not yet run in Azure DevOps); the approved-apply pipeline that reads its list is still to be built. Date: 2026-11-03. Amends `2026-11-03-approved-drift-apply-design.md` (read that first).
 
 ## Intent and why
 

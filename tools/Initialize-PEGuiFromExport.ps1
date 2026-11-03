@@ -88,14 +88,17 @@ else
 }
 
 # 2. The tenant follows it, as an offline tenant (nothing connects to it).
+Write-Host ('[{0}] Registering tenant ''{1}'' as an offline tenant...' -f (Get-Date -Format HH:mm:ss), $slug)
 Set-PETenant -Slug $slug -DisplayName $DisplayName -TenantId $TenantDomain -Offline @arguments | Out-Null
 Initialize-PETenantBlueprint -Slug $slug -MasterBlueprint $blueprintName @arguments | Out-Null
 
 # 3. The export is the tenant's latest snapshot.
+Write-Host ('[{0}] Reading the export as the tenant''s snapshot. This parses the whole export and can take several minutes for a large one...' -f (Get-Date -Format HH:mm:ss))
 $files = @(Get-ChildItem -LiteralPath $ExportPath -Filter 'export.ps1' | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Text = [IO.File]::ReadAllText($_.FullName) } })
 New-PEUploadCheck -Tenant $slug -File $files -TenantDomain $TenantDomain @arguments | Out-Null
 
 # 4. The files the GUI reads.
+Write-Host ('[{0}] Writing the GUI data...' -f (Get-Date -Format HH:mm:ss))
 $guiArguments = @{ BlueprintName = $blueprintName; TenantDisplayName = $DisplayName; DataRoot = $root }
 if ($GuiRoot) { $guiArguments.GuiRoot = $GuiRoot }
 $result = Export-PEGuiData @guiArguments

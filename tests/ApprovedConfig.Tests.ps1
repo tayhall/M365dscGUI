@@ -109,6 +109,13 @@ Describe 'New-PEApprovedConfig generation' -Tag 'Slow' {
         }
     }
 
+    It 'names the configuration of each ToApply item, and none for the others' {
+        $r = Get-Approved @((Item Create 'Finance'), (Item Remove 'Marketing'), (Item Create 'Sales'))
+        ($r.Items | Where-Object Key -eq 'Finance').ConfigurationName | Should -Be 'PE_AADGroup_Changes'
+        ($r.Items | Where-Object Key -eq 'Marketing').ConfigurationName | Should -Be 'PE_AADGroup_Removals'
+        ($r.Items | Where-Object Key -eq 'Sales').ConfigurationName | Should -BeNullOrEmpty
+    }
+
     It 'marks an engine refusal NotGenerated with the engine''s message and generates the rest' {
         Mock -ModuleName PolicyEngine New-PERectifyPlan { throw 'refused for the test' } -ParameterFilter { $Action -eq 'Update' }
         $r = Get-Approved @((Item Create 'Finance'), (Item Update 'Sales'))

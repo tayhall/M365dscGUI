@@ -17,7 +17,7 @@ function New-PEApprovedConfig
     ('Applied' and 'Failed' are decided later, by the LCM.) Nothing outside the list is ever planned. Configurations are ordered for applying:
     all Changes (types in dependency order from Sort-PERevertEntry), then all Removals.
     Returns [pscustomobject]@{ Items; Configs }. Items has one row per approved item in the order of the list:
-    Action, ResourceType, Key, Outcome, Reason, ResourceId. Configs: @{ ResourceType; Phase = Changes|Removals; ConfigurationName
+    Action, ResourceType, Key, Outcome, Reason, ResourceId, ConfigurationName (the configuration that holds it, for ToApply). Configs: @{ ResourceType; Phase = Changes|Removals; ConfigurationName
     (PE_<Type>_<Phase>); Text; ItemCount }.
     #>
     [CmdletBinding()]
@@ -82,7 +82,7 @@ function New-PEApprovedConfig
     {
         $row = [pscustomobject][ordered]@{
             Action = [string]$item.Action; ResourceType = [string]$item.ResourceType; Key = [string]$item.Key
-            Outcome = ''; Reason = ''; ResourceId = $null
+            Outcome = ''; Reason = ''; ResourceId = $null; ConfigurationName = $null
         }
         $rows.Add($row)
         $id = "$($row.ResourceType)|$($row.Key)"
@@ -183,6 +183,7 @@ function New-PEApprovedConfig
                 if ($m.Success) { $accepted[$i].Row.ResourceId = "[$($m.Groups[1].Value)]$($m.Groups[2].Value)" }
             }
         }
+        foreach ($entry in $accepted) { $entry.Row.ConfigurationName = $name }
         $configs.Add([pscustomobject][ordered]@{ ResourceType = $type; Phase = $phase; ConfigurationName = $name; Text = $safe.Text; ItemCount = $accepted.Count })
     }
 

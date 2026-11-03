@@ -152,45 +152,12 @@ function New-PEOfflineConfig
         }
     }
 
-    # The entries ConvertTo-PEDscConfig accepts: the whole list when it can, otherwise each half again, down to one item.
-    $accepted = {
-        param ([object[]]$group, [string]$name)
-        try
-        {
-            ConvertTo-PEDscConfig -Plan @($group | ForEach-Object { $_.Plan }) -ConfigurationName $name -Target Replica | Out-Null
-            return $group
-        }
-        catch
-        {
-            if ($group.Count -eq 1)
-            {
-                & $addManual $group[0].Finding $group[0].Action $_.Exception.Message
-                return
-            }
-        }
-        $half = [int][Math]::Floor($group.Count / 2)
-        & $accepted @($group[0..($half - 1)]) $name
-        & $accepted @($group[$half..($group.Count - 1)]) $name
-    }
+    # ConvertTo-PEDscConfigSafe narrows a refused entry down by halving the list until it is alone; each refusal goes into Manual.
     $generate = {
         param ([object[]]$group, [string]$name)
-        if ($group.Count -eq 0) { return $null }
-        try
-        {
-            return (ConvertTo-PEDscConfig -Plan @($group | ForEach-Object { $_.Plan }) -ConfigurationName $name -Target Replica)
-        }
-        catch
-        {
-            if ($group.Count -eq 1)
-            {
-                & $addManual $group[0].Finding $group[0].Action $_.Exception.Message
-                return $null
-            }
-        }
-        $good = @(& $accepted $group $name)
-        if ($good.Count -eq 0) { return $null }
-        # The items that pass on their own, together and in their order.
-        ConvertTo-PEDscConfig -Plan @($good | ForEach-Object { $_.Plan }) -ConfigurationName $name -Target Replica
+        $safe = ConvertTo-PEDscConfigSafe -Entry $group -ConfigurationName $name -Target Replica
+        foreach ($refusal in @($safe.Refused)) { & $addManual $refusal.Entry.Finding $refusal.Entry.Action $refusal.Reason }
+        $safe.Text
     }
 
     $changes = & $generate @($entries | Where-Object Action -In 'Create', 'Update') 'PE_Changes'

@@ -5,8 +5,27 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 | Pipeline | Does |
 | --- | --- |
 | `Export-PreProd.yaml`, `Export-Dev.yaml` (generated from the `.yaml.template` files) | Imports the tenant's Reader certificate from Key Vault, runs `tools\Export-M365DscTenant.ps1`, publishes `PreProdExport` / `DevExport`. |
-| `Compare-PreProd-to-Dev.yaml` | Takes the latest of both exports, runs `tools\Invoke-PEPipelineCompare.ps1`, publishes `DriftReport` (`drift.csv`, `drift.json`, `Changes.ps1`, `Removals.ps1`, `Manual.json`, `MOF\Changes`, `MOF\Removals`). |
+| `Compare-PreProd-to-Dev.yaml` | Takes the latest of both exports, runs `tools\Invoke-PEPipelineCompare.ps1`, publishes `DriftReport` (`drift-report.html`, `drift.csv`, `drift.json`, `Changes.ps1`, `Removals.ps1`, `Manual.json`, `MOF\Changes`, `MOF\Removals`). |
 | `Apply-Dev.yaml` | Applies the MOFs to Dev through the LCM (`tools\Invoke-PELcm.ps1`). Default mode is `Test`; Removals only when asked; gated by the `m365-dev` environment approval. |
+
+**Drift report (choose what to apply, in the browser).** The compare pipeline also publishes `drift-report.html` in the `DriftReport` artifact
+(`tools\New-PEDriftReport.ps1`, built from the engine's own comparison, not a second one).
+1. Download the `DriftReport` artifact and open `drift-report.html` (a double click; it is one file, needs no server and makes no network calls).
+2. Open a resource type (for example `AADGroup`) and tick the items to create, update or remove. The type checkbox ticks everything shown; the
+   filters (Create / Update / Remove / Cannot be approved / Not compared, a type list and a key search) narrow what "Select all shown" ticks. On an
+   Update, open "differences" and tick "Keep ... value" for a property you do not want changed. Removals are only selectable after ticking
+   "Include removals". Items that cannot be approved (a key that matches more than one object, a type PreProd does not cover, anything the engine
+   refuses) show the reason and have no checkbox. What the comparison did not look at (out of scope, not in the export, export log incomplete) is
+   listed apart under "Not compared": it is information, not drift, and nothing there can be approved.
+3. Type your name in "Approved by" and click **Download approved.json**. The button says why it is disabled until the list is valid. The page
+   remembers your ticks if you reload it.
+4. Commit `approved.json` to `approvals/` in the project folder (a pull request lets someone else review the list). It names items only, never
+   values; the values always come from the PreProd export at apply time.
+5. The approved-apply pipeline reads that list (plan `docs/superpowers/plans/2026-11-03-approved-apply-pipeline.md`; not built yet).
+
+Outside the pipeline (for example two local exports) run `tools\New-PEDriftReport.ps1` yourself; `-SourceLabel`, `-TargetLabel` and `-Tenant` name the two
+sides in the page and the list (the defaults are PreProd, Dev and `dev`). The report needs the two export run ids; the compare pipeline passes them.
+A manual run of `Invoke-PipelineCompare.ps1` without numeric `-PreProdRun` / `-DevRun` skips the report and says so.
 
 **MOF layout** (`mofLayout` on the compare pipeline, `Invoke-PEPipelineCompare.ps1 -MofLayout`):
 - `Combined` (default): `MOF\Changes` and `MOF\Removals`. Run Apply-Dev with `workloads` empty.

@@ -38,4 +38,17 @@ Describe 'The drift report page source' {
         # localStorage is only touched inside the helper functions that wrap it in try/catch.
         ([regex]::Matches($script:Ui, 'localStorage')).Count | Should -BeLessOrEqual 3
     }
+
+    It 'shows what was not compared apart from drift' {
+        $script:Ui | Should -Match 'Not compared'
+        $script:Ui | Should -Match 'NotCompared'
+    }
+
+    It 'takes the names of the two sides from the report data, not from fixed text' {
+        $script:Ui | Should -Match 'SourceLabel'
+        $script:Ui | Should -Match 'TargetLabel'
+        $script:Ui | Should -Not -Match 'PreProd to Dev'
+        $script:Ui | Should -Not -Match "'Dev now'"
+    }
 }
+

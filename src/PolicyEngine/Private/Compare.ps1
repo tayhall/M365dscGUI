@@ -854,7 +854,7 @@ function Convert-PETenantName
     # A copy of a property value with one tenant's own short name replaced by another's, in every string at any depth
     # (arrays, dictionaries, PSCustomObjects and CimInstances are rebuilt; scalars other than strings are returned as
     # they are). The name is replaced only where it is the tenant's own label of a Microsoft tenant host:
-    # <name>[-admin|-my|...].sharepoint.com, <name>.onmicrosoft.com or <name>.mail.onmicrosoft.com, so never in a custom
+    # <name>[-admin|-my|-*|...].sharepoint.com (a '*' wildcard may stand in the suffix, as in a reply URL), <name>.onmicrosoft.com or <name>.mail.onmicrosoft.com, so never in a custom
     # domain, a path or free text. It matches case-insensitively, and the replacement takes the case of what it replaces
     # when that was all lower or all upper case.
     param
@@ -869,7 +869,7 @@ function Convert-PETenantName
     if ($null -eq $Value) { return $null }
     if ($Value -is [string])
     {
-        $pattern = '(?<![A-Za-z0-9])' + [regex]::Escape($From) + '(?=(?:-[A-Za-z0-9]+)?\.(?:mail\.)?(?:sharepoint|onmicrosoft)\.com(?![A-Za-z0-9-]|\.[A-Za-z0-9]))'
+        $pattern = '(?<![A-Za-z0-9])' + [regex]::Escape($From) + '(?=(?:-[A-Za-z0-9*]+)?\.(?:mail\.)?(?:sharepoint|onmicrosoft)\.com(?![A-Za-z0-9-]|\.[A-Za-z0-9]))'
         return [regex]::Replace($Value, $pattern, { param ($m) if ($m.Value -ceq $m.Value.ToUpperInvariant() -and $m.Value -cne $m.Value.ToLowerInvariant()) { $To.ToUpperInvariant() } elseif ($m.Value -ceq $m.Value.ToLowerInvariant()) { $To.ToLowerInvariant() } else { $To } }.GetNewClosure(), 'IgnoreCase')
     }
     if ($Value -is [System.Collections.IDictionary])

@@ -66,6 +66,20 @@ Describe 'Compare-PEState and the tenant''s own domain name' {
         @(Compare-PEState -Blueprint $bp -Target $tg).Count | Should -Be 0
     }
 
+    It 'does not report a wildcard host that differs only by the tenant''s own domain name' {
+        $bp = New-St @(& $script:Sp @('https://prod-*.sharepoint.com/_forms/x', 'https://prod-*.sharepoint.com/*', 'https://login.example.com/y')) 'prod.onmicrosoft.com'
+        $tg = New-St @(& $script:Sp @('https://dev-*.sharepoint.com/_forms/x', 'https://dev-*.sharepoint.com/*', 'https://login.example.com/y')) 'dev.onmicrosoft.com'
+        @(Compare-PEState -Blueprint $bp -Target $tg).Count | Should -Be 0
+    }
+
+    It 'still reports a wildcard host on a domain that is not a Microsoft tenant host' {
+        $bp = New-St @(& $script:Sp @('https://prod-*.example.com/x')) 'prod.onmicrosoft.com'
+        $tg = New-St @(& $script:Sp @('https://dev-*.example.com/x')) 'dev.onmicrosoft.com'
+        $f = @(Compare-PEState -Blueprint $bp -Target $tg)
+        $f.Count | Should -Be 1
+        $f[0].Differences.Property | Should -Be @('ReplyUrls')
+    }
+
     It 'still reports the property, with the original values, when anything else in it differs' {
         $bp = New-St @(& $script:Sp @('https://prod-admin.sharepoint.com/_forms/x')) 'prod.onmicrosoft.com'
         $tg = New-St @(& $script:Sp @('https://dev-admin.sharepoint.com/_forms/x', 'https://evil.example.com/cb')) 'dev.onmicrosoft.com'

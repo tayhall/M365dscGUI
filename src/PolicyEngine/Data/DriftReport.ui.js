@@ -33,12 +33,21 @@
     open: {}        // item id -> true (differences panel open)
   };
 
+  var SRC = data.Meta.SourceLabel || 'PreProd';
+  var TGT = data.Meta.TargetLabel || 'Dev';
+
+  // Drift items are grouped by resource type. Items that say something was not compared (not drift, nothing to approve) are kept apart.
   var itemsByType = {};
   var types = [];
+  var notCompared = [];
   data.Items.forEach(function (item) {
+    if (item.NotCompared) { notCompared.push(item); return; }
     if (!itemsByType[item.ResourceType]) { itemsByType[item.ResourceType] = []; types.push(item.ResourceType); }
     itemsByType[item.ResourceType].push(item);
   });
+  var allTypes = types.slice();
+  notCompared.forEach(function (item) { if (allTypes.indexOf(item.ResourceType) < 0) { allTypes.push(item.ResourceType); } });
+  allTypes.sort();
   var itemById = {};
   data.Items.forEach(function (item) { itemById[item.Id] = item; });
 
@@ -93,6 +102,7 @@
 
   function matchesFilter(item) {
     var f = S.filter;
+    if (f.kind === 'NotCompared') { return false; }
     if (f.type && item.ResourceType !== f.type) { return false; }
     if (f.kind === 'Cannot') { if (item.Approvable) { return false; } }
     else if (f.kind && item.Action !== f.kind) { return false; }
@@ -114,11 +124,11 @@
     var m = data.Meta;
     var t = data.Totals;
     return h('div', {}, [
-      h('h1', { text: 'Drift report: PreProd to Dev' }),
-      h('p', { 'class': 'muted', text: 'Generated ' + m.GeneratedUtc + ' | ' + describeRun('PreProd export', m.Source) + ' | ' + describeRun('Dev export', m.Target) + ' | Microsoft365DSC ' + m.ModuleVersion }),
+      h('h1', { text: 'Drift report: ' + SRC + ' to ' + TGT }),
+      h('p', { 'class': 'muted', text: 'Generated ' + m.GeneratedUtc + ' | ' + describeRun(SRC + ' export', m.Source) + ' | ' + describeRun(TGT + ' export', m.Target) + ' | Microsoft365DSC ' + m.ModuleVersion }),
       h('div', { 'class': 'cards' }, [
         card('Total', t.Total), card('Matching', t.Matching, 'good'), card('Create', t.Create, 'create'),
-        card('Update', t.Update, 'update'), card('Remove', t.Remove, 'remove'), card('Cannot be approved', t.CannotApprove, 'cannot')
+        card('Update', t.Update, 'update'), card('Remove', t.Remove, 'remove'), card('Cannot be approved', t.CannotApprove, 'cannot'), card('Not compared', t.NotCompared || 0, 'cannot')
       ])
     ]);
   }
@@ -135,13 +145,16 @@
 
   function buildControls() {
     var typeSelect = h('select', { 'aria-label': 'Resource type', on: { change: function () { S.filter.type = typeSelect.value; renderSections(); } } },
-      [h('option', { value: '', text: 'All resource types' })].concat(types.map(function (type) { return h('option', { value: type, text: type + ' (' + itemsByType[type].length + ')' }); })));
+      [h('option', { value: '', text: 'All resource types' })].concat(allTypes.map(function (type) {
+        var n = (itemsByType[type] ? itemsByType[type].length : 0) + notCompared.filter(function (i) { return i.ResourceType === type; }).length;
+        return h('option', { value: type, text: type + ' (' + n + ')' });
+      })));
     var search = h('input', { type: 'search', placeholder: 'Search keys', 'aria-label': 'Search keys', on: { input: function () { S.filter.text = search.value; renderSections(); } } });
     els.removals = h('input', { type: 'checkbox', checked: S.includeRemovals, on: { change: function () { setIncludeRemovals(els.removals.checked); } } });
     els.approvedBy = h('input', { type: 'text', maxlength: '100', value: S.approvedBy, placeholder: 'Your name', 'aria-label': 'Approved by', on: { input: function () {
       S.approvedBy = els.approvedBy.value; saveState(); refreshSelectionUi();
     } } });
-    els.kindButtons = [kindButton('Create', 'Create'), kindButton('Update', 'Update'), kindButton('Remove', 'Remove'), kindButton('Cannot be approved', 'Cannot')];
+    els.kindButtons = [kindButton('Create', 'Create'), kindButton('Update', 'Update'), kindButton('Remove', 'Remove'), kindButton('Cannot be approved', 'Cannot'), kindButton('Not compared', 'NotCompared')];
     return h('div', { 'class': 'controls' }, [
       h('div', { 'class': 'row-controls' }, els.kindButtons.concat([typeSelect, search])),
       h('div', { 'class': 'row-controls' }, [
@@ -212,14 +225,14 @@
 
   function diffTable(item) {
     var rows = item.Differences.map(function (d) {
-      var box = h('input', { type: 'checkbox', 'aria-label': 'Keep Dev value of ' + d.Property, checked: !!(S.selection[item.Id] && S.selection[item.Id].excluded.indexOf(d.Property) >= 0),
-        disabled: !S.selection[item.Id], title: S.selection[item.Id] ? 'Keep the Dev value for this property' : 'Select the item first',
+      var box = h('input', { type: 'checkbox', 'aria-label': 'Keep ' + TGT + ' value of ' + d.Property, checked: !!(S.selection[item.Id] && S.selection[item.Id].excluded.indexOf(d.Property) >= 0),
+        disabled: !S.selection[item.Id], title: S.selection[item.Id] ? 'Keep the ' + TGT + ' value for this property' : 'Select the item first',
         on: { change: function () { toggleExcluded(item, d.Property, box.checked); } } });
       box.dataset.itemId = item.Id;
       return h('tr', {}, [h('td', { text: d.Property }), h('td', { 'class': 'val', text: d.Dev }), h('td', { 'class': 'val', text: d.PreProd }), h('td', {}, [box])]);
     });
     return h('div', { 'class': 'diffwrap' }, [h('table', { 'class': 'diff' }, [
-      h('thead', {}, [h('tr', {}, [h('th', { text: 'Property' }), h('th', { text: 'Dev now' }), h('th', { text: 'PreProd (wanted)' }), h('th', { text: 'Keep Dev value' })])]),
+      h('thead', {}, [h('tr', {}, [h('th', { text: 'Property' }), h('th', { text: TGT + ' now' }), h('th', { text: SRC + ' (wanted)' }), h('th', { text: 'Keep ' + TGT + ' value' })])]),
       h('tbody', {}, rows)])]);
   }
 
@@ -281,17 +294,56 @@
     return section;
   }
 
+  function notComparedMatches(item) {
+    var f = S.filter;
+    if (f.kind && f.kind !== 'NotCompared') { return false; }
+    if (f.type && item.ResourceType !== f.type) { return false; }
+    if (f.text) {
+      var hay = (item.ResourceType + ' ' + item.Key + ' ' + item.Reason).toLowerCase();
+      if (hay.indexOf(f.text.toLowerCase()) < 0) { return false; }
+    }
+    return true;
+  }
+
+  // The things the comparison did not look at (out of scope, not checked, not in the export). Information only: no checkboxes.
+  function renderNotCompared(list) {
+    var expanded = S.filter.kind === 'NotCompared' || !!S.expanded.__notCompared;
+    var head = h('button', { type: 'button', 'class': 'shead-btn', 'aria-expanded': expanded ? 'true' : 'false',
+      text: (expanded ? ARROW_OPEN : ARROW_CLOSED) + ' Not compared (' + list.length + ')',
+      on: { click: function () { S.expanded.__notCompared = !expanded; if (!S.shown.__notCompared) { S.shown.__notCompared = PAGE; } renderSections(); } } });
+    var section = h('section', { 'class': 'section' }, [h('div', { 'class': 'shead' }, [h('span', { 'class': 'pick' }), head,
+      h('span', { 'class': 'muted', text: 'information, not drift: nothing here can be approved' })])]);
+    if (expanded) {
+      var limit = S.shown.__notCompared || PAGE;
+      var body = h('div', { 'class': 'sbody' });
+      list.slice(0, limit).forEach(function (item) {
+        body.appendChild(h('div', { 'class': 'item' }, [
+          h('div', { 'class': 'row' }, [h('span', { 'class': 'pick' }), h('span', { 'class': 'badge cannot', text: item.Kind }),
+            h('span', { 'class': 'key', text: item.ResourceType + (item.Key ? ' ' + item.Key : '') })]),
+          h('div', { 'class': 'reason', text: item.Reason })]));
+      });
+      if (list.length > limit) {
+        body.appendChild(h('button', { type: 'button', 'class': 'btn more', text: 'Show more (' + (list.length - limit) + ' left)',
+          on: { click: function () { S.shown.__notCompared = limit + PAGE; renderSections(); } } }));
+      }
+      section.appendChild(body);
+    }
+    return section;
+  }
+
   function renderSections() {
     rowInputs = {};
     sectionRefs = {};
     while (els.sections.firstChild) { els.sections.removeChild(els.sections.firstChild); }
     var shownTypes = types.filter(function (type) { return (!S.filter.type || S.filter.type === type) && visibleIn(type).length > 0; });
+    var shownNotCompared = notCompared.filter(notComparedMatches);
     if (data.Items.length === 0) {
-      els.sections.appendChild(h('p', { 'class': 'empty', text: 'No drift: Dev matches PreProd for everything compared. Nothing to approve.' }));
-    } else if (shownTypes.length === 0) {
+      els.sections.appendChild(h('p', { 'class': 'empty', text: 'No drift: ' + TGT + ' matches ' + SRC + ' for everything compared. Nothing to approve.' }));
+    } else if (shownTypes.length === 0 && shownNotCompared.length === 0) {
       els.sections.appendChild(h('p', { 'class': 'empty', text: 'Nothing matches the filters.' }));
     }
     shownTypes.forEach(function (type) { els.sections.appendChild(renderSection(type)); });
+    if (shownNotCompared.length > 0) { els.sections.appendChild(renderNotCompared(shownNotCompared)); }
     refreshSelectionUi();
   }
 
@@ -319,7 +371,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('input[data-item-id]'), function (input) {
       var entry = S.selection[input.dataset.itemId];
       input.disabled = !entry;
-      input.title = entry ? 'Keep the Dev value for this property' : 'Select the item first';
+      input.title = entry ? 'Keep the ' + TGT + ' value for this property' : 'Select the item first';
       if (!entry) { input.checked = false; }
     });
     var summary = R.summarise(data, S.selection);

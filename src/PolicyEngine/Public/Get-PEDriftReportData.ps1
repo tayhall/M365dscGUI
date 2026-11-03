@@ -10,10 +10,11 @@ function Get-PEDriftReportData
       Action        Create (Missing in Dev), Update (Changed), Remove (only in Dev), or $null for every other kind
       Approvable    true only when New-PERectifyPlan accepts the finding (the engine's own rules), and, for a Remove, the
                     blueprint (PreProd) manages the type and the finding has no hint
+      NotCompared   true for a finding that says something was not compared at all (Excluded, NotChecked, NotAvailable): information, not drift
       Reason        why it cannot be approved (the engine's message, one line), empty when it can
       Differences   @{ Property; Dev; PreProd } with display strings, cut at -MaxValueLength
     Resources that match are only counted (Totals.Matching), never listed. Totals.Create/Update/Remove count approvable items;
-    Totals.CannotApprove counts the others. Totals.Matching is the PreProd records without a finding.
+    Totals.CannotApprove counts the other drift (Ambiguous, PossibleRename, refused by the engine); Totals.NotCompared counts the NotCompared items. Totals.Matching is the PreProd records without a finding.
     No comparison happens here: the findings are the engine's.
 
     Cost: every New-PERectifyPlan call indexes all records of the source and the blueprint, so asking once per finding would take
@@ -36,6 +37,13 @@ function Get-PEDriftReportData
 
         [Parameter(Mandatory)]
         [hashtable]$Target,
+
+        # Plain-text names of the two sides, shown in the page (the tenants behind PreProd and Dev in a pipeline).
+        [ValidatePattern('\A[\w .()-]{1,40}\z')]
+        [string]$SourceLabel = 'PreProd',
+
+        [ValidatePattern('\A[\w .()-]{1,40}\z')]
+        [string]$TargetLabel = 'Dev',
 
         [datetime]$GeneratedUtc = [datetime]::UtcNow,
 
@@ -89,7 +97,8 @@ function Get-PEDriftReportData
             $ask = $true
         }
 
-        $entries.Add([pscustomobject]@{ Finding = $finding; Kind = $kind; Action = $action; Key = $key; Ask = $ask; Approvable = $false; Reason = $reason })
+        $entries.Add([pscustomobject]@{ Finding = $finding; Kind = $kind; Action = $action; Key = $key; Ask = $ask; Approvable = $false; Reason = $reason
+                NotCompared = ($kind -in 'Excluded', 'NotChecked', 'NotAvailable') })
 
         # A record of PreProd that has a finding does not match: Missing and Changed are one record each, Ambiguous holds BlueprintCount.
         if ($kind -in 'Missing', 'Changed') { $matchingTaken++ }
@@ -146,6 +155,7 @@ function Get-PEDriftReportData
             Key          = $entry.Key
             Workload     = [string]$entry.Finding.Workload
             Approvable   = $entry.Approvable
+            NotCompared  = $entry.NotCompared
             Reason       = $(if ($entry.Approvable) { '' } else { $entry.Reason })
             Differences  = $differences
         }
@@ -161,7 +171,8 @@ function Get-PEDriftReportData
         Create        = @($approvableItems | Where-Object Action -EQ 'Create').Count
         Update        = @($approvableItems | Where-Object Action -EQ 'Update').Count
         Remove        = @($approvableItems | Where-Object Action -EQ 'Remove').Count
-        CannotApprove = @($items | Where-Object { -not $_.Approvable }).Count
+        CannotApprove = @($items | Where-Object { -not $_.Approvable -and -not $_.NotCompared }).Count
+        NotCompared   = @($items | Where-Object NotCompared).Count
     }
 
     $side = { param ($h) [pscustomobject][ordered]@{ Run = [string]$h.Run; ExportedAt = [string]$h.ExportedAt; Fingerprint = [string]$h.Fingerprint } }
@@ -170,6 +181,8 @@ function Get-PEDriftReportData
     [pscustomobject][ordered]@{
         Meta   = [pscustomobject][ordered]@{
             Tenant        = $Tenant
+            SourceLabel   = $SourceLabel
+            TargetLabel   = $TargetLabel
             Source        = & $side $Source
             Target        = & $side $Target
             ModuleVersion = (Get-PEPinnedVersion -Name Microsoft365DSC)

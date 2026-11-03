@@ -34,6 +34,16 @@ param
     [ValidatePattern('\A\d{1,12}\z')]
     [string]$TargetRun,
 
+    # The tenant slug written into the approved list (lowercase letters, digits, hyphen), and plain-text names for the two sides in the page.
+    [ValidatePattern('\A[a-z0-9][a-z0-9-]{0,39}\z')]
+    [string]$Tenant = 'dev',
+
+    [ValidatePattern('\A[\w .()-]{1,40}\z')]
+    [string]$SourceLabel = 'PreProd',
+
+    [ValidatePattern('\A[\w .()-]{1,40}\z')]
+    [string]$TargetLabel = 'Dev',
+
     # Workload prefixes (Data\Workloads.psd1) whose Dev export is complete, so an empty type there is really empty.
     [string[]]$CompleteWorkload = @('AAD', 'Intune', 'EXO', 'Teams')
 )
@@ -60,8 +70,8 @@ try
     $source = @{ Run = $SourceRun; ExportedAt = [string]$comparison.SourceState.Meta.ExportedAt; Fingerprint = (Get-PEExportFingerprint -Path $SourceExportPath) }
     $target = @{ Run = $TargetRun; ExportedAt = [string]$targetState.Meta.ExportedAt; Fingerprint = (Get-PEExportFingerprint -Path $TargetExportPath) }
 
-    $data = Get-PEDriftReportData -Comparison $comparison -Tenant 'dev' -Source $source -Target $target
-    New-PEDriftReportHtml -Data $data -Path $report | Out-Null
+    $data = Get-PEDriftReportData -Comparison $comparison -Tenant $Tenant -Source $source -Target $target -SourceLabel $SourceLabel -TargetLabel $TargetLabel
+    New-PEDriftReportHtml -Data $data -Path $report -Title "Drift report: $SourceLabel to $TargetLabel" | Out-Null
     $approvable = @($data.Items | Where-Object Approvable).Count
     "Drift report: $(@($data.Items).Count) items, $approvable approvable ($report)"
 }

@@ -192,5 +192,58 @@ Describe 'Get-PEDriftReportData' {
             Remove-Variable -Name PEPlanCalls -Scope Global
         }
     }
+
+    Context 'not compared is separate from drift' {
+        BeforeAll {
+            function Get-WithKinds
+            {
+                param ([string[]]$Kinds)
+                $cmp = Get-Comparison
+                $extra = foreach ($k in $Kinds) { [pscustomobject]@{ Kind = $k; ResourceType = "Type$k"; Key = $null; Workload = 'W'; State = 'Open'; Hint = "reason for $k"; Differences = @() } }
+                [pscustomobject]@{ Findings = @($cmp.Findings + $extra); Check = $cmp.Check; Blueprint = $cmp.Blueprint; DataRoot = $cmp.DataRoot; SourceState = $cmp.SourceState }
+            }
+        }
+
+        It 'marks Excluded, NotChecked and NotAvailable as not compared and counts them apart from Cannot be approved' {
+            $d = Get-Data (Get-WithKinds 'Excluded', 'NotChecked', 'NotAvailable')
+            $nc = @($d.Items | Where-Object NotCompared)
+            @($nc.Kind | Sort-Object) | Should -Be @('Excluded', 'NotAvailable', 'NotChecked')
+            ($nc | ForEach-Object Approvable) | Should -Not -Contain $true
+            ($nc | Where-Object Kind -eq 'Excluded').Reason | Should -Be 'reason for Excluded'
+            $d.Totals.NotCompared | Should -Be 3
+            $d.Totals.CannotApprove | Should -Be 0
+        }
+
+        It 'keeps Ambiguous and PossibleRename as drift that cannot be approved' {
+            $d = Get-Data (Get-WithKinds 'Ambiguous', 'PossibleRename')
+            @($d.Items | Where-Object NotCompared).Count | Should -Be 0
+            $d.Totals.CannotApprove | Should -Be 2
+            $d.Totals.NotCompared | Should -Be 0
+        }
+
+        It 'does not mark real drift as not compared' {
+            $d = Get-Data $script:Cmp
+            @($d.Items | Where-Object NotCompared).Count | Should -Be 0
+            $d.Totals.NotCompared | Should -Be 0
+        }
+    }
+
+    Context 'labels' {
+        It 'defaults to PreProd and Dev' {
+            $m = (Get-Data $script:Cmp).Meta
+            $m.SourceLabel | Should -Be 'PreProd'
+            $m.TargetLabel | Should -Be 'Dev'
+        }
+
+        It 'carries the labels it is given' {
+            $m = (Get-Data $script:Cmp -Extra @{ SourceLabel = 'master'; TargetLabel = 'contoso' }).Meta
+            $m.SourceLabel | Should -Be 'master'
+            $m.TargetLabel | Should -Be 'contoso'
+        }
+
+        It 'refuses a label that is not plain text' {
+            { Get-Data $script:Cmp -Extra @{ SourceLabel = '<b>x</b>' } } | Should -Throw
+        }
+    }
 }
 

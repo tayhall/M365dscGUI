@@ -70,5 +70,21 @@ Describe 'tools\New-PEDriftReport.ps1' {
         @($try).Count | Should -Be 1
         $try[0].CatchClauses[0].Body.Extent.Text | Should -Match 'task\.logissue type=warning'
     }
+
+    It 'uses the labels and tenant it is given in the page and the list' {
+        $out = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-tool-out-' + [guid]::NewGuid().ToString('N'))
+        & $script:Tool -SourceExportPath (New-ExportCopy 'entra.ps1') -TargetExportPath (New-ExportCopy 'entra-drift.ps1') `
+            -TargetTenantDomain 'contoso-dev.onmicrosoft.com' -OutputPath $out -SourceRun 1 -TargetRun 2 -CompleteWorkload 'AAD' `
+            -SourceLabel 'master' -TargetLabel 'contoso' -Tenant 'contoso' 6>&1 3>$null | Out-Null
+        $html = [System.IO.File]::ReadAllText((Join-Path $out 'drift-report.html'))
+        $html | Should -Match '<title>Drift report: master to contoso</title>'
+        $data = [regex]::Match($html, '(?s)<script type="application/json" id="report-data">(.*?)</script>').Groups[1].Value | ConvertFrom-Json
+        $data.Meta.Tenant | Should -Be 'contoso'
+        $data.Meta.SourceLabel | Should -Be 'master'
+    }
+
+    It 'refuses a tenant that is not a slug' {
+        { & $script:Tool -SourceExportPath x -TargetExportPath y -TargetTenantDomain z -OutputPath o -SourceRun 1 -TargetRun 2 -Tenant 'Dev Tenant' } | Should -Throw
+    }
 }
 

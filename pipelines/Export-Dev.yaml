@@ -1,0 +1,42 @@
+name: 'M365DSC - Export Dev tenant'
+
+trigger: none
+
+# Fill these in once: they are the only environment-specific values.
+variables:
+  - name: SERVICECONNECTION
+    value: '__SERVICE_CONNECTION__'
+  - name: KEYVAULT_NAME
+    value: '__DEV_KEYVAULT__'
+  - name: CERT_SECRET
+    value: '__DEV_READER_CERT_SECRET__'
+  - name: TENANT_DOMAIN
+    value: '__DEV_TENANT_DOMAIN__'
+  - name: READER_APP_ID
+    value: '__DEV_READER_APP_ID__'
+
+parameters:
+  - name: workloads
+    displayName: Workloads (DSC prefixes, comma separated)
+    type: string
+    default: 'AAD,Intune,EXO,Teams'
+
+pool:
+  name: '__POOL__'   # needs pwsh 7.6+ and local admin
+
+stages:
+  - stage: Export
+    jobs:
+      - job: ExportDev
+        timeoutInMinutes: 180
+        steps:
+          - template: templates/export-tenant.yml
+            parameters:
+              tenantSlug: dev
+              tenantDomain: $(TENANT_DOMAIN)
+              applicationId: $(READER_APP_ID)
+              serviceConnection: $(SERVICECONNECTION)
+              keyVaultName: $(KEYVAULT_NAME)
+              certificateSecret: $(CERT_SECRET)
+              workloads: ${{ parameters.workloads }}
+              artifactName: DevExport

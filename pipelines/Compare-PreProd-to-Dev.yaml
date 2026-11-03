@@ -1,0 +1,77 @@
+name: 'M365DSC - Compare PreProd to Dev and build MOFs'
+
+trigger: none
+
+# The two export pipelines must exist in Azure DevOps under these names. The latest successful run of each is used.
+resources:
+  pipelines:
+    - pipeline: preprodExport
+      source: '__EXPORT_PREPROD_PIPELINE__'
+    - pipeline: devExport
+      source: '__EXPORT_DEV_PIPELINE__'
+
+variables:
+  - name: DEV_TENANT_DOMAIN
+    value: '__DEV_TENANT_DOMAIN__'
+  # The Dev Writer app the MOF files will run as (the MOF holds the app id and thumbprint, not the key).
+  - name: DEV_WRITER_APP_ID
+    value: '__DEV_WRITER_APP_ID__'
+  - name: DEV_WRITER_THUMBPRINT
+    value: '__DEV_WRITER_THUMBPRINT__'
+  - name: DEV_ORGANIZATION_NAME
+    value: '__DEV_ORGANIZATION_NAME__'
+
+parameters:
+  - name: mofLayout
+    displayName: MOF layout (Combined = one Changes + one Removals; PerWorkload = a pair per workload, applied in stages)
+    type: string
+    default: Combined
+    values:
+      - Combined
+      - PerWorkload
+  - name: completeWorkloads
+    displayName: Workloads the Dev export covers completely (an empty type then counts as empty, so PreProd objects become Missing)
+    type: string
+    default: 'AAD,Intune,EXO,Teams'
+
+pool:
+  name: '__POOL__'   # needs pwsh 7.6+ and local admin
+
+stages:
+  - stage: Compare
+    jobs:
+      - job: CompareAndBuild
+        steps:
+          - checkout: self
+          - download: preprodExport
+            artifact: PreProdExport
+          - download: devExport
+            artifact: DevExport
+
+          - template: templates/install-dependencies.yml
+
+          - pwsh: |
+              & '$(Build.SourcesDirectory)/tools/Invoke-PEPipelineCompare.ps1' `
+                  -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
+                  -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
+                  -TargetTenantDomain '$(DEV_TENANT_DOMAIN)' `
+                  -CompleteWorkload '${{ parameters.completeWorkloads }}' `
+                  -MofLayout '${{ parameters.mofLayout }}' `
+                  -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
+                  -Compile -ApplicationId '$(DEV_WRITER_APP_ID)' -CertificateThumbprint '$(DEV_WRITER_THUMBPRINT)' -OrganizationName '$(DEV_ORGANIZATION_NAME)'
+            displayName: 'Compare PreProd to Dev, generate configuration, compile MOF'
+
+          - pwsh: |
+              $summary = Get-Content '$(Build.ArtifactStagingDirectory)/compare/summary.json' -Raw | ConvertFrom-Json
+              Write-Host "##vso[task.logissue type=warning]Drift: $($summary.OpenFindings) open ($($summary.ByKind)); $($summary.Manual) item(s) need manual action."
+              "## Drift PreProd -> Dev`n`n$($summary | ConvertTo-Json)" | Set-Content '$(Build.ArtifactStagingDirectory)/compare/summary.md'
+              Write-Host "##vso[task.uploadsummary]$(Build.ArtifactStagingDirectory)/compare/summary.md"
+            displayName: 'Summarise drift'
+
+          # The drift report and the generated configuration, for review.
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish DriftReport'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/compare'
+              artifact: DriftReport
+              publishLocation: pipeline

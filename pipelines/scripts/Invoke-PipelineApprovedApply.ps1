@@ -64,18 +64,7 @@ $ErrorActionPreference = 'Stop'
 $withRemovals = ($IncludeRemovals -eq 'True')
 
 # G9: only from the default branch, only a list that was committed to the approvals folder. Before any tenant access.
-$branch = [string]$env:BUILD_SOURCEBRANCH
-if ($branch -cne "refs/heads/$DefaultBranch")
-{
-    throw "The approved apply only runs from the default branch ($DefaultBranch), not from '$branch'. Merge the approved list first (a pull request on approvals\ is the review). Nothing was done."
-}
-$listFull = [System.IO.Path]::GetFullPath($ListPath)
-$approvalsFull = [System.IO.Path]::GetFullPath($ApprovalsRoot).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
-if (-not $listFull.StartsWith($approvalsFull, [System.StringComparison]::OrdinalIgnoreCase))
-{
-    throw "The approved list must be inside the approvals folder ($ApprovalsRoot), but it is $listFull. Nothing was done."
-}
-if (-not (Test-Path -LiteralPath $listFull -PathType Leaf)) { throw "No approved list at $listFull." }
+$listFull = & (Join-Path $PSScriptRoot 'Test-ApprovalLocation.ps1') -ListPath $ListPath -ApprovalsRoot $ApprovalsRoot -DefaultBranch $DefaultBranch
 
 $dev = & (Join-Path $PSScriptRoot 'Get-PipelineConfig.ps1') -Environment Dev -Require TenantDomain, OrganizationName, WriterAppId -ConfigPath $ConfigPath
 $thumbprint = & $ConnectScript -Environment Dev -Role Writer -ThumbprintOnly -ConfigPath $ConfigPath

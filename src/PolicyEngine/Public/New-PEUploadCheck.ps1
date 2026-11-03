@@ -91,10 +91,20 @@ function New-PEUploadCheck
         $exportFile = Find-PEExportFile -Path $stagePath
         $all = @(Read-PEExport -Path $exportFile -TenantId $tenantId | ForEach-Object { ConvertTo-PENormalizedRecord -Record $_ -ExportedAt $uploadedAt })
 
-        # One record per (ResourceType, Key); the last one wins.
-        $byKey = [ordered]@{}
-        foreach ($record in $all) { $byKey[("$($record.ResourceType)|$($record.Key)").ToLowerInvariant()] = $record }
-        $records = @($byKey.Values)
+        # The same instance in more than one file (the stage warned about it) counts once: one record per (ResourceType, Key), the
+        # last one wins. Otherwise every record is kept, as a blueprint made from the same export keeps them: two instances of one
+        # type may share a key (two Intune apps with one display name), and dropping one made them look like 2 blueprint records
+        # against 1 target record.
+        if ($warnings.Count -gt 0)
+        {
+            $byKey = [ordered]@{}
+            foreach ($record in $all) { $byKey[("$($record.ResourceType)|$($record.Key)").ToLowerInvariant()] = $record }
+            $records = @($byKey.Values)
+        }
+        else
+        {
+            $records = @($all)
+        }
         $uploaded = @($records | ForEach-Object { [string]$_.Workload } | Sort-Object -Unique)
 
         $unknown = @($CompleteWorkload | Where-Object { $_ -and $uploaded -notcontains $_ })

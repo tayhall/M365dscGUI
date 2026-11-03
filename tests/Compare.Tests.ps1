@@ -198,6 +198,67 @@ Describe 'Compare-PEState' {
         $f[0].Kind | Should -Be 'Ambiguous'
     }
 
+    It 'identical duplicate keys on both sides, listed in a different order, are no drift' {
+        $b = New-TestState -Records @(
+            (New-TestRecord -Key 'Company Portal' -Properties @{ Run = 'user' }),
+            (New-TestRecord -Key 'Company Portal' -Properties @{ Run = 'system' })
+        )
+        $t = New-TestState -Records @(
+            (New-TestRecord -Key 'Company Portal' -Properties @{ Run = 'system' }),
+            (New-TestRecord -Key 'Company Portal' -Properties @{ Run = 'user' })
+        )
+        @(Compare-PEState -Blueprint $b -Target $t).Count | Should -Be 0
+    }
+
+    It 'duplicate keys whose records are equal and equal in number are no drift' {
+        $b = New-TestState -Records @((New-TestRecord -Key 'Finance' -Properties @{ X = 1 }), (New-TestRecord -Key 'Finance' -Properties @{ X = 1 }))
+        $t = New-TestState -Records @((New-TestRecord -Key 'Finance' -Properties @{ X = 1 }), (New-TestRecord -Key 'Finance' -Properties @{ X = 1 }))
+        @(Compare-PEState -Blueprint $b -Target $t).Count | Should -Be 0
+    }
+
+    It 'nested properties in another member order do not stop duplicates from pairing' {
+        $b = New-TestState -Records @(
+            (New-TestRecord -Key 'App' -Properties @{ Install = ([ordered]@{ RunAsAccount = 'user'; CIMInstance = 'MSFT_X' }) }),
+            (New-TestRecord -Key 'App' -Properties @{ Install = ([ordered]@{ RunAsAccount = 'system'; CIMInstance = 'MSFT_X' }) })
+        )
+        $t = New-TestState -Records @(
+            (New-TestRecord -Key 'App' -Properties @{ Install = ([ordered]@{ CIMInstance = 'MSFT_X'; RunAsAccount = 'system' }) }),
+            (New-TestRecord -Key 'App' -Properties @{ Install = ([ordered]@{ CIMInstance = 'MSFT_X'; RunAsAccount = 'user' }) })
+        )
+        @(Compare-PEState -Blueprint $b -Target $t).Count | Should -Be 0
+    }
+
+    It 'duplicate keys with a record that has no partner stay Ambiguous, with their counts' {
+        $b = New-TestState -Records @((New-TestRecord -Key 'Finance' -Properties @{ X = 1 }), (New-TestRecord -Key 'Finance' -Properties @{ X = 2 }))
+        $t = New-TestState -Records @((New-TestRecord -Key 'Finance' -Properties @{ X = 1 }), (New-TestRecord -Key 'Finance' -Properties @{ X = 3 }))
+        $f = @(Compare-PEState -Blueprint $b -Target $t)
+        $f.Count | Should -Be 1
+        $f[0].Kind | Should -Be 'Ambiguous'
+        $f[0].BlueprintCount | Should -Be 2
+        $f[0].TargetCount | Should -Be 2
+    }
+
+    It 'pairing counts every record: two equal records do not match one record twice' {
+        $b = New-TestState -Records @((New-TestRecord -Key 'Finance' -Properties @{ X = 1 }), (New-TestRecord -Key 'Finance' -Properties @{ X = 1 }))
+        $t = New-TestState -Records @((New-TestRecord -Key 'Finance' -Properties @{ X = 1 }), (New-TestRecord -Key 'Finance' -Properties @{ X = 2 }))
+        @(Compare-PEState -Blueprint $b -Target $t)[0].Kind | Should -Be 'Ambiguous'
+    }
+
+    It 'a different number of records for one key stays Ambiguous even when each one has a partner' {
+        $b = New-TestState -Records @((New-TestRecord -Key 'Finance' -Properties @{ X = 1 }), (New-TestRecord -Key 'Finance' -Properties @{ X = 1 }))
+        $t = New-TestState -Records @(New-TestRecord -Key 'Finance' -Properties @{ X = 1 })
+        $f = @(Compare-PEState -Blueprint $b -Target $t)
+        $f.Count | Should -Be 1
+        $f[0].Kind | Should -Be 'Ambiguous'
+    }
+
+    It 'more than 50 records for one key are not paired and stay Ambiguous' {
+        $records = { 1..51 | ForEach-Object { New-TestRecord -Key 'Many' -Properties @{ X = 1 } } }
+        $f = @(Compare-PEState -Blueprint (New-TestState -Records @(& $records)) -Target (New-TestState -Records @(& $records)))
+        $f.Count | Should -Be 1
+        $f[0].Kind | Should -Be 'Ambiguous'
+    }
+
     It 'Ambiguous records never take part in rename matching' {
         $b = New-TestState -Records @(New-TestRecord -Key 'Old' -Properties ([ordered]@{ A = 1; B = 2; C = 3; D = 4; E = 5; F = 6; G = 7; H = 8; I = 9 }))
         $t = New-TestState -Records @(

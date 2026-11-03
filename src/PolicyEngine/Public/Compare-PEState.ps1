@@ -252,6 +252,63 @@ function Compare-PEState
     $blueprintExportedAt = Get-PEMetaValue -Meta $Blueprint.Meta -Name 'ExportedAt'
     $targetExportedAt = Get-PEMetaValue -Meta $Target.Meta -Name 'ExportedAt'
 
+    # The differences between a blueprint record and a target record: both property bags with the ignore paths, the tenant-bound
+    # properties (another tenant), the built-in properties and the tenant's own name taken out first. Used for a matched pair and,
+    # to tell whether the records that share one key are the same on both sides, to pair them up. A scriptblock rather than an
+    # advanced function: it runs once per matched pair, about 8,000 times in a check.
+    $pairDifferences = {
+        param ($first, $other)
+        $blueprintBag = $first.Properties
+        if ($blueprintBag -isnot [System.Collections.IDictionary])
+        {
+            $blueprintBag = Get-PEPropertyBag -Record $first
+        }
+        $targetBag = $other.Properties
+        if ($targetBag -isnot [System.Collections.IDictionary])
+        {
+            $targetBag = Get-PEPropertyBag -Record $other
+        }
+        # Advanced-function calls are costly at ~8,000 pairs, so whether a type has paths is cached per call.
+        $hasPaths = $false
+        if (-not $typesWithPaths.TryGetValue([string]$first.ResourceType, [ref]$hasPaths))
+        {
+            $hasPaths = (Get-PEIgnoredPath -ResourceType ([string]$first.ResourceType)).Count -gt 0
+            $typesWithPaths[[string]$first.ResourceType] = $hasPaths
+        }
+        if ($hasPaths)
+        {
+            # Dotted ignore paths, applied to both sides (stored blueprints may predate the entry).
+            $blueprintBag = Remove-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -Properties $blueprintBag -ExportedAt $blueprintExportedAt
+            $targetBag = Remove-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -Properties $targetBag -ExportedAt $targetExportedAt
+        }
+        if ($isCrossTenant)
+        {
+            $hasTenantBound = $false
+            if (-not $tenantBoundTypes.TryGetValue([string]$first.ResourceType, [ref]$hasTenantBound))
+            {
+                $hasTenantBound = (Get-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -TenantBound).Count -gt 0
+                $tenantBoundTypes[[string]$first.ResourceType] = $hasTenantBound
+            }
+            if ($hasTenantBound)
+            {
+                $blueprintBag = Remove-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -Properties $blueprintBag -TenantBound
+                $targetBag = Remove-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -Properties $targetBag -TenantBound
+            }
+        }
+        # Built-in objects (Data\BuiltInResources.psd1): the properties Microsoft controls are not compared, on both sides.
+        if ($builtInTypes.Contains([string]$first.ResourceType))
+        {
+            $blueprintBag = Remove-PEBuiltInProperty -ResourceType ([string]$first.ResourceType) -Properties $blueprintBag
+            $targetBag = Remove-PEBuiltInProperty -ResourceType ([string]$first.ResourceType) -Properties $targetBag
+        }
+        $differences = Get-PEPropertyDifference $blueprintBag $targetBag
+        if ($differences.Count -gt 0 -and $targetName)
+        {
+            $differences = Remove-PETenantNameDifference -Difference $differences -BlueprintName $blueprintName -TargetName $targetName
+        }
+        return , @($differences)
+    }
+
     # get_Keys(): a record key literally named Keys or Count would shadow the Dictionary members.
     foreach ($matchKey in $blueprintIndex.get_Keys())
     {
@@ -266,59 +323,33 @@ function Compare-PEState
 
         if ($blueprintRecords.Count -gt 1 -or $targetCount -gt 1)
         {
+            # Several records share this key. When both sides hold the same number of them and every record has an identical partner on
+            # the other side, only their order differs: there is no finding. Past 50 records the pairing is not tried (it compares
+            # record with record).
+            if ($blueprintRecords.Count -eq $targetCount -and $targetCount -le 50)
+            {
+                $unpaired = [System.Collections.Generic.List[object]]::new($targetRecords)
+                $allPaired = $true
+                foreach ($candidate in $blueprintRecords)
+                {
+                    $partner = -1
+                    for ($i = 0; $i -lt $unpaired.Count; $i++)
+                    {
+                        # Assigned, not wrapped in @(): the scriptblock returns the difference array as one object.
+                        $pairDifference = & $pairDifferences $candidate $unpaired[$i]
+                        if ($pairDifference.Count -eq 0) { $partner = $i; break }
+                    }
+                    if ($partner -lt 0) { $allPaired = $false; break }
+                    $unpaired.RemoveAt($partner)
+                }
+                if ($allPaired) { continue }
+            }
             $findings.Add((New-PEFinding -Kind 'Ambiguous' -ResourceType $first.ResourceType -Key $first.Key -Workload (Get-PERecordWorkload -Record $first) -Hint "Key matches $($blueprintRecords.Count) blueprint and $targetCount target records" -BlueprintCount $blueprintRecords.Count -TargetCount $targetCount))
         }
         elseif ($targetCount -eq 1)
         {
             $other = $targetRecords[0]
-            $blueprintBag = $first.Properties
-            if ($blueprintBag -isnot [System.Collections.IDictionary])
-            {
-                $blueprintBag = Get-PEPropertyBag -Record $first
-            }
-            $targetBag = $other.Properties
-            if ($targetBag -isnot [System.Collections.IDictionary])
-            {
-                $targetBag = Get-PEPropertyBag -Record $other
-            }
-            # Advanced-function calls are costly at ~8,000 pairs, so whether a type has paths is cached per call.
-            $hasPaths = $false
-            if (-not $typesWithPaths.TryGetValue([string]$first.ResourceType, [ref]$hasPaths))
-            {
-                $hasPaths = (Get-PEIgnoredPath -ResourceType ([string]$first.ResourceType)).Count -gt 0
-                $typesWithPaths[[string]$first.ResourceType] = $hasPaths
-            }
-            if ($hasPaths)
-            {
-                # Dotted ignore paths, applied to both sides (stored blueprints may predate the entry).
-                $blueprintBag = Remove-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -Properties $blueprintBag -ExportedAt $blueprintExportedAt
-                $targetBag = Remove-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -Properties $targetBag -ExportedAt $targetExportedAt
-            }
-            if ($isCrossTenant)
-            {
-                $hasTenantBound = $false
-                if (-not $tenantBoundTypes.TryGetValue([string]$first.ResourceType, [ref]$hasTenantBound))
-                {
-                    $hasTenantBound = (Get-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -TenantBound).Count -gt 0
-                    $tenantBoundTypes[[string]$first.ResourceType] = $hasTenantBound
-                }
-                if ($hasTenantBound)
-                {
-                    $blueprintBag = Remove-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -Properties $blueprintBag -TenantBound
-                    $targetBag = Remove-PEIgnoredPath -ResourceType ([string]$first.ResourceType) -Properties $targetBag -TenantBound
-                }
-            }
-            # Built-in objects (Data\BuiltInResources.psd1): the properties Microsoft controls are not compared, on both sides.
-            if ($builtInTypes.Contains([string]$first.ResourceType))
-            {
-                $blueprintBag = Remove-PEBuiltInProperty -ResourceType ([string]$first.ResourceType) -Properties $blueprintBag
-                $targetBag = Remove-PEBuiltInProperty -ResourceType ([string]$first.ResourceType) -Properties $targetBag
-            }
-            $differences = Get-PEPropertyDifference $blueprintBag $targetBag
-            if ($differences.Count -gt 0 -and $targetName)
-            {
-                $differences = Remove-PETenantNameDifference -Difference $differences -BlueprintName $blueprintName -TargetName $targetName
-            }
+            $differences = & $pairDifferences $first $other
             $excludedDifferences = @()
             if ($differences.Count -gt 0 -and $excludedPropertiesByType.ContainsKey([string]$first.ResourceType))
             {

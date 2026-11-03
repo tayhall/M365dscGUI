@@ -33,6 +33,8 @@ steps:
         if ($LASTEXITCODE -ne 0) { throw 'Key Vault read failed.' }
         $appId = az keyvault secret show --vault-name '${{ parameters.keyVaultName }}' --name '${{ parameters.applicationIdSecret }}' --query value -o tsv
         if ($LASTEXITCODE -ne 0 -or -not $appId) { throw 'Key Vault read of the application id failed.' }
+        $parsed = [guid]::Empty
+        if (-not [guid]::TryParseExact(([string]$appId).Trim(), 'D', [ref]$parsed)) { throw 'The application id secret does not hold a GUID.' }
         & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Slug '${{ parameters.tenantSlug }}' -Role Reader `
             -ApplicationId $appId.Trim() -TenantId '${{ parameters.tenantDomain }}'
 

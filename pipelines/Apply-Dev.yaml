@@ -72,6 +72,10 @@ stages:
                       if ($LASTEXITCODE -ne 0 -or -not $appId) { throw 'Key Vault read of the application id failed.' }
                       $thumbprint = az keyvault secret show --vault-name '$(KEYVAULT_NAME)' --name '$(DEV_WRITER_THUMBPRINT_SECRET)' --query value -o tsv
                       if ($LASTEXITCODE -ne 0 -or -not $thumbprint) { throw 'Key Vault read of the thumbprint failed.' }
+                      $appId = ([string]$appId).Trim(); $thumbprint = ([string]$thumbprint).Trim() -replace '\s', ''
+                      $parsed = [guid]::Empty
+                      if (-not [guid]::TryParseExact($appId, 'D', [ref]$parsed)) { throw 'The application id secret does not hold a GUID.' }
+                      if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'The thumbprint secret does not hold a 40-character hex thumbprint.' }
                       # The MOF was compiled with the thumbprint from Key Vault: the imported certificate must be that one.
                       & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Slug dev -Role Writer `
                           -ApplicationId $appId.Trim() -TenantId '$(DEV_TENANT_DOMAIN)' -ExpectedThumbprint $thumbprint.Trim()

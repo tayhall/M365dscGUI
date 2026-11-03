@@ -62,16 +62,24 @@ stages:
               scriptType: pscore
               scriptLocation: inlineScript
               inlineScript: |
-                foreach ($pair in @(@('DEV_WRITER_APP_ID', '$(DEV_WRITER_APP_ID_SECRET)'), @('DEV_WRITER_THUMBPRINT', '$(DEV_WRITER_THUMBPRINT_SECRET)')))
-                {
-                    $value = az keyvault secret show --vault-name '$(KEYVAULT_NAME)' --name $pair[1] --query value -o tsv
-                    if ($LASTEXITCODE -ne 0 -or -not $value) { throw "Key Vault read of $($pair[1]) failed." }
-                    Write-Host "##vso[task.setvariable variable=$($pair[0])]$($value.Trim())"
-                }
+                # Checked strictly before use: a value with a newline could otherwise add logging commands, and these values reach a script later.
+                $appId = (az keyvault secret show --vault-name '$(KEYVAULT_NAME)' --name '$(DEV_WRITER_APP_ID_SECRET)' --query value -o tsv)
+                if ($LASTEXITCODE -ne 0) { throw 'Key Vault read of the application id failed.' }
+                $thumbprint = (az keyvault secret show --vault-name '$(KEYVAULT_NAME)' --name '$(DEV_WRITER_THUMBPRINT_SECRET)' --query value -o tsv)
+                if ($LASTEXITCODE -ne 0) { throw 'Key Vault read of the thumbprint failed.' }
+                $appId = ([string]$appId).Trim(); $thumbprint = ([string]$thumbprint).Trim() -replace '\s', ''
+                $parsed = [guid]::Empty
+                if (-not [guid]::TryParseExact($appId, 'D', [ref]$parsed)) { throw 'The application id secret does not hold a GUID.' }
+                if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'The thumbprint secret does not hold a 40-character hex thumbprint.' }
+                Write-Host "##vso[task.setvariable variable=DEV_WRITER_APP_ID]$appId"
+                Write-Host "##vso[task.setvariable variable=DEV_WRITER_THUMBPRINT]$thumbprint"
 
           - pwsh: |
               # Free-form parameters come in through the environment and are validated, never written into the script text.
               if ($env:PE_COMPLETE_WORKLOADS -notmatch '^[A-Za-z0-9,]*$') { throw 'completeWorkloads may only hold letters, digits and commas.' }
+              if ($env:PE_THUMBPRINT -notmatch '^[0-9A-Fa-f]{40}$') { throw 'The Dev Writer thumbprint is not a 40-character hex thumbprint.' }
+              $parsed = [guid]::Empty
+              if (-not [guid]::TryParseExact($env:PE_APP_ID, 'D', [ref]$parsed)) { throw 'The Dev Writer application id is not a GUID.' }
               & '$(Build.SourcesDirectory)/tools/Invoke-PEPipelineCompare.ps1' `
                   -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
                   -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
@@ -79,10 +87,12 @@ stages:
                   -CompleteWorkload $env:PE_COMPLETE_WORKLOADS `
                   -MofLayout '${{ parameters.mofLayout }}' `
                   -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
-                  -Compile -ApplicationId '$(DEV_WRITER_APP_ID)' -CertificateThumbprint '$(DEV_WRITER_THUMBPRINT)' -OrganizationName '$(DEV_ORGANIZATION_NAME)'
+                  -Compile -ApplicationId $env:PE_APP_ID -CertificateThumbprint $env:PE_THUMBPRINT -OrganizationName '$(DEV_ORGANIZATION_NAME)'
             displayName: 'Compare PreProd to Dev, generate configuration, compile MOF'
             env:
               PE_COMPLETE_WORKLOADS: ${{ parameters.completeWorkloads }}
+              PE_APP_ID: $(DEV_WRITER_APP_ID)
+              PE_THUMBPRINT: $(DEV_WRITER_THUMBPRINT)
 
           - pwsh: |
               $summary = Get-Content '$(Build.ArtifactStagingDirectory)/compare/summary.json' -Raw | ConvertFrom-Json

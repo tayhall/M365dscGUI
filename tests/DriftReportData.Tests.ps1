@@ -245,5 +245,83 @@ Describe 'Get-PEDriftReportData' {
             { Get-Data $script:Cmp -Extra @{ SourceLabel = '<b>x</b>' } } | Should -Throw
         }
     }
+
+    Context 'every property of both sides, per resource' {
+        It 'gives a changed item every property of both sides, with a state per property' {
+            $sales = (Get-Data $script:Cmp).Items | Where-Object Key -eq 'Sales'
+            $byName = @{}
+            foreach ($p in $sales.Props) { $byName[$p.Property] = $p }
+            $byName['MailNickname'].State | Should -Be 'different'
+            $byName['MailNickname'].Source | Should -Be 'sales'
+            $byName['MailNickname'].Target | Should -Not -Be 'sales'
+            $byName['DisplayName'].State | Should -Be 'same'
+            $byName['DisplayName'].Source | Should -Be $byName['DisplayName'].Target
+            @($sales.Props).Count | Should -BeGreaterThan 3
+        }
+
+        It 'shows a create with only the source side and a remove with only the target side' {
+            $d = Get-Data $script:Cmp
+            $finance = $d.Items | Where-Object Key -eq 'Finance'
+            @($finance.Props).Count | Should -BeGreaterThan 0
+            ($finance.Props | ForEach-Object State | Sort-Object -Unique) | Should -Be @('only-source')
+            ($finance.Props | ForEach-Object Target | Where-Object { $null -ne $_ }).Count | Should -Be 0
+            $marketing = $d.Items | Where-Object Key -eq 'Marketing'
+            ($marketing.Props | ForEach-Object State | Sort-Object -Unique) | Should -Be @('only-target')
+            ($marketing.Props | ForEach-Object Source | Where-Object { $null -ne $_ }).Count | Should -Be 0
+        }
+
+        It 'marks a property that differs in the records but not in the findings as ignored' {
+            $cmp = Get-Comparison
+            $sales = $cmp.Findings | Where-Object { $_.Kind -eq 'Changed' -and $_.Key -eq 'Sales' }
+            # a property the engine did not report (for example a tenant-bound id) but whose values differ on the page
+            $sales.TargetRecord.Properties | Add-Member -NotePropertyName Description -NotePropertyValue 'only in the replica' -Force
+            $sales.BlueprintRecord.Properties | Add-Member -NotePropertyName Description -NotePropertyValue 'only in the master' -Force
+            $row = ((Get-Data $cmp).Items | Where-Object Key -eq 'Sales').Props | Where-Object Property -eq 'Description'
+            $row.State | Should -Be 'ignored'
+        }
+
+        It 'gives an item without records no property rows' {
+            $cmp = Get-Comparison
+            $extra = [pscustomobject]@{ Kind = 'NotChecked'; ResourceType = 'EXOAcceptedDomain'; Key = $null; Workload = 'Exchange Online'; State = 'Open'; Hint = 'x'; Differences = @() }
+            $cmp = [pscustomobject]@{ Findings = @($cmp.Findings + $extra); Check = $cmp.Check; Blueprint = $cmp.Blueprint; DataRoot = $cmp.DataRoot; SourceState = $cmp.SourceState }
+            $item = (Get-Data $cmp).Items | Where-Object { $_.Kind -eq 'NotChecked' }
+            @($item.Props).Count | Should -Be 0
+        }
+
+        It 'cuts a long property value' {
+            $cmp = Get-Comparison
+            ($cmp.Findings | Where-Object { $_.Kind -eq 'Changed' }).BlueprintRecord.Properties | Add-Member -NotePropertyName Description -NotePropertyValue ('x' * 10000) -Force
+            $row = ((Get-Data $cmp -Extra @{ MaxValueLength = 50 }).Items | Where-Object Key -eq 'Sales').Props | Where-Object Property -eq 'Description'
+            $row.Source.Length | Should -BeLessOrEqual 51
+        }
+    }
+
+    Context 'totals per type and workload order' {
+        It 'counts the records of each type on both sides' {
+            $d = Get-Data $script:Cmp
+            $group = @($d.Types | Where-Object ResourceType -eq 'AADGroup')
+            $group.Count | Should -Be 1
+            $group[0].Workload | Should -Be 'Entra ID'
+            $group[0].Source | Should -Be @($script:Cmp.SourceState.Records | Where-Object ResourceType -eq 'AADGroup').Count
+            $group[0].Target | Should -Be @($script:Cmp.Check.State.Records | Where-Object ResourceType -eq 'AADGroup').Count
+        }
+
+        It 'lists a type that only has drift items even when neither side has records of it' {
+            $cmp = Get-Comparison
+            $extra = [pscustomobject]@{ Kind = 'NotChecked'; ResourceType = 'EXOAcceptedDomain'; Key = $null; Workload = 'Exchange Online'; State = 'Open'; Hint = 'x'; Differences = @() }
+            $cmp = [pscustomobject]@{ Findings = @($cmp.Findings + $extra); Check = $cmp.Check; Blueprint = $cmp.Blueprint; DataRoot = $cmp.DataRoot; SourceState = $cmp.SourceState }
+            $t = @((Get-Data $cmp).Types | Where-Object ResourceType -eq 'EXOAcceptedDomain')
+            $t.Count | Should -Be 1
+            $t[0].Source | Should -Be 0
+            $t[0].Workload | Should -Be 'Exchange Online'
+        }
+
+        It 'gives the workload order of the engine, ending with Other' {
+            $order = @((Get-Data $script:Cmp).Meta.WorkloadOrder)
+            $order[0] | Should -Be 'Entra ID'
+            $order | Should -Contain 'Exchange Online'
+            $order[-1] | Should -Be 'Other'
+        }
+    }
 }
 

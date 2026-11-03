@@ -13,6 +13,11 @@ function Get-PEDriftReportData
       NotCompared   true for a finding that says something was not compared at all (Excluded, NotChecked, NotAvailable): information, not drift
       Reason        why it cannot be approved (the engine's message, one line), empty when it can
       Differences   @{ Property; Dev; PreProd } with display strings, cut at -MaxValueLength
+      Props         every property of the record(s) behind the finding, for the single-resource view: @{ Property; Source; Target; State }
+                    with display strings ($null where that side has no such property) and State different | excluded | same | ignored |
+                    only-source | only-target ('ignored': both sides have it, the values look different, the engine does not compare it)
+    Types is the record count of each resource type on both sides (@{ ResourceType; Workload; Source; Target }) for the totals, and
+    Meta.WorkloadOrder the engine's workload order.
     Resources that match are only counted (Totals.Matching), never listed. Totals.Create/Update/Remove count approvable items;
     Totals.CannotApprove counts the other drift (Ambiguous, PossibleRename, refused by the engine); Totals.NotCompared counts the NotCompared items. Totals.Matching is the PreProd records without a finding.
     No comparison happens here: the findings are the engine's.
@@ -142,6 +147,30 @@ function Get-PEDriftReportData
 
     $items = foreach ($entry in $entries)
     {
+        $props = @()
+        $sourceMap = Get-PEReportPropertyMap -Record $entry.Finding.BlueprintRecord
+        $targetMap = Get-PEReportPropertyMap -Record $entry.Finding.TargetRecord
+        if ($sourceMap.Count -gt 0 -or $targetMap.Count -gt 0)
+        {
+            $different = Get-PEReportPropertyName -Difference @($entry.Finding.Differences)
+            $excluded = Get-PEReportPropertyName -Difference @(@($entry.Finding.ExcludedDifferences) + @($entry.Finding.AcceptedDifferences))
+            $names = [System.Collections.Generic.List[string]]::new()
+            foreach ($name in @($sourceMap.Keys) + @($targetMap.Keys)) { if (-not $names.Contains($name)) { $names.Add($name) } }
+            $props = @(foreach ($name in $names)
+                {
+                    $hasSource = $sourceMap.Contains($name)
+                    $hasTarget = $targetMap.Contains($name)
+                    $sourceText = if ($hasSource) { & $display $sourceMap[$name] } else { $null }
+                    $targetText = if ($hasTarget) { & $display $targetMap[$name] } else { $null }
+                    $state = if (-not $hasTarget) { 'only-source' }
+                    elseif (-not $hasSource) { 'only-target' }
+                    elseif ($different.Contains($name)) { 'different' }
+                    elseif ($excluded.Contains($name)) { 'excluded' }
+                    elseif ($sourceText -ceq $targetText) { 'same' }
+                    else { 'ignored' }
+                    [pscustomobject][ordered]@{ Property = $name; Source = $sourceText; Target = $targetText; State = $state }
+                })
+        }
         $differences = @(foreach ($difference in @($entry.Finding.Differences | Where-Object { $null -ne $_ }))
             {
                 [pscustomobject][ordered]@{ Property = [string]$difference.Property; Dev = (& $display $difference.Target); PreProd = (& $display $difference.Blueprint) }
@@ -158,6 +187,7 @@ function Get-PEDriftReportData
             NotCompared  = $entry.NotCompared
             Reason       = $(if ($entry.Approvable) { '' } else { $entry.Reason })
             Differences  = $differences
+            Props        = $props
         }
     }
     $items = @($items)
@@ -175,6 +205,23 @@ function Get-PEDriftReportData
         NotCompared   = @($items | Where-Object NotCompared).Count
     }
 
+    # Record counts per type on both sides, for the totals (types that only have drift items are listed too).
+    $typeCounts = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $countType = {
+        param ([string]$type, [string]$side)
+        if (-not $typeCounts.ContainsKey($type)) { $typeCounts[$type] = @{ Source = 0; Target = 0 } }
+        if ($side) { $typeCounts[$type][$side]++ }
+    }
+    foreach ($record in @($Comparison.SourceState.Records)) { & $countType ([string]$record.ResourceType) 'Source' }
+    foreach ($record in @($Comparison.Check.State.Records)) { & $countType ([string]$record.ResourceType) 'Target' }
+    foreach ($item in $items) { & $countType $item.ResourceType '' }
+    $workloadOrder = @(@(Get-PEWorkloadDefinition | ForEach-Object { [string]$_.Name }) + 'Other' | Select-Object -Unique)
+    $types = @(foreach ($type in $typeCounts.Keys)
+        {
+            $workload = Get-PEWorkload -ResourceType $type
+            [pscustomobject][ordered]@{ ResourceType = $type; Workload = $workload; Source = [int]$typeCounts[$type].Source; Target = [int]$typeCounts[$type].Target }
+        }) | Sort-Object { $i = [array]::IndexOf($workloadOrder, $_.Workload); if ($i -lt 0) { 999 } else { $i } }, ResourceType
+
     $side = { param ($h) [pscustomobject][ordered]@{ Run = [string]$h.Run; ExportedAt = [string]$h.ExportedAt; Fingerprint = [string]$h.Fingerprint } }
     $reportId = [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData(
             [System.Text.Encoding]::UTF8.GetBytes([string]$Source.Fingerprint + [string]$Target.Fingerprint))).ToLowerInvariant()
@@ -188,8 +235,10 @@ function Get-PEDriftReportData
             ModuleVersion = (Get-PEPinnedVersion -Name Microsoft365DSC)
             GeneratedUtc  = $GeneratedUtc.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
             ReportId      = $reportId
+            WorkloadOrder = $workloadOrder
         }
         Totals = $totals
+        Types  = @($types)
         Items  = @($items | Sort-Object ResourceType, Key, Kind)
     }
 }

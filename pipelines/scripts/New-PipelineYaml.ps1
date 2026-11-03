@@ -22,12 +22,14 @@ $pipelines = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 $tokens = [ordered]@{
     Pool                    = '__POOL__'
     ServiceConnection       = '__SERVICE_CONNECTION__'
+    RepoFolder              = '__REPO_FOLDER__'
     DevEnvironment          = '__DEV_ENVIRONMENT__'
     ExportPreProdPipeline   = '__EXPORT_PREPROD_PIPELINE__'
     ExportDevPipeline       = '__EXPORT_DEV_PIPELINE__'
     ComparePipeline         = '__COMPARE_PIPELINE__'
 }
 $defaults = @{
+    RepoFolder            = 'M365dscGUI'
     DevEnvironment        = 'm365-dev'
     ExportPreProdPipeline = 'M365DSC - Export PreProd tenant'
     ExportDevPipeline     = 'M365DSC - Export Dev tenant'
@@ -56,6 +58,8 @@ foreach ($name in $tokens.Keys)
     if (-not $value) { $problems += "$name is missing"; continue }
     if ($value -match 'CHANGE-ME') { $problems += "$name still has the example value (CHANGE-ME)"; continue }
     if ($value -match '[\r\n]') { $problems += "$name must be one line"; continue }
+    # The folder of this project inside the repo, with forward slashes ('.' when the project is at the repo root): no '..', no drive or leading slash.
+    if ($name -eq 'RepoFolder' -and $value -cnotmatch '\A(\.|[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*)\z') { $problems += "$name must be a folder path such as M365dscGUI or tools/M365dscGUI (forward slashes), or . for the repo root"; continue }
     # The value goes inside a single-quoted YAML string.
     $values[$name] = $value -replace "'", "''"
 }

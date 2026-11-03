@@ -47,6 +47,19 @@ the environment and the pipeline names before any script runs, so those are toke
    they are). Create the four pipelines from the YAML files, named as in the settings file (the `resources:` blocks look them up by name), and create
    the `m365-dev` environment with an approval check.
 
+## Where the project sits in the ADO repo
+The project can live in a folder of a repo that holds other things (for example `M365dscGUI\`, with `pipelines\`, `src\`, `tools\` and the rest
+beneath it). Nothing else in the repo is touched or read.
+- **`RepoFolder`** in `pipeline.settings.psd1` (default `M365dscGUI`; use forward slashes for a deeper folder, `.` for the repo root) is put in front of
+  every script path in the YAML: `$(Build.SourcesDirectory)/M365dscGUI/pipelines/scripts/...`. Change it and run `New-PipelineYaml.ps1` again if you
+  use another folder name.
+- **The scripts need no setting.** They find `src\`, `tools\` and `config\` relative to their own location, so they work from any folder.
+- **Creating each pipeline in ADO:** choose the existing YAML file at `M365dscGUI/pipelines/<name>.yaml`. The pipeline's own YAML path is the only other
+  place the folder name appears.
+- **Copy the `.gitignore` as well** (it goes in `M365dscGUI\`, where it applies to that folder only): it keeps `pipelines\pipeline.settings.psd1`, `pipelines\dist\`
+  and `data\` out of the repo. Do not commit the settings file or `dist\`; `dist\` is only what you paste into the repo.
+- The checkout is the whole repo, so a large legacy repo is cloned each run; shallow fetching is available if that is slow.
+
 ## Agent needs
 Windows, PowerShell 7.6+, local administrator (Program Files and the machine certificate store), internet access to the PowerShell Gallery.
 

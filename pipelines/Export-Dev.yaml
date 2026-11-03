@@ -19,7 +19,7 @@ jobs:
       - checkout: self
 
       - pwsh: |
-          & '$(Build.SourcesDirectory)/pipelines/scripts/Install-PipelineDependencies.ps1'
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Install-PipelineDependencies.ps1'
         displayName: Install PowerShell modules
 
       - task: AzurePowerShell@5
@@ -30,12 +30,12 @@ jobs:
           pwsh: true
           ScriptType: InlineScript
           Inline: |
-            & '$(Build.SourcesDirectory)/pipelines/scripts/Invoke-PipelineExport.ps1' -Environment Dev -Workloads $env:PE_WORKLOADS -OutputPath '$(Build.ArtifactStagingDirectory)/export'
+            & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineExport.ps1' -Environment Dev -Workloads $env:PE_WORKLOADS -OutputPath '$(Build.ArtifactStagingDirectory)/export'
         env:
           PE_WORKLOADS: ${{ parameters.workloads }}
 
       - pwsh: |
-          & '$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug dev -Role Reader
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug dev -Role Reader
         displayName: Remove the certificate from the agent (always runs)
         condition: always()
 

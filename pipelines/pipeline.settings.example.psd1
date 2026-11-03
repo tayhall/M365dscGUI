@@ -9,6 +9,7 @@
     ServiceConnection = 'CHANGE-ME service connection'      # ADO service connection that can read secrets in the Key Vaults
 
     # Optional (these are the defaults). The pipeline names must match the names you give the pipelines in Azure DevOps.
+    RepoFolder            = 'M365dscGUI'                    # folder of this project inside the ADO repo ('.' if it is at the repo root)
     DevEnvironment        = 'm365-dev'                      # ADO environment with an approval check
     ExportPreProdPipeline = 'M365DSC - Export PreProd tenant'
     ExportDevPipeline     = 'M365DSC - Export Dev tenant'

@@ -38,11 +38,11 @@ needs no regenerating: edit the file and run the pipeline.
 Certificates are read from Key Vault: the secret `<ShortName>-Cert-Reader` (and `<ShortName>-Cert-Writer` for Dev) holds the certificate as a
 base64 PFX without a password, read with `Get-AzKeyVaultSecret`. The thumbprint is taken from the certificate itself and is not stored.
 
-**2. Settings for the YAML itself (once, then whenever a template or a setting changes).** Azure DevOps needs the agent pool, the service connection,
+**2. Settings for the YAML itself (once, then whenever a template or a setting changes).** Azure DevOps needs the agent pool, the service connections,
 the environment and the pipeline names before any script runs, so those are tokens (`__POOL__` and so on) in the **`*.yaml.template`** files.
 The templates are not YAML as far as Azure DevOps is concerned, so they never show up when you pick an existing pipeline file; only the generated
 `*.yaml` do.
-1. Copy `pipelines\pipeline.settings.example.psd1` to `pipelines\pipeline.settings.psd1` (git-ignored) and fill in the pool and service connection.
+1. Copy `pipelines\pipeline.settings.example.psd1` to `pipelines\pipeline.settings.psd1` (git-ignored) and fill in the pool and one service connection per tenant (`DevServiceConnection`, used by Export Dev, Compare and Apply, and `PreProdServiceConnection`, used by Export PreProd). An old single `ServiceConnection` line still works as the default for both.
 2. Run `pwsh -NoProfile -File pipelines\scripts\New-PipelineYaml.ps1`. It writes `Export-Dev.yaml`, `Export-PreProd.yaml`, `Compare-PreProd-to-Dev.yaml`
    and `Apply-Dev.yaml` next to the templates, each with a header line saying it is generated. It stops on a missing value, an example value left in,
    or a token it does not know, and it never deletes anything. Old tenant keys in the settings file are ignored with a warning.

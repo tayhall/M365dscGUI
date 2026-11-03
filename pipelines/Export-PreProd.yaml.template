@@ -25,7 +25,7 @@ jobs:
       - task: AzurePowerShell@5
         displayName: Export PreProd
         inputs:
-          azureSubscription: '__SERVICE_CONNECTION__'
+          azureSubscription: '__PREPROD_SERVICE_CONNECTION__'
           azurePowerShellVersion: LatestVersion
           pwsh: true
           ScriptType: InlineScript

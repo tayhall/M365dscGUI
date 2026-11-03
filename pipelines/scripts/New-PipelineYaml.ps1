@@ -21,7 +21,8 @@ $pipelines = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 # Setting name -> token in the YAML.
 $tokens = [ordered]@{
     Pool                    = '__POOL__'
-    ServiceConnection       = '__SERVICE_CONNECTION__'
+    DevServiceConnection    = '__DEV_SERVICE_CONNECTION__'
+    PreProdServiceConnection = '__PREPROD_SERVICE_CONNECTION__'
     RepoFolder              = '__REPO_FOLDER__'
     DevEnvironment          = '__DEV_ENVIRONMENT__'
     ExportPreProdPipeline   = '__EXPORT_PREPROD_PIPELINE__'
@@ -46,6 +47,13 @@ $moved = @($settings.Keys | Where-Object { $_ -match '^(Dev|PreProd)(TenantDomai
 if ($moved) { Write-Warning "Ignored (these now belong in pipelines\config\Dev.psd1 / PreProd.psd1, and you can delete them here): $($moved -join ', ')" }
 $kept = @{}
 foreach ($key in $settings.Keys) { if ($key -notin $moved) { $kept[$key] = $settings[$key] } }
+# Earlier versions had one ServiceConnection for both tenants. It still works as the default for whichever of the two is not set.
+if ($kept.ContainsKey('ServiceConnection'))
+{
+    foreach ($specific in 'DevServiceConnection', 'PreProdServiceConnection') { if (-not $kept.ContainsKey($specific)) { $kept[$specific] = $kept['ServiceConnection'] } }
+    Write-Warning 'ServiceConnection (one for both tenants) is used for any tenant without its own DevServiceConnection / PreProdServiceConnection.'
+    $kept.Remove('ServiceConnection')
+}
 $settings = $kept
 $unknown = @($settings.Keys | Where-Object { -not $tokens.Contains($_) })
 if ($unknown) { throw "Unknown setting(s): $($unknown -join ', '). Known: $($tokens.Keys -join ', ')." }

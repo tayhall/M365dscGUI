@@ -71,11 +71,12 @@ function New-PEStateFromExport
             Where-Object { -not $failed.Contains([string]$_.ResourceType) })
 
     $meta = @{
-        TenantId    = $TenantId
-        ExportedAt  = $exportedAt
-        Source      = $Path
-        ExportLog   = $(if ($hasLog) { 'present' } else { 'missing' })
-        LogWarnings = @($logWarnings)
+        TenantId          = $TenantId
+        ExportedAt        = $exportedAt
+        Source            = $Path
+        ExportLog         = $(if ($hasLog) { 'present' } else { 'missing' })
+        LogWarnings       = @($logWarnings)
+        ExportFingerprint = (Get-PEExportFingerprint -Path $Path)
     }
     New-PEState -Records $records -NotChecked @($notChecked) -Meta $meta
 }

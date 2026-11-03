@@ -35,10 +35,14 @@ steps:
             -ApplicationId '${{ parameters.applicationId }}' -TenantId '${{ parameters.tenantDomain }}'
 
   - pwsh: |
+      # The workloads come in through the environment and are validated, never written into the script text.
+      if ($env:PE_WORKLOADS -notmatch '^[A-Za-z0-9,]+$') { throw 'The workloads parameter may only hold letters, digits and commas.' }
       $out = Join-Path '$(Build.ArtifactStagingDirectory)' 'export'
-      & '$(Build.SourcesDirectory)/tools/Export-M365DscTenant.ps1' -Role Reader -Tenant '${{ parameters.tenantSlug }}' -Workloads '${{ parameters.workloads }}' -OutputPath $out
+      & '$(Build.SourcesDirectory)/tools/Export-M365DscTenant.ps1' -Role Reader -Tenant '${{ parameters.tenantSlug }}' -Workloads $env:PE_WORKLOADS -OutputPath $out
       if ($LASTEXITCODE) { exit $LASTEXITCODE }
     displayName: 'Export ${{ parameters.tenantSlug }} (Microsoft365DSC)'
+    env:
+      PE_WORKLOADS: ${{ parameters.workloads }}
 
   - task: PublishPipelineArtifact@1
     displayName: 'Publish ${{ parameters.artifactName }}'

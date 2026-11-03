@@ -51,15 +51,19 @@ stages:
           - template: templates/install-dependencies.yml
 
           - pwsh: |
+              # Free-form parameters come in through the environment and are validated, never written into the script text.
+              if ($env:PE_COMPLETE_WORKLOADS -notmatch '^[A-Za-z0-9,]*$') { throw 'completeWorkloads may only hold letters, digits and commas.' }
               & '$(Build.SourcesDirectory)/tools/Invoke-PEPipelineCompare.ps1' `
                   -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
                   -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
                   -TargetTenantDomain '$(DEV_TENANT_DOMAIN)' `
-                  -CompleteWorkload '${{ parameters.completeWorkloads }}' `
+                  -CompleteWorkload $env:PE_COMPLETE_WORKLOADS `
                   -MofLayout '${{ parameters.mofLayout }}' `
                   -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
                   -Compile -ApplicationId '$(DEV_WRITER_APP_ID)' -CertificateThumbprint '$(DEV_WRITER_THUMBPRINT)' -OrganizationName '$(DEV_ORGANIZATION_NAME)'
             displayName: 'Compare PreProd to Dev, generate configuration, compile MOF'
+            env:
+              PE_COMPLETE_WORKLOADS: ${{ parameters.completeWorkloads }}
 
           - pwsh: |
               $summary = Get-Content '$(Build.ArtifactStagingDirectory)/compare/summary.json' -Raw | ConvertFrom-Json

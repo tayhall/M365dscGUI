@@ -73,7 +73,9 @@ stages:
                     $ErrorActionPreference = 'Stop'
                     $report = '$(Pipeline.Workspace)/compare/DriftReport'
                     # Combined run: DriftReport\MOF. PerWorkload run: DriftReport\<Prefix>\MOF, applied in the order given.
-                    $roots = @(@('${{ parameters.workloads }}' -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) | ForEach-Object { Join-Path (Join-Path $report $_) 'MOF' })
+                    # The workloads come in through the environment and are validated, never written into the script text.
+                    if ($env:PE_WORKLOADS -notmatch '^[A-Za-z0-9,]*$') { throw 'The workloads parameter may only hold letters, digits and commas.' }
+                    $roots = @(@($env:PE_WORKLOADS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) | ForEach-Object { Join-Path (Join-Path $report $_) 'MOF' })
                     if ($roots.Count -eq 0) { $roots = @(Join-Path $report 'MOF') }
                     $kinds = @('Changes')
                     if ('${{ parameters.includeRemovals }}' -eq 'True') { $kinds += 'Removals' }   # Changes first, then Removals
@@ -93,3 +95,5 @@ stages:
                         }
                     }
                   displayName: '${{ parameters.mode }} MOF files on Dev (LCM)'
+                  env:
+                    PE_WORKLOADS: ${{ parameters.workloads }}

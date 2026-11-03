@@ -9,7 +9,7 @@ BeforeAll {
 
 Describe 'The drift report page logic (Node)' -Skip:(-not $script:NodeFound) {
     It 'passes its own tests' {
-        $output = & node --test (Join-Path $script:JsDir 'logic.test.mjs') 2>&1
+        $output = & node --test (Join-Path $script:JsDir 'logic.test.mjs') (Join-Path $script:JsDir 'tree.test.mjs') 2>&1
         $LASTEXITCODE | Should -Be 0 -Because ($output -join "`n")
     }
 

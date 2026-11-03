@@ -101,7 +101,7 @@
     };
   }
 
-  // filter: { type, kind, text }; state: { includeRemovals }. Returns the ids of the approvable items that match.
+  // filter: { workload, type, kind, text }; state: { includeRemovals }. Returns the ids of the approvable items that match.
   function selectAll(data, filter, state) {
     var f = filter || {};
     var text = f.text ? String(f.text).toLowerCase() : '';
@@ -109,6 +109,7 @@
       if (!item.Approvable) { return false; }
       if (item.Action === 'Remove' && !(state && state.includeRemovals)) { return false; }
       if (f.type && item.ResourceType !== f.type) { return false; }
+      if (f.workload && workloadOf(data, item) !== f.workload) { return false; }
       if (f.kind && item.Action !== f.kind) { return false; }
       if (text && String(item.Key).toLowerCase().indexOf(text) < 0) { return false; }
       return true;
@@ -133,11 +134,151 @@
     }
   }
 
+  // ---- workloads, types and totals -------------------------------------------------------------------------------------------
+  var KINDS = ['', 'Create', 'Update', 'Remove', 'Cannot', 'NotCompared'];
+  var GROUP_ORDER = { 'different': 0, 'excluded': 1, 'ignored': 2, 'only-source': 3, 'only-target': 4, 'same': 5 };
+  var typeWorkloads = typeof WeakMap === 'function' ? new WeakMap() : null;
+
+  function workloadIndex(data) {
+    var cached = typeWorkloads && typeWorkloads.get(data);
+    if (cached) { return cached; }
+    var index = Object.create(null);
+    (data.Types || []).forEach(function (t) { index[t.ResourceType] = t.Workload || 'Other'; });
+    if (typeWorkloads) { typeWorkloads.set(data, index); }
+    return index;
+  }
+
+  // The workload of an item: the one its resource type has in the report totals, else Other.
+  function workloadOf(data, item) {
+    return workloadIndex(data)[item.ResourceType] || 'Other';
+  }
+
+  function emptyCounts() { return { Create: 0, Update: 0, Remove: 0, Cannot: 0, NotCompared: 0, Drift: 0 }; }
+
+  function addItem(counts, item) {
+    if (item.NotCompared) { counts.NotCompared += 1; return; }
+    if (item.Approvable) { counts[item.Action] += 1; } else { counts.Cannot += 1; }
+    counts.Drift += 1;
+  }
+
+  // [{ name, source, target, counts, types: [{ ResourceType, source, target, counts, items, notCompared }] }] in the engine's workload order.
+  // source / target are the record counts of the two exports; items are the drift items (not-compared ones are kept apart).
+  function workloadTree(data) {
+    var byWorkload = Object.create(null);
+    var typeNodes = Object.create(null);
+    function typeNode(resourceType, workload, source, target) {
+      if (typeNodes[resourceType]) { return typeNodes[resourceType]; }
+      var node = { ResourceType: resourceType, source: source || 0, target: target || 0, counts: emptyCounts(), items: [], notCompared: [] };
+      typeNodes[resourceType] = node;
+      var w = byWorkload[workload];
+      if (!w) { w = byWorkload[workload] = { name: workload, source: 0, target: 0, counts: emptyCounts(), types: [] }; }
+      w.types.push(node);
+      w.source += node.source;
+      w.target += node.target;
+      return node;
+    }
+    (data.Types || []).forEach(function (t) { typeNode(t.ResourceType, t.Workload || 'Other', t.Source, t.Target); });
+    data.Items.forEach(function (item) {
+      var node = typeNode(item.ResourceType, workloadOf(data, item), 0, 0);
+      var w = byWorkload[workloadOf(data, item)];
+      if (item.NotCompared) { node.notCompared.push(item); } else { node.items.push(item); }
+      addItem(node.counts, item);
+      addItem(w.counts, item);
+    });
+    var order = (data.Meta && data.Meta.WorkloadOrder) || [];
+    var names = Object.keys(byWorkload);
+    names.sort(function (a, b) {
+      var ia = order.indexOf(a); var ib = order.indexOf(b);
+      if (ia < 0) { ia = 999; } if (ib < 0) { ib = 999; }
+      return ia !== ib ? ia - ib : (a < b ? -1 : a > b ? 1 : 0);
+    });
+    return names.map(function (name) { return byWorkload[name]; });
+  }
+
+  // How many of the selected items are inside a workload and / or a type.
+  function countSelected(data, selection, filter) {
+    var f = filter || {};
+    var index = itemIndex(data);
+    return Object.keys(selection || {}).filter(function (id) {
+      var item = index[id];
+      if (!item) { return false; }
+      if (f.type && item.ResourceType !== f.type) { return false; }
+      if (f.workload && workloadOf(data, item) !== f.workload) { return false; }
+      return true;
+    }).length;
+  }
+
+  // ---- routes (the address after # decides which screen is shown, so the back button and shared links work) --------------------
+  function safeDecode(text) {
+    try { return decodeURIComponent(text); } catch (error) { return ''; }
+  }
+
+  function routeToHash(route) {
+    if (route.view === 'item') { return '#/item/' + encodeURIComponent(route.id); }
+    if (route.view === 'review') {
+      var parts = [];
+      [['workload', route.workload], ['type', route.type], ['kind', route.kind], ['q', route.text]].forEach(function (pair) {
+        if (pair[1]) { parts.push(pair[0] + '=' + encodeURIComponent(pair[1])); }
+      });
+      return '#/review' + (parts.length ? '?' + parts.join('&') : '');
+    }
+    return '#/';
+  }
+
+  function parseRoute(hash) {
+    var text = String(hash || '').replace(/^#/, '');
+    if (text.indexOf('/item/') === 0) {
+      var id = safeDecode(text.slice('/item/'.length));
+      return id ? { view: 'item', id: id } : { view: 'overview' };
+    }
+    if (text === '/review' || text.indexOf('/review?') === 0) {
+      var route = { view: 'review', workload: '', type: '', kind: '', text: '' };
+      var query = text.indexOf('?') >= 0 ? text.slice(text.indexOf('?') + 1) : '';
+      query.split('&').forEach(function (pair) {
+        var at = pair.indexOf('=');
+        if (at < 0) { return; }
+        var name = pair.slice(0, at);
+        var value = safeDecode(pair.slice(at + 1));
+        if (name === 'workload') { route.workload = value; }
+        else if (name === 'type') { route.type = value; }
+        else if (name === 'kind') { route.kind = KINDS.indexOf(value) >= 0 ? value : ''; }
+        else if (name === 'q') { route.text = value; }
+      });
+      return route;
+    }
+    return { view: 'overview' };
+  }
+
+  // ---- wording and ordering for the page -----------------------------------------------------------------------------------------
+  function kindLabel(action, sourceLabel, targetLabel) {
+    if (action === 'Create') { return 'Missing in ' + targetLabel; }
+    if (action === 'Update') { return 'Different'; }
+    if (action === 'Remove') { return 'Only in ' + targetLabel; }
+    return 'Cannot be approved';
+  }
+
+  // The property rows of one resource: differences first, equal ones last, names A to Z inside a group. The input is not changed.
+  function orderProps(props) {
+    return props.slice().sort(function (a, b) {
+      var ga = GROUP_ORDER[a.State]; var gb = GROUP_ORDER[b.State];
+      if (ga !== gb) { return ga - gb; }
+      var na = a.Property.toLowerCase(); var nb = b.Property.toLowerCase();
+      return na < nb ? -1 : na > nb ? 1 : 0;
+    });
+  }
+
   var api = {
     buildApprovedList: buildApprovedList,
     selectAll: selectAll,
     summarise: summarise,
-    whyNotDownloadable: whyNotDownloadable
+    whyNotDownloadable: whyNotDownloadable,
+    workloadOf: workloadOf,
+    workloadTree: workloadTree,
+    countSelected: countSelected,
+    parseRoute: parseRoute,
+    routeToHash: routeToHash,
+    kindLabel: kindLabel,
+    orderProps: orderProps
   };
   root.PEReport = api;
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; }

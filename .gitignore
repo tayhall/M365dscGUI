@@ -20,4 +20,5 @@ Microsoft365DSC/
 
 # Pipeline environment values and the YAML generated from them
 pipelines/pipeline.settings.psd1
-pipelines/dist/
+# Generated pipeline YAML (from the .yaml.template files). In the ADO repo DELETE the next line: there the generated YAML is committed.
+pipelines/*.yaml

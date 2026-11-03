@@ -1,0 +1,65 @@
+name: 'M365DSC - Apply compared MOF files to Dev'
+
+trigger: none
+
+# Applies what "Compare PreProd to Dev and build MOFs" produced. DEV ONLY: the target is fixed in the script.
+# Dev's tenant and Writer app id are in pipelines/config/Dev.psd1.
+resources:
+  pipelines:
+    - pipeline: compare
+      source: 'M365DSC - Compare PreProd to Dev and build MOFs'
+
+parameters:
+  - name: mode
+    displayName: Test only reports what would change; Apply changes Dev
+    type: string
+    default: Test
+    values:
+      - Test
+      - Apply
+  - name: workloads
+    displayName: 'Workload prefixes to apply, in this order (for example AAD,Intune,EXO,Teams). Leave empty for a Combined compare run.'
+    type: string
+    default: ''
+  - name: includeRemovals
+    displayName: Also apply Removals (deletes objects in Dev that PreProd does not have)
+    type: boolean
+    default: false
+
+pool:
+  name: 'agent pool'   # needs pwsh 7.6+ and local admin
+
+jobs:
+  # An approval and check on the environment 'm365-dev' is the gate before anything is written.
+  - deployment: ApplyToDev
+    environment: 'm365-dev'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+            - download: compare
+              artifact: DriftReport
+
+            - pwsh: |
+                & '$(Build.SourcesDirectory)/pipelines/scripts/Install-PipelineDependencies.ps1'
+              displayName: Install PowerShell modules
+
+            - task: AzurePowerShell@5
+              displayName: '${{ parameters.mode }} MOF files on Dev'
+              inputs:
+                azureSubscription: 'service connection'
+                azurePowerShellVersion: LatestVersion
+                pwsh: true
+                ScriptType: InlineScript
+                Inline: |
+                  & '$(Build.SourcesDirectory)/pipelines/scripts/Invoke-PipelineApply.ps1' `
+                      -ReportPath '$(Pipeline.Workspace)/compare/DriftReport' `
+                      -Mode '${{ parameters.mode }}' -Workloads $env:PE_WORKLOADS -IncludeRemovals '${{ parameters.includeRemovals }}'
+              env:
+                PE_WORKLOADS: ${{ parameters.workloads }}
+
+            - pwsh: |
+                & '$(Build.SourcesDirectory)/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug dev -Role Writer
+              displayName: Remove the certificate from the agent (always runs)
+              condition: always()

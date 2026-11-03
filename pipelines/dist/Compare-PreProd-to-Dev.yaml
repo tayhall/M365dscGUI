@@ -1,0 +1,60 @@
+name: 'M365DSC - Compare PreProd to Dev and build MOFs'
+
+trigger: none
+
+# The latest successful run of each export pipeline is used. Dev's tenant, Writer app id and organization are in pipelines/config/Dev.psd1.
+resources:
+  pipelines:
+    - pipeline: preprodExport
+      source: 'M365DSC - Export PreProd tenant'
+    - pipeline: devExport
+      source: 'M365DSC - Export Dev tenant'
+
+parameters:
+  - name: mofLayout
+    displayName: MOF layout (Combined = one Changes + one Removals; PerWorkload = a pair per workload, applied in stages)
+    type: string
+    default: Combined
+    values:
+      - Combined
+      - PerWorkload
+  - name: completeWorkloads
+    displayName: Workloads the Dev export covers completely (an empty type then counts as empty, so PreProd objects become Missing)
+    type: string
+    default: 'AAD,Intune,EXO,Teams'
+
+pool:
+  name: 'agent pool'   # needs pwsh 7.6+ and local admin
+
+jobs:
+  - job: CompareAndBuild
+    steps:
+      - checkout: self
+      - download: preprodExport
+        artifact: PreProdExport
+      - download: devExport
+        artifact: DevExport
+
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/pipelines/scripts/Install-PipelineDependencies.ps1'
+        displayName: Install PowerShell modules
+
+      - task: AzurePowerShell@5
+        displayName: Compare PreProd to Dev and build MOFs
+        inputs:
+          azureSubscription: 'service connection'
+          azurePowerShellVersion: LatestVersion
+          pwsh: true
+          ScriptType: InlineScript
+          Inline: |
+            & '$(Build.SourcesDirectory)/pipelines/scripts/Invoke-PipelineCompare.ps1' `
+                -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
+                -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
+                -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
+                -MofLayout '${{ parameters.mofLayout }}' -CompleteWorkloads $env:PE_COMPLETE_WORKLOADS
+        env:
+          PE_COMPLETE_WORKLOADS: ${{ parameters.completeWorkloads }}
+
+      # The drift report and the generated configuration, for review and for Apply-Dev.
+      - publish: $(Build.ArtifactStagingDirectory)/compare
+        artifact: DriftReport

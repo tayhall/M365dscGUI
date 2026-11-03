@@ -7,7 +7,7 @@ function New-PEDriftReportHtml
     .DESCRIPTION
     -Data is the object of Get-PEDriftReportData. It is embedded as JSON in <script type="application/json" id="report-data"> with
     every <, > and & written as a \u escape (and U+2028 / U+2029 too), so no tenant value can close the script block, start a
-    comment or inject markup. The page script (Data\DriftReport.js) and the template are read from the module's Data folder.
+    comment or inject markup. The page scripts (Data\DriftReport.js and DriftReport.ui.js) and the template are read from the module's Data folder.
     The file is UTF-8 without a BOM, LF line endings, and an existing file is never overwritten. Returns the path.
     #>
     [CmdletBinding()]
@@ -31,8 +31,9 @@ function New-PEDriftReportHtml
 
     $dataFolder = Join-Path $PSScriptRoot '..\Data'
     $template = [System.IO.File]::ReadAllText((Join-Path $dataFolder 'DriftReport.template.html'))
-    $script = [System.IO.File]::ReadAllText((Join-Path $dataFolder 'DriftReport.js'))
-    if ($script -match '(?i)</script') { throw 'DriftReport.js must not contain a closing script tag.' }
+    # The selection logic first, then the page that uses it.
+    $script = ('DriftReport.js', 'DriftReport.ui.js' | ForEach-Object { [System.IO.File]::ReadAllText((Join-Path $dataFolder $_)) }) -join "`n"
+    if ($script -match '(?i)</script') { throw 'The report scripts must not contain a closing script tag.' }
 
     $json = ConvertTo-Json -InputObject $Data -Depth 12 -Compress
     $slashU = [string][char]92 + 'u'

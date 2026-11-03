@@ -23,7 +23,9 @@ Shared pieces: `templates\install-dependencies.yml`, `templates\export-tenant.ym
 ## Making the YAML ready for Azure DevOps (once, then whenever the YAML here changes)
 The YAML holds `__TOKEN__` placeholders, never real values.
 1. Copy `pipelines\pipeline.settings.example.psd1` to `pipelines\pipeline.settings.psd1` (git-ignored) and fill in the pool, service
-   connection, Key Vault and certificate secret names (base64 PFX), tenant domains, app ids and the Dev Writer thumbprint. No secrets go in it.
+   connection, tenant domains, Key Vault names and the **names of the Key Vault secrets** that hold the certificates (base64 PFX), the
+   app ids and the Dev Writer thumbprint. The app ids and thumbprints themselves are read from Key Vault when a pipeline runs; none
+   of them, and nothing sensitive, goes in the file.
 2. Run `pwsh -NoProfile -File pipelines\scripts\New-PipelineYaml.ps1`. It writes the finished files to `pipelines\dist\` (git-ignored) and
    stops on a missing value, an example value left in, or a token it does not know.
 3. Copy the contents of `dist\` over the `pipelines\` folder of your ADO repo (`pipelines\scripts\` and `tools\` are used as they are).

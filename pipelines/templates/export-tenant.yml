@@ -4,7 +4,7 @@ parameters:
     type: string
   - name: tenantDomain        # contoso-dev.onmicrosoft.com
     type: string
-  - name: applicationId       # Reader app registration
+  - name: applicationIdSecret # Key Vault secret holding the Reader app registration's application (client) id
     type: string
   - name: serviceConnection
     type: string
@@ -31,8 +31,10 @@ steps:
       inlineScript: |
         $env:PE_CERT_PFX_BASE64 = az keyvault secret show --vault-name '${{ parameters.keyVaultName }}' --name '${{ parameters.certificateSecret }}' --query value -o tsv
         if ($LASTEXITCODE -ne 0) { throw 'Key Vault read failed.' }
+        $appId = az keyvault secret show --vault-name '${{ parameters.keyVaultName }}' --name '${{ parameters.applicationIdSecret }}' --query value -o tsv
+        if ($LASTEXITCODE -ne 0 -or -not $appId) { throw 'Key Vault read of the application id failed.' }
         & '$(Build.SourcesDirectory)/pipelines/scripts/Connect-PipelineTenant.ps1' -Slug '${{ parameters.tenantSlug }}' -Role Reader `
-            -ApplicationId '${{ parameters.applicationId }}' -TenantId '${{ parameters.tenantDomain }}'
+            -ApplicationId $appId.Trim() -TenantId '${{ parameters.tenantDomain }}'
 
   - pwsh: |
       # The workloads come in through the environment and are validated, never written into the script text.

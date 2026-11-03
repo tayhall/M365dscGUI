@@ -12,8 +12,8 @@ variables:
     value: '__DEV_READER_CERT_SECRET__'
   - name: TENANT_DOMAIN
     value: '__DEV_TENANT_DOMAIN__'
-  - name: READER_APP_ID
-    value: '__DEV_READER_APP_ID__'
+  - name: READER_APP_ID_SECRET
+    value: '__DEV_READER_APP_ID_SECRET__'
 
 parameters:
   - name: workloads
@@ -34,7 +34,7 @@ stages:
             parameters:
               tenantSlug: dev
               tenantDomain: $(TENANT_DOMAIN)
-              applicationId: $(READER_APP_ID)
+              applicationIdSecret: $(READER_APP_ID_SECRET)
               serviceConnection: $(SERVICECONNECTION)
               keyVaultName: $(KEYVAULT_NAME)
               certificateSecret: $(CERT_SECRET)

@@ -26,14 +26,14 @@ $tokens = [ordered]@{
     DevOrganizationName     = '__DEV_ORGANIZATION_NAME__'
     DevKeyVault             = '__DEV_KEYVAULT__'
     DevReaderCertSecret     = '__DEV_READER_CERT_SECRET__'
-    DevReaderAppId          = '__DEV_READER_APP_ID__'
+    DevReaderAppIdSecret     = '__DEV_READER_APP_ID_SECRET__'
     DevWriterCertSecret     = '__DEV_WRITER_CERT_SECRET__'
-    DevWriterAppId          = '__DEV_WRITER_APP_ID__'
-    DevWriterThumbprint     = '__DEV_WRITER_THUMBPRINT__'
+    DevWriterAppIdSecret     = '__DEV_WRITER_APP_ID_SECRET__'
+    DevWriterThumbprintSecret = '__DEV_WRITER_THUMBPRINT_SECRET__'
     PreProdTenantDomain     = '__PREPROD_TENANT_DOMAIN__'
     PreProdKeyVault         = '__PREPROD_KEYVAULT__'
     PreProdReaderCertSecret = '__PREPROD_READER_CERT_SECRET__'
-    PreProdReaderAppId      = '__PREPROD_READER_APP_ID__'
+    PreProdReaderAppIdSecret = '__PREPROD_READER_APP_ID_SECRET__'
     DevEnvironment          = '__DEV_ENVIRONMENT__'
     ExportPreProdPipeline   = '__EXPORT_PREPROD_PIPELINE__'
     ExportDevPipeline       = '__EXPORT_DEV_PIPELINE__'
@@ -60,7 +60,7 @@ foreach ($name in $tokens.Keys)
 {
     $value = if ($settings.ContainsKey($name)) { [string]$settings[$name] } else { [string]$defaults[$name] }
     if (-not $value) { $problems += "$name is missing"; continue }
-    if ($value -match '^(0+-)+0+$|^0{40}$') { $problems += "$name still has the example value"; continue }
+    if ($value -match 'CHANGE-ME') { $problems += "$name still has the example value (CHANGE-ME)"; continue }
     # The value goes inside a single-quoted YAML string.
     $values[$name] = $value -replace "'", "''"
 }

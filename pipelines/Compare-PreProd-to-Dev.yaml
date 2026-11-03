@@ -13,11 +13,16 @@ resources:
 variables:
   - name: DEV_TENANT_DOMAIN
     value: '__DEV_TENANT_DOMAIN__'
-  # The Dev Writer app the MOF files will run as (the MOF holds the app id and thumbprint, not the key).
-  - name: DEV_WRITER_APP_ID
-    value: '__DEV_WRITER_APP_ID__'
-  - name: DEV_WRITER_THUMBPRINT
-    value: '__DEV_WRITER_THUMBPRINT__'
+  - name: SERVICECONNECTION
+    value: '__SERVICE_CONNECTION__'
+  - name: KEYVAULT_NAME
+    value: '__DEV_KEYVAULT__'
+  # The Dev Writer app the MOF files will run as (the MOF holds the app id and thumbprint, not the key). Key Vault secret names;
+  # the values are read in the first step and set as DEV_WRITER_APP_ID and DEV_WRITER_THUMBPRINT.
+  - name: DEV_WRITER_APP_ID_SECRET
+    value: '__DEV_WRITER_APP_ID_SECRET__'
+  - name: DEV_WRITER_THUMBPRINT_SECRET
+    value: '__DEV_WRITER_THUMBPRINT_SECRET__'
   - name: DEV_ORGANIZATION_NAME
     value: '__DEV_ORGANIZATION_NAME__'
 
@@ -49,6 +54,20 @@ stages:
             artifact: DevExport
 
           - template: templates/install-dependencies.yml
+
+          - task: AzureCLI@2
+            displayName: 'Read the Dev Writer app id and thumbprint from Key Vault'
+            inputs:
+              azureSubscription: $(SERVICECONNECTION)
+              scriptType: pscore
+              scriptLocation: inlineScript
+              inlineScript: |
+                foreach ($pair in @(@('DEV_WRITER_APP_ID', '$(DEV_WRITER_APP_ID_SECRET)'), @('DEV_WRITER_THUMBPRINT', '$(DEV_WRITER_THUMBPRINT_SECRET)')))
+                {
+                    $value = az keyvault secret show --vault-name '$(KEYVAULT_NAME)' --name $pair[1] --query value -o tsv
+                    if ($LASTEXITCODE -ne 0 -or -not $value) { throw "Key Vault read of $($pair[1]) failed." }
+                    Write-Host "##vso[task.setvariable variable=$($pair[0])]$($value.Trim())"
+                }
 
           - pwsh: |
               # Free-form parameters come in through the environment and are validated, never written into the script text.

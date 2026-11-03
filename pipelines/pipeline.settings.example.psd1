@@ -1,25 +1,26 @@
 # Copy to pipeline.settings.psd1 (git-ignored) and fill in. Then run:
 #   pwsh -NoProfile -File pipelines\scripts\New-PipelineYaml.ps1
-# The ready-to-paste YAML is written to pipelines\dist\. None of these values are secrets (no certificates or passwords):
-# the certificates stay in Key Vault, only their secret names are listed here.
+# Nothing sensitive goes here and no app id or thumbprint either: those are read from Key Vault when the pipeline runs. This file
+# holds only names (of the pool, the service connection, the Key Vaults and the secrets in them). Every value that still says
+# CHANGE-ME is refused by the script.
 @{
     # Required
-    Pool                       = 'Windows 2022 - General - Dev'      # agent pool: Windows, pwsh 7.6+, local admin
-    ServiceConnection          = 'my-azure-service-connection'       # ADO service connection with Key Vault secret read access
+    Pool                       = 'CHANGE-ME agent pool'              # Windows, pwsh 7.6+, local admin
+    ServiceConnection          = 'CHANGE-ME service connection'      # ADO service connection that can read secrets in the Key Vaults below
 
-    DevTenantDomain            = 'contoso-dev.onmicrosoft.com'
-    DevOrganizationName        = 'contoso-dev.onmicrosoft.com'       # Exchange organization name (usually the onmicrosoft.com domain)
-    DevKeyVault                = 'dev-kv-m365'
-    DevReaderCertSecret        = 'dev-reader-cert'                   # Key Vault secret holding the Reader certificate as base64 PFX
-    DevReaderAppId             = '00000000-0000-0000-0000-000000000000'
-    DevWriterCertSecret        = 'dev-writer-cert'
-    DevWriterAppId             = '00000000-0000-0000-0000-000000000000'
-    DevWriterThumbprint        = '0000000000000000000000000000000000000000'
+    DevTenantDomain            = 'CHANGE-ME-dev.onmicrosoft.com'
+    DevOrganizationName        = 'CHANGE-ME-dev.onmicrosoft.com'     # Exchange organization name (usually the onmicrosoft.com domain)
+    DevKeyVault                = 'CHANGE-ME-dev-keyvault'
+    DevReaderCertSecret        = 'CHANGE-ME'                         # secret holding the Reader certificate as a base64 PFX
+    DevReaderAppIdSecret       = 'CHANGE-ME'                         # secret holding the Reader application (client) id
+    DevWriterCertSecret        = 'CHANGE-ME'                         # secret holding the Writer certificate as a base64 PFX
+    DevWriterAppIdSecret       = 'CHANGE-ME'
+    DevWriterThumbprintSecret  = 'CHANGE-ME'                         # secret holding the Writer certificate thumbprint
 
-    PreProdTenantDomain        = 'contoso-preprod.onmicrosoft.com'
-    PreProdKeyVault            = 'preprod-kv-m365'
-    PreProdReaderCertSecret    = 'preprod-reader-cert'
-    PreProdReaderAppId         = '00000000-0000-0000-0000-000000000000'
+    PreProdTenantDomain        = 'CHANGE-ME-preprod.onmicrosoft.com'
+    PreProdKeyVault            = 'CHANGE-ME-preprod-keyvault'
+    PreProdReaderCertSecret    = 'CHANGE-ME'
+    PreProdReaderAppIdSecret   = 'CHANGE-ME'
 
     # Optional (these are the defaults). The pipeline names must match the names you give the pipelines in Azure DevOps.
     DevEnvironment             = 'm365-dev'                          # ADO environment with an approval check

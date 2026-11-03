@@ -26,6 +26,9 @@ param
     [Parameter(Mandatory)]
     [string]$TenantId,
 
+    # When given, the imported certificate must have this thumbprint (it is removed again if not).
+    [string]$ExpectedThumbprint,
+
     # Optional certificate password (environment variable PE_CERT_PASSWORD).
     [string]$PfxPasswordVariable = 'PE_CERT_PASSWORD'
 )
@@ -50,6 +53,12 @@ try
 finally
 {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
+}
+
+if ($ExpectedThumbprint -and $cert.Thumbprint -ine ($ExpectedThumbprint -replace '\s', ''))
+{
+    Remove-Item -LiteralPath "$store\$($cert.Thumbprint)" -Force
+    throw "The certificate in Key Vault has thumbprint $($cert.Thumbprint), not the expected $ExpectedThumbprint. Nothing was kept."
 }
 
 $infoPath = Get-PEAppInfoPath -Role $Role -Tenant $Slug

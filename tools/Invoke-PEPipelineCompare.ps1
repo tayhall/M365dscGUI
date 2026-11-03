@@ -71,10 +71,7 @@ $workloadData = @((Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot '..\
 $sourceState = New-PEStateFromExport -Path (Resolve-Path -LiteralPath $SourceExportPath).ProviderPath -WarningAction SilentlyContinue
 $targetState = New-PEStateFromExport -Path (Resolve-Path -LiteralPath $TargetExportPath).ProviderPath -AllowMissingLog -WarningAction SilentlyContinue
 
-# The target export as an uploaded snapshot (the same files the pipeline exported; every file must carry the pinned DSC version).
-# -CompleteWorkload takes workload names (Data\Workloads.psd1) and refuses one the upload holds no record of, so the prefixes are
-# mapped to names and only the workloads the target export has records of are passed.
-$files = @(Get-ChildItem -LiteralPath $TargetExportPath -Filter 'export.ps1' | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Text = [IO.File]::ReadAllText($_.FullName) } })
+# Which workloads of the target export count as complete (reported here; Invoke-PEExportComparison applies the same rule).
 $present = @($targetState.Records | ForEach-Object { [string]$_.Workload } | Sort-Object -Unique)
 $completeNames = @($workloadData | Where-Object { $CompleteWorkload -contains $_.Prefix -and $present -contains $_.Name } | ForEach-Object { $_.Name })
 "Target workloads with records: $($present -join ', '); treated as complete: $($completeNames -join ', ')"
@@ -86,26 +83,10 @@ function Invoke-ComparisonRun
     param ([string]$Name, [string]$WorkloadPrefix)
 
     $root = Join-Path $work $Name
-    New-Item -ItemType Directory -Force -Path $root | Out-Null
-    $state = $sourceState
-    if ($WorkloadPrefix)
-    {
-        $workloadName = ($workloadData | Where-Object { $_.Prefix -eq $WorkloadPrefix }).Name
-        $state = $sourceState | Select-Object -Property *
-        $state.Records = @($sourceState.Records | Where-Object { [string]$_.Workload -eq $workloadName })
-        $state.NotChecked = @($sourceState.NotChecked | Where-Object { $null -ne $_ -and [string]$_.ResourceType -like "$WorkloadPrefix*" })
-    }
-    Initialize-PEBlueprint -Name 'source' -State $state -DataRoot $root | Out-Null
-    Set-PETenant -Slug 'target' -DisplayName 'target' -TenantId $TargetTenantDomain -Offline -DataRoot $root | Out-Null
-    # The tenant's own blueprint is a copy of the source: that is what the generator compares with.
-    Initialize-PETenantBlueprint -Slug 'target' -MasterBlueprint 'source' -DataRoot $root | Out-Null
-    $upload = @{ Tenant = 'target'; File = $files; TenantDomain = $TargetTenantDomain; DataRoot = $root }
-    if ($completeNames.Count) { $upload.CompleteWorkload = $completeNames }
-    New-PEUploadCheck @upload | Out-Null
-
-    $check = Get-PECheck -Latest -Kind Full -Tenant 'target' -DataRoot $root
-    $findings = @(Compare-PEState -Blueprint (Get-PEBlueprint -Name 'target' -DataRoot $root) -Target $check.State -WarningAction SilentlyContinue)
-    [pscustomobject]@{ Findings = $findings; Config = (New-PEOfflineConfig -Tenant 'target' -DataRoot $root) }
+    $run = Invoke-PEExportComparison -SourceExportPath $SourceExportPath -TargetExportPath $TargetExportPath `
+        -TargetTenantDomain $TargetTenantDomain -DataRoot $root -CompleteWorkload $CompleteWorkload -WorkloadPrefix $WorkloadPrefix `
+        -SourceState $sourceState -TargetState $targetState -WarningAction SilentlyContinue
+    [pscustomobject]@{ Findings = $run.Findings; Config = (New-PEOfflineConfig -Tenant 'target' -DataRoot $root) }
 }
 
 function Write-Configuration

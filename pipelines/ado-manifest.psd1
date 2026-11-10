@@ -1,0 +1,120 @@
+﻿# Manifest of what the ADO repo needs. Read by tools\Export-PEAdoRepo.ps1 (not written yet). Paths are relative to the repo root;
+# a folder path takes everything under it. The GUI, the standards workflow, Windows scheduling and the local data folder are left out.
+#
+# Module files come from a call graph of the pipeline entry points (pipelines\scripts\*, the tools below) through src\PolicyEngine.
+# When a pipeline script starts calling another module function, add its file here (the trial-copy test run fails if one is missing).
+@{
+    Include = @(
+        '.gitattributes'
+        'LICENSE'
+        'CLAUDE.md'
+        'pipelines'
+        'src\PolicyEngine\PolicyEngine.psd1'
+        'src\PolicyEngine\PolicyEngine.psm1'
+        'src\PolicyEngine\Data'
+        'tools\Export-M365DscTenant.ps1'
+        'tools\Install-M365DscDependencies.ps1'
+        'tools\Invoke-PEApprovedBuild.ps1'
+        'tools\Invoke-PELcm.ps1'
+        'tools\Invoke-PEPipelineCompare.ps1'
+        'tools\Invoke-PETests.ps1'
+        'tools\New-PEDriftReport.ps1'
+        'tools\PEAppPath.ps1'
+        'tests\driftreport'
+        'docs\handover.md'
+        'docs\upstream-issues.md'
+    )
+
+    # Module files reached from the pipeline scripts and tools.
+    ModuleFiles = @(
+        'src\PolicyEngine\Private\ApprovedList.ps1'
+        'src\PolicyEngine\Private\Blueprint.ps1'
+        'src\PolicyEngine\Private\BuiltIn.ps1'
+        'src\PolicyEngine\Private\Compare.ps1'
+        'src\PolicyEngine\Private\ConfigSafe.ps1'
+        'src\PolicyEngine\Private\DecisionStore.ps1'
+        'src\PolicyEngine\Private\Delta.ps1'
+        'src\PolicyEngine\Private\DriftReportData.ps1'
+        'src\PolicyEngine\Private\DscSchema.ps1'
+        'src\PolicyEngine\Private\ExportLog.ps1'
+        'src\PolicyEngine\Private\ExportTool.ps1'
+        'src\PolicyEngine\Private\GuiRevertConfig.ps1'
+        'src\PolicyEngine\Private\ModuleGuard.ps1'
+        'src\PolicyEngine\Private\Normalize.ps1'
+        'src\PolicyEngine\Private\Parse.ps1'
+        'src\PolicyEngine\Private\Rectify.ps1'
+        'src\PolicyEngine\Private\RectifyPlanSafe.ps1'
+        'src\PolicyEngine\Private\References.ps1'
+        'src\PolicyEngine\Private\RevertBlock.ps1'
+        'src\PolicyEngine\Private\Standard.ps1'
+        'src\PolicyEngine\Private\Store.ps1'
+        'src\PolicyEngine\Private\Tenant.ps1'
+        'src\PolicyEngine\Private\Upload.ps1'
+        'src\PolicyEngine\Private\UserReferences.ps1'
+        'src\PolicyEngine\Private\Versions.ps1'
+        'src\PolicyEngine\Private\Workloads.ps1'
+        'src\PolicyEngine\Public\ApprovedList.ps1'
+        'src\PolicyEngine\Public\Blueprint.ps1'
+        'src\PolicyEngine\Public\Compare-PEState.ps1'
+        'src\PolicyEngine\Public\Decisions.ps1'
+        'src\PolicyEngine\Public\ExportIntegrity.ps1'
+        'src\PolicyEngine\Public\Get-PECheck.ps1'
+        'src\PolicyEngine\Public\Get-PEDriftReportData.ps1'
+        'src\PolicyEngine\Public\Initialize-PETenantBlueprint.ps1'
+        'src\PolicyEngine\Public\Invoke-PEExportComparison.ps1'
+        'src\PolicyEngine\Public\Invoke-PELoggedCommand.ps1'
+        'src\PolicyEngine\Public\MofResourceId.ps1'
+        'src\PolicyEngine\Public\Move-PEBlueprintItem.ps1'
+        'src\PolicyEngine\Public\New-PEApprovedConfig.ps1'
+        'src\PolicyEngine\Public\New-PEDriftReportHtml.ps1'
+        'src\PolicyEngine\Public\New-PEOfflineConfig.ps1'
+        'src\PolicyEngine\Public\New-PEStateFromExport.ps1'
+        'src\PolicyEngine\Public\New-PEUploadCheck.ps1'
+        'src\PolicyEngine\Public\Rectify.ps1'
+        'src\PolicyEngine\Public\Tenants.ps1'
+    )
+
+    # Tests of the kept code. Left out because they test code the ADO repo does not carry: Delta (Export-PEDelta), ModuleGuard
+    # (Get-PEModuleStatus), PropertyExclusion (Get-PEStatus), RevertBlocked (the GUI), StateFromExport (Invoke-PEFullCheck),
+    # UserReferences (the Reader-app lookup in Graph.ps1).
+    Tests = @(
+        'tests\ApprovedBuild.Tests.ps1'
+        'tests\ApprovedConfig.Tests.ps1'
+        'tests\ApprovedList.Tests.ps1'
+        'tests\Blueprint.Tests.ps1'
+        'tests\BuiltIn.Tests.ps1'
+        'tests\Compare.Tests.ps1'
+        'tests\CompareSubset.Tests.ps1'
+        'tests\ConfigSafe.Tests.ps1'
+        'tests\CrossTenant.Tests.ps1'
+        'tests\Decisions.Tests.ps1'
+        'tests\DriftReportData.Tests.ps1'
+        'tests\DriftReportHtml.Tests.ps1'
+        'tests\DriftReportJs.Tests.ps1'
+        'tests\DriftReportPage.Tests.ps1'
+        'tests\DriftReportTool.Tests.ps1'
+        'tests\ExcludeReplica.Tests.ps1'
+        'tests\ExportComparison.Tests.ps1'
+        'tests\ExportIntegrity.Tests.ps1'
+        'tests\ExportLog.Tests.ps1'
+        'tests\GetCheck.Tests.ps1'
+        'tests\Module.Tests.ps1'
+        'tests\MofResourceId.Tests.ps1'
+        'tests\Normalize.Tests.ps1'
+        'tests\OfflineConfig.Tests.ps1'
+        'tests\OwnId.Tests.ps1'
+        'tests\Parse.Tests.ps1'
+        'tests\PipelineApplyResult.Tests.ps1'
+        'tests\PipelineApprovalHelpers.Tests.ps1'
+        'tests\PipelineApprovedApply.Tests.ps1'
+        'tests\PipelineYaml.Tests.ps1'
+        'tests\References.Tests.ps1'
+        'tests\Store.Tests.ps1'
+        'tests\UpdateDscPin.Tests.ps1'
+    )
+
+    # Left out of the Data folder (used only by the standards workflow).
+    ExcludeData = @(
+        'src\PolicyEngine\Data\StandardSources.psd1'
+    )
+}

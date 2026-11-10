@@ -10,6 +10,8 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 | `Apply-Approved-Dev.yaml` | Applies exactly the items of one approved list (`approvals/*.json`, from the drift report). Default mode `Test`; gated by the `m365-dev` environment approval. See "Approved apply" below. |
 | `Bump-Dsc-Pin.yaml` | Changes the pinned Microsoft365DSC (and optionally Microsoft.Graph.Authentication) version in `src\PolicyEngine\Data\Versions.psd1` and opens a pull request. See "Bumping the DSC pins" below. |
 
+Each export run names itself `<Environment> <FULL|PARTIAL> <workloads> <date>` (for example `Dev FULL AAD+Intune+EXO+Teams 2026-11-10` or `PreProd PARTIAL SC 2026-11-12`), set from `Get-ExportRunName.ps1` with a `##vso[build.updatebuildnumber]` command before the tenant is contacted. FULL means every default workload of `Workloads.psd1` is in the run, otherwise PARTIAL; workloads appear in that file's order. Compare's Resources section shows this name in the run picker, so you can see what each export contains.
+
 **Drift report (choose what to apply, in the browser).** The compare pipeline also publishes `drift-report.html` in the `DriftReport` artifact
 (`tools\New-PEDriftReport.ps1`, built from the engine's own comparison, not a second one).
 1. Download the `DriftReport` artifact and open `drift-report.html` (a double click; it is one file, needs no server and makes no network calls).

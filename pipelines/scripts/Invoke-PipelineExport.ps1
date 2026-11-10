@@ -30,6 +30,12 @@ if (-not $Workloads)
     $Workloads = & (Join-Path $PSScriptRoot 'Get-WorkloadSelection.ps1')
 }
 
+# Name the Azure DevOps run after what it exports (Compare's run picker shows it). A local run stays quiet.
+if ($env:TF_BUILD -eq 'True')
+{
+    Write-Output "##vso[build.updatebuildnumber]$(& (Join-Path $PSScriptRoot 'Get-ExportRunName.ps1') -Environment $Environment -Workloads $Workloads)"
+}
+
 try
 {
     & (Join-Path $PSScriptRoot 'Connect-PipelineTenant.ps1') -Environment $Environment -Role Reader

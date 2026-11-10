@@ -550,7 +550,7 @@ Describe 'Invoke-PERectifyRecheck (the default recheck)' {
             @"
 Configuration delta-export
 {
-    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1021.1'
+    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1104.1'
     Node localhost
     {
 $($blocks -join "`n")

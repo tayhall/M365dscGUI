@@ -21,7 +21,7 @@ BeforeAll {
         $source = New-ExportCopy 'entra.ps1' $SourceLog
         $target = New-ExportCopy 'entra-drift.ps1' $TargetLog
         $targetFp = if ($WrongTargetFingerprint) { 'f' * 64 } else { Get-PEExportFingerprint -Path $target }
-        $list = New-PEApprovedList -Tenant $Tenant -ApprovedBy 'andrew' -ModuleVersion '2.26.1021.1' -Item $Item `
+        $list = New-PEApprovedList -Tenant $Tenant -ApprovedBy 'andrew' -ModuleVersion '2.26.1104.1' -Item $Item `
             -Source @{ Run = '101'; ExportedAt = '2026-11-03T10:00:00Z'; Fingerprint = (Get-PEExportFingerprint -Path $source) } `
             -Target @{ Run = '102'; ExportedAt = $TargetExportedAt.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'); Fingerprint = $targetFp }
         $listPath = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-ab-list-' + [guid]::NewGuid().ToString('N') + '.json')

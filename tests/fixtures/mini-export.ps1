@@ -9,7 +9,7 @@ Configuration mini-export
 
     $OrganizationName = $ConfigurationData.NonNodeData.OrganizationName
 
-    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1021.1'
+    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1104.1'
 
     Node localhost
     {

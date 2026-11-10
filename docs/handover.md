@@ -108,6 +108,26 @@ Scale test on the dummy tenant, blueprint `demo` v1 (34 items) to v2: 15 resourc
 - **GUI refresh no longer stops at the guard.** A Recheck passes `-AcceptModuleChange`. The Overview/Drift banner lists the steps (review the drift, mark reviewed), counts the items whose tenant has a setting the blueprint lacks, and links DSC's changelog (not copied). "Mark reviewed" is the request `ReviewModule`: it runs `Set-PEBlueprintModule` for every blueprint built with another version. Reverts stay refused until then.
 - **Round trip not re-run on 1021.1** (it needs the module under Program Files and takes about 25 minutes). The 1015.1 results in `data\roundtrip\latest.json` were overwritten by the failed run; `data\roundtrip\20261024-082308.json` is the last valid one.
 
+### Moving to 2.26.1104.1 (2026-11-10)
+
+- **Why.** Issue 7563 (SC resources fail through the LCM) was closed by PR 7571 and released in 2.26.1028.1 (its release note: `M365DSC.Mgx` updated to 2.1.10, "FIXES #7563"). Issue 7581, still open, says SC exports break when workloads share a process; the engine already avoids that by exporting `OwnProcess` workloads separately. 2.26.1104.1 is the latest release. The pin moved from 2.26.1021.1 in `Data\Versions.psd1`; tests and fixtures follow it. Text that records what 2.26.1021.1 did (`tests\ExportLog.Tests.ps1`, the header of `tests\fixtures\export-log-filtered-single.txt`) is history and stays.
+- **What the release notes of 2.26.1028.1 and 2.26.1104.1 change in data this engine reads or keys** (from `gh release view`; only what touches exported values, keys, compare, export or the commands we call). No rename, removal or key change of a property was found in either release. Exported values that can differ from a 1021.1 read, and so show as Changed or Missing in the first check after the move:
+  - `AADDomain`: `SupportedServices` was missing from the current values and is now read (#7570).
+  - `EXOOrganizationConfig`: the export now retrieves the EWS operation access policy; `EwsAllowedAppIDs` used to export as an empty list.
+  - `SPOAccessControlSettings`: `EnableRestrictedAccessControl` was read from the wrong tenant property and was left out of the export; it is now read.
+  - `TeamsUpdateManagementPolicy`: `UpdateTimeOfDay` no longer reports drift on every run unless written as `h:mm tt` (#7565).
+  - `AADServicePrincipal`: more claims transformation types and properties (`input2`, `output`, `separator`, `type`, `value`, `value2`, `index`, `length`; `trimTransformation` in 1104.1) (#7561, #7578).
+  - Compare and export behaviour: members are resolved case-insensitively (`M365DSCResourceBase`); in 1104.1 empty collections are treated as unset on properties with `ValidateNotNullOrEmpty` and a `ScalarAsArray` compare rule and `ReportPostProcessing` were added (a possible change in what a delta report calls drift); exports and `Split-M365DSCConfiguration` files are now written as UTF-8 with a byte order mark (#7562); `DependsOn` lines no longer land inside multiline strings; `-WithStatistics` now also returns failed resources with their messages.
+  - `Get-M365DSCCompiledPermissionList` (1104.1) used to return the application update permissions and roles whatever `PermissionType` and `AccessType` were given (#7589); it now honours them, so the permission lists we derive from it may be smaller than before.
+  - Export fixes that only turn a failing export into a working one: `EXOCalendarProcessing` (#7590), `EXODynamicDistributionGroup` (#7586), `IntuneAppConfigurationDevicePolicy` (#7582), `TeamsOnlineVoicemailUserSettings` (#7591). Types that were reported as not exported before may now appear.
+  - SC, the LCM: nothing beyond the `M365DSC.Mgx` update above. Nothing was found about key, `ResourcePermissions.json` or `SchemaDefinition.json` format changes.
+- **Follow-up steps, not done by this change:**
+  1. Copy the module and its dependencies into `C:\Program Files\WindowsPowerShell\Modules` for the LCM (`pipelines\scripts\Install-PipelineDependencies.ps1` does it on an agent). Install for pwsh first (`tools\Install-M365DscDependencies.ps1 -ModuleVersion 2.26.1104.1`; its default still names the old version).
+  2. Take fresh exports: an export made with another pin is refused.
+  3. Re-baseline with `-AcceptModuleChange` (see above), review the drift the list above predicts, Promote what is expected, then `Set-PEBlueprintModule`.
+  4. **Pending experiment:** SC through the LCM. Only if it works: remove the `^SC` rule in `Data\RevertBlocked.psd1` and add SC to the export and compare defaults.
+  5. Check that the reader of export files copes with the byte order mark.
+
 ### Snapshots, baselines and restore (2026-10-27)
 
 - **Words:** snapshot (a stored reading, `Kind = 'Full'`), refresh (partial re-read, `PatchedFrom`), compare (snapshot against a blueprint). See `docs\overview.md`, "Words used in the GUI".

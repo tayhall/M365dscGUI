@@ -1,4 +1,4 @@
-# Generated with Microsoft365DSC version 2.26.1021.1
+# Generated with Microsoft365DSC version 2.26.1104.1
 # For additional information on how to use Microsoft365DSC, please visit https://aka.ms/M365DSC
 param (
 )
@@ -10,7 +10,7 @@ Configuration Exchange
 
     $OrganizationName = $ConfigurationData.NonNodeData.OrganizationName
 
-    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1021.1'
+    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1104.1'
 
     Node localhost
     {

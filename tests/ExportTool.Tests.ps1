@@ -148,7 +148,7 @@ Describe 'Merge-PEExportPart' {
         Copy-Item (Join-Path $PSScriptRoot 'fixtures\mini-export.ps1') (Join-Path $script:Main 'export.ps1')
         Set-Content -LiteralPath (Join-Path $script:Main 'export.log') -Value @('Exporting Microsoft 365 configuration for Components: AADGroup', '[1/1] Extracting [AADGroup] using {CertificateThumbprint}...✅')
         @'
-# Generated with Microsoft365DSC version 2.26.1021.1
+# Generated with Microsoft365DSC version 2.26.1104.1
 param (
 )
 
@@ -159,7 +159,7 @@ Configuration export
 
     $OrganizationName = $ConfigurationData.NonNodeData.OrganizationName
 
-    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1021.1'
+    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1104.1'
 
     Node localhost
     {

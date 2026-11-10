@@ -152,10 +152,10 @@ Describe 'New-PEOfflineConfig' -Tag 'Slow' {
 
     It 'stamps both files with the pinned module version and writes credentials only as configuration data references' {
         $pinned = & (Get-Module PolicyEngine) { Get-PEPinnedVersion -Name Microsoft365DSC }
-        $pinned | Should -Be '2.26.1021.1'
+        $pinned | Should -Be '2.26.1104.1'
         foreach ($text in $script:Result.Changes, $script:Result.Removals)
         {
-            $text | Should -Match "Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1021.1'"
+            $text | Should -Match "Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1104.1'"
             foreach ($name in 'ApplicationId', 'TenantId', 'CertificateThumbprint')
             {
                 $assignments = @([regex]::Matches($text, "(?m)^\s+$name\s+= (.+);\s*$") | ForEach-Object { $_.Groups[1].Value })
@@ -172,7 +172,7 @@ Describe 'New-PEOfflineConfig' -Tag 'Slow' {
             $name, $text = $pair
             $head = ($text -split "`n" | Select-Object -First 12) -join "`n"
             $head | Should -Match "(?m)^# $name brings tenant 'acme' in line with its blueprint 'acme' v1 \(check 20261025-100000\)\."
-            $head | Should -Match '(?m)^# Needs Microsoft365DSC 2.26.1021.1'
+            $head | Should -Match '(?m)^# Needs Microsoft365DSC 2.26.1104.1'
             $head | Should -Match '(?m)^#\s+\. \.\\<this file>\.ps1$'
             $head | Should -Match "(?m)^#\s+$name -ConfigurationData \.\\ConfigurationData\.psd1 -OutputPath \.\\$name$"
             $head | Should -Match "(?m)^#\s+Start-DscConfiguration -Path \.\\$name -Wait -Verbose"

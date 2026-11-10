@@ -12,7 +12,7 @@ BeforeAll {
 Describe 'Get-PEExportFileVersion' {
     It 'reads the version from the generated header' {
         $text = (Get-UploadFile 'entra.ps1').Text
-        & (Get-Module PolicyEngine) { Get-PEExportFileVersion -Text $args[0] } $text | Should -Be '2.26.1021.1'
+        & (Get-Module PolicyEngine) { Get-PEExportFileVersion -Text $args[0] } $text | Should -Be '2.26.1104.1'
     }
 
     It 'throws when the generated line is missing' {
@@ -21,7 +21,7 @@ Describe 'Get-PEExportFileVersion' {
     }
 
     It 'throws when the header and the Import-DscResource version disagree' {
-        $text = (Get-UploadFile 'entra.ps1').Text -replace "-ModuleVersion '2.26.1021.1'", "-ModuleVersion '2.26.1.1'"
+        $text = (Get-UploadFile 'entra.ps1').Text -replace "-ModuleVersion '2.26.1104.1'", "-ModuleVersion '2.26.1.1'"
         { & (Get-Module PolicyEngine) { Get-PEExportFileVersion -Text $args[0] } $text } | Should -Throw '*2.26.1.1*'
     }
 }
@@ -29,7 +29,7 @@ Describe 'Get-PEExportFileVersion' {
 Describe 'Get-PEExportFileVersion (first line, BOM)' {
     It 'accepts a leading byte order mark with CRLF text' {
         $text = [string][char]0xFEFF + ((Get-UploadFile 'entra.ps1').Text -replace "`r?`n", "`r`n")
-        & (Get-Module PolicyEngine) { Get-PEExportFileVersion -Text $args[0] } $text | Should -Be '2.26.1021.1'
+        & (Get-Module PolicyEngine) { Get-PEExportFileVersion -Text $args[0] } $text | Should -Be '2.26.1104.1'
     }
 
     It 'refuses a header that is not on the first line' {
@@ -59,7 +59,7 @@ Describe 'Assert-PEUploadVersion' {
         $files = @(Get-UploadFile 'entra.ps1', 'other-version.ps1')
         $message = $null
         try { & (Get-Module PolicyEngine) { Assert-PEUploadVersion -File $args[0] } $files } catch { $message = $_.Exception.Message }
-        $message | Should -Be 'other-version.ps1 was exported with Microsoft365DSC 1.26.422.1, but this installation is pinned to 2.26.1021.1. Export again with 2.26.1021.1.'
+        $message | Should -Be 'other-version.ps1 was exported with Microsoft365DSC 1.26.422.1, but this installation is pinned to 2.26.1104.1. Export again with 2.26.1104.1.'
     }
 }
 

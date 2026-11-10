@@ -11,7 +11,7 @@ const item = (action, kind, type, key, extra = {}) => ({
 });
 const data = {
   Meta: {
-    Tenant: 'replica', SourceLabel: 'master', TargetLabel: 'replica', ModuleVersion: '2.26.1021.1', ReportId: 'c'.repeat(64),
+    Tenant: 'replica', SourceLabel: 'master', TargetLabel: 'replica', ModuleVersion: '2.26.1104.1', ReportId: 'c'.repeat(64),
     WorkloadOrder: ['Entra ID', 'Intune', 'Exchange Online', 'Teams', 'Security and Compliance', 'Other'],
     Source: { Run: '1', ExportedAt: '2026-11-03T10:00:00Z', Fingerprint: 'a'.repeat(64) },
     Target: { Run: '2', ExportedAt: '2026-11-03T10:05:00Z', Fingerprint: 'b'.repeat(64) },

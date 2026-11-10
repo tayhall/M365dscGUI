@@ -8,6 +8,7 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 | `Compare-PreProd-to-Dev.yaml` | Takes the latest of both exports, runs `tools\Invoke-PEPipelineCompare.ps1`, publishes `DriftReport` (`drift-report.html`, `drift.csv`, `drift.json`, `Changes.ps1`, `Removals.ps1`, `Manual.json`, `MOF\Changes`, `MOF\Removals`). |
 | `Apply-Dev.yaml` | Applies the MOFs to Dev through the LCM (`tools\Invoke-PELcm.ps1`). Default mode is `Test`; Removals only when asked; gated by the `m365-dev` environment approval. |
 | `Apply-Approved-Dev.yaml` | Applies exactly the items of one approved list (`approvals/*.json`, from the drift report). Default mode `Test`; gated by the `m365-dev` environment approval. See "Approved apply" below. |
+| `Bump-Dsc-Pin.yaml` | Changes the pinned Microsoft365DSC (and optionally Microsoft.Graph.Authentication) version in `src\PolicyEngine\Data\Versions.psd1` and opens a pull request. See "Bumping the DSC pins" below. |
 
 **Drift report (choose what to apply, in the browser).** The compare pipeline also publishes `drift-report.html` in the `DriftReport` artifact
 (`tools\New-PEDriftReport.ps1`, built from the engine's own comparison, not a second one).
@@ -79,6 +80,31 @@ branch and the folder, not who reviewed the change.
   MOFs were compiled with. A run with no drift ends with "Nothing to apply". In Apply mode a resource still not in the desired state fails the step and
   Removals do not follow; in Test mode differences are only reported.
 - When you queue Apply by hand, Azure DevOps lets you pick which compare run to use (Resources); the default is the latest.
+
+## Bumping the DSC pins
+`Bump-Dsc-Pin.yaml` (`pipelines\scripts\Update-DscPin.ps1`) moves the versions pinned in `src\PolicyEngine\Data\Versions.psd1`, the one file every pipeline,
+tool and the module install from. It checks the versions, edits only the value on the pin line (comments, the other pin and the line endings stay),
+creates the branch `dsc-pin/<version>`, commits, pushes, and opens a pull request into the default branch. It **never pushes to `main`** (or any
+default branch) and never overrides a pin at run time: the change takes effect when somebody merges the pull request.
+
+Parameters (queue it by hand, from the default branch):
+- `version` (required): the Microsoft365DSC version, four numbers such as `2.26.1104.1`.
+- `graphAuthenticationVersion` (optional): the Microsoft.Graph.Authentication version, three numbers such as `2.41.1`; empty keeps the current one
+  (when given, the branch is `dsc-pin/<version>-graph-<graph version>`).
+
+What it refuses or does on its own: a version of the wrong shape or one the PowerShell Gallery does not have stops it before anything is changed; the
+version already pinned is "nothing to do" (no branch, no pull request); a branch for that version that already exists is not duplicated (it prints
+the open pull request's address instead); a lower version is allowed but the log, the title and the description say `DOWNGRADE`. The parameters travel to
+the script as environment variables, never inside the command text.
+
+**Permissions.** The project's build service identity (`<Project> Build Service (<Organization>)`) needs these on the repository: **Contribute**,
+**Create branch** and **Contribute to pull requests**. The step uses `persistCredentials` for git and `System.AccessToken` for the REST call, so no
+secret is stored. If a branch policy on the default branch needs reviewers, they are added to the pull request in the usual way.
+
+**After merging the pull request:**
+- Take fresh exports: an export made with another pin is refused.
+- Run the install step (`pipelines\scripts\Install-PipelineDependencies.ps1`) on the agents so they have the pinned module versions.
+- See "When the Microsoft365DSC pin changes" in `docs\handover.md`.
 
 ## Configuration: two places
 **1. Tenant config files, read at run time: `pipelines\config\Dev.psd1` and `PreProd.psd1`.** Fill in the tenant domain, Key Vault name,

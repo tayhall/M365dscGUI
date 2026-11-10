@@ -1,0 +1,37 @@
+name: 'M365DSC - Bump DSC pins'
+
+trigger: none
+pr: none
+
+# Changes src/PolicyEngine/Data/Versions.psd1 on a branch (dsc-pin/<version>) and opens a pull request into the default branch.
+# It never pushes to the default branch. Run it from the default branch. The build service needs Contribute, Create branch and
+# Contribute to pull requests on the repository (see pipelines/README.md).
+parameters:
+  - name: version
+    displayName: Microsoft365DSC version to pin, for example 2.26.1104.1
+    type: string
+  - name: graphAuthenticationVersion
+    displayName: Microsoft.Graph.Authentication version (leave empty to keep it)
+    type: string
+    default: ''
+
+pool:
+  name: '__POOL__'   # needs pwsh 7.6+ and git
+
+jobs:
+  - job: BumpPins
+    timeoutInMinutes: 20
+    steps:
+      - checkout: self
+        persistCredentials: true
+        fetchDepth: 0
+
+      # The parameters travel as environment variables, never inside the script text; the script checks their shape first.
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Update-DscPin.ps1' -Version $env:PE_PIN_VERSION -GraphAuthenticationVersion $env:PE_PIN_GRAPH_VERSION -CreatePullRequest
+        displayName: Change the pins and open a pull request
+        env:
+          PE_PIN_VERSION: ${{ parameters.version }}
+          PE_PIN_GRAPH_VERSION: ${{ parameters.graphAuthenticationVersion }}
+          PE_DEFAULT_BRANCH: '__DEFAULT_BRANCH__'
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)

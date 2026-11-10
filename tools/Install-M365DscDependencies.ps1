@@ -22,7 +22,16 @@ $ErrorActionPreference = 'Stop'
 
 if (-not $ModuleVersion)
 {
-    $ModuleVersion = (Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot '..\src\PolicyEngine\Data\Versions.psd1')).Microsoft365DSC
+    $pinPath = Join-Path $PSScriptRoot '..\src\PolicyEngine\Data\Versions.psd1'
+    if (-not (Test-Path -LiteralPath $pinPath -PathType Leaf))
+    {
+        throw "Pin file not found: $pinPath. Pass -ModuleVersion or restore the file."
+    }
+    $ModuleVersion = (Import-PowerShellDataFile -LiteralPath $pinPath).Microsoft365DSC
+    if (-not $ModuleVersion)
+    {
+        throw "Versions.psd1 has no Microsoft365DSC entry ($pinPath). Pass -ModuleVersion or add the entry."
+    }
 }
 
 if ($PSVersionTable.PSVersion -lt [version]'7.6')

@@ -31,9 +31,18 @@ if (-not $Workloads)
 }
 
 # Name the Azure DevOps run after what it exports (Compare's run picker shows it). A local run stays quiet.
+# The name is cosmetic: a failure to build it only warns and never stops the export.
 if ($env:TF_BUILD -eq 'True')
 {
-    Write-Output "##vso[build.updatebuildnumber]$(& (Join-Path $PSScriptRoot 'Get-ExportRunName.ps1') -Environment $Environment -Workloads $Workloads)"
+    try
+    {
+        $runName = & (Join-Path $PSScriptRoot 'Get-ExportRunName.ps1') -Environment $Environment -Workloads $Workloads
+        Write-Output "##vso[build.updatebuildnumber]$runName"
+    }
+    catch
+    {
+        Write-Warning "Run name not set: $($_.Exception.Message)"
+    }
 }
 
 try

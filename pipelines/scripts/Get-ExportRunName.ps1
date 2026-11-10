@@ -25,6 +25,8 @@ $chosen = @($Workloads -split ',' | ForEach-Object { $_.Trim() } | Where-Object 
 
 $selected = @($known | Where-Object { $chosen -contains $_.Prefix })
 $missingDefault = @($known | Where-Object { $_.Default -and $chosen -notcontains $_.Prefix })
+# An injected date is a calendar date: Utc and Unspecified are used as given, only a Local value is converted to UTC.
+$day = if ($RunDate.Kind -eq 'Local') { $RunDate.ToUniversalTime() } else { $RunDate }
 $scope = if ($missingDefault.Count -eq 0) { 'FULL' } else { 'PARTIAL' }
 
-return "$Environment $scope $(@($selected.Prefix) -join '+') $($RunDate.ToUniversalTime().ToString('yyyy-MM-dd'))"
+return "$Environment $scope $(@($selected.Prefix) -join '+') $($day.ToString('yyyy-MM-dd'))"

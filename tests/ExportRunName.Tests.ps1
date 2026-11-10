@@ -1,7 +1,7 @@
 BeforeAll {
     $script:repoRoot = Split-Path $PSScriptRoot -Parent
     $script:namer = Join-Path $repoRoot 'pipelines\scripts\Get-ExportRunName.ps1'
-    $script:date = [datetime]'2026-11-10'
+    $script:date = [datetime]::SpecifyKind([datetime]'2026-11-10', 'Utc')
 
     function script:Clear-WorkloadEnv
     {
@@ -22,7 +22,7 @@ Describe 'Get-ExportRunName.ps1' {
     }
 
     It 'calls only SC PARTIAL' {
-        & $namer -Environment PreProd -Workloads 'SC' -RunDate ([datetime]'2026-11-12') | Should -Be 'PreProd PARTIAL SC 2026-11-12'
+        & $namer -Environment PreProd -Workloads 'SC' -RunDate ([datetime]::SpecifyKind([datetime]'2026-11-12', 'Utc')) | Should -Be 'PreProd PARTIAL SC 2026-11-12'
     }
 
     It 'calls AAD and Teams PARTIAL' {
@@ -31,6 +31,16 @@ Describe 'Get-ExportRunName.ps1' {
 
     It 'calls the defaults minus one PARTIAL' {
         & $namer -Environment Dev -Workloads 'AAD,Intune,EXO' -RunDate $date | Should -Be 'Dev PARTIAL AAD+Intune+EXO 2026-11-10'
+    }
+
+    It 'uses the calendar day of an injected date whatever its Kind, so the result does not depend on the time zone' {
+        foreach ($kind in 'Utc', 'Unspecified', 'Local')
+        {
+            $noon = [datetime]::SpecifyKind([datetime]'2026-11-10T12:00:00', $kind)
+            $midnight = [datetime]::SpecifyKind([datetime]'2026-11-10T00:00:00', $kind)
+            & $namer -Environment Dev -Workloads 'SC' -RunDate $noon | Should -Be 'Dev PARTIAL SC 2026-11-10'
+            if ($kind -ne 'Local') { & $namer -Environment Dev -Workloads 'SC' -RunDate $midnight | Should -Be 'Dev PARTIAL SC 2026-11-10' }
+        }
     }
 
     It 'uses today''s UTC date by default' {
@@ -111,5 +121,21 @@ Describe 'Invoke-PipelineExport.ps1 run name' {
         try { $out = @(& $exportScript -Environment Dev -OutputPath (Join-Path $TestDrive 'out') 6>&1 | ForEach-Object { "$_" }) } catch { $thrown = $_ }
         $thrown.Exception.Message | Should -Match 'No workload is ticked'
         ($out -join ' ') | Should -Not -Match '##vso|CONNECT'
+    }
+
+    It 'warns and still exports when the run name cannot be built' {
+        $env:TF_BUILD = 'True'
+        $env:PE_WL_AAD = 'True'
+        Set-Content (Join-Path $tree 'pipelines\scripts\Get-ExportRunName.ps1') 'throw ''namer broke'''
+        $out = @(& $exportScript -Environment Dev -OutputPath (Join-Path $TestDrive 'out') 3>&1 6>&1 | ForEach-Object { "$_" })
+        ($out -join ' ') | Should -Match 'Run name not set: namer broke'
+        ($out -join ' ') | Should -Not -Match '##vso'
+        $out | Should -Contain 'EXPORT:AAD'
+    }
+
+    It 'still stops when nothing is ticked even though the run name is guarded' {
+        $env:TF_BUILD = 'True'
+        Set-Content (Join-Path $tree 'pipelines\scripts\Get-ExportRunName.ps1') 'throw ''namer broke'''
+        { & $exportScript -Environment Dev -OutputPath (Join-Path $TestDrive 'out') } | Should -Throw 'No workload is ticked*'
     }
 }

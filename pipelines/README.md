@@ -36,7 +36,7 @@ Outside the pipeline (for example two local exports) run `tools\New-PEDriftRepor
 sides in the page and the list (the defaults are PreProd, Dev and `dev`). The report needs the two export run ids; the compare pipeline passes them.
 A manual run of `Invoke-PipelineCompare.ps1` without numeric `-PreProdRun` / `-DevRun` skips the report and says so.
 
-**Approved apply (`Apply-Approved-Dev.yaml`): apply only what was approved.** Parameters: `approvalFile` (a path inside `approvals/`), `mode`
+**Approved apply (`Apply-Approved-Dev.yaml`): apply only what was approved.** Parameters: `approvalFile` (a path inside `approvals/`, starting at `approvals/` and not at the project folder; prefilled with `approvals/approved.json`, editable), `mode`
 (Test or Apply), `includeRemovals`, `maxAgeDays` (default 7). The safe order is a `Test` run first, then an `Apply` run:
 1. **Before anything else**: the run must be on the default branch (setting `DefaultBranch`, default `main`) and the list must be inside
    `approvals/` and pass the strict format rules. It then downloads the two export runs the list names (by run id, from the pipelines whose

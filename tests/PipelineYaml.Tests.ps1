@@ -39,6 +39,13 @@ Describe 'pipelines\scripts\New-PipelineYaml.ps1 and the approved-apply pipeline
         (New-Yaml (New-Settings -Extra @{ DefaultBranch = 'release' }) | ForEach-Object { Get-Content (Join-Path $_ 'Apply-Approved-Dev.yaml') -Raw }) | Should -Match "-DefaultBranch 'release'"
     }
 
+    It 'prefills approvalFile with approvals/approved.json, editable, as a path that starts at the approvals folder' {
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Apply-Approved-Dev.yaml') -Raw
+        $text | Should -Match "(?s)- name: approvalFile\s+displayName: [^\r\n]+\s+type: string\s+default: 'approvals/approved\.json'"
+        # the path is joined to the project folder by the script, so the default must not repeat the project folder name
+        $text | Should -Not -Match "default: '[^']*M365dscGUI/approvals"
+    }
+
     It 'downloads the two export runs the list names, by run id' {
         $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Apply-Approved-Dev.yaml') -Raw
         ([regex]::Matches($text, 'task: DownloadPipelineArtifact@2')).Count | Should -Be 2

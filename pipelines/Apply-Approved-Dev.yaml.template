@@ -8,8 +8,9 @@ trigger: none
 # for the approval on the environment. Running the same list again only has what is left to do (what is already done is "no action required").
 parameters:
   - name: approvalFile
-    displayName: 'Approved list: a path inside the approvals folder of the project, for example approvals/2026-11-03-groups.json'
+    displayName: 'Approved list: a path starting with approvals/ (not the project folder name). Prefilled with the usual file; edit it to use another'
     type: string
+    default: 'approvals/approved.json'
   - name: mode
     displayName: Test only reports what would change; Apply changes Dev
     type: string

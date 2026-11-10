@@ -89,3 +89,32 @@ Describe 'Workloads (Data\Workloads.psd1)' {
         }
     }
 }
+
+Describe 'Read-PEExport with a UTF-8 byte order mark' {
+    # Microsoft365DSC 2.26.1028.1 and later write export.ps1 as UTF-8 with a BOM.
+    It 'reads the same records from a BOM copy as from a BOM-less copy' {
+        $source = Join-Path $PSScriptRoot 'fixtures\mini-export.ps1'
+        $text = [System.IO.File]::ReadAllText($source, [System.Text.UTF8Encoding]::new($false)).TrimStart([char]0xFEFF)
+        $folder = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-bom-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $folder | Out-Null
+        try
+        {
+            $plain = Join-Path $folder 'plain.ps1'
+            $bom = Join-Path $folder 'bom.ps1'
+            [System.IO.File]::WriteAllText($plain, $text, [System.Text.UTF8Encoding]::new($false))
+            [System.IO.File]::WriteAllText($bom, $text, [System.Text.UTF8Encoding]::new($true))
+            ([System.IO.File]::ReadAllBytes($bom))[0..2] | Should -Be @(0xEF, 0xBB, 0xBF)
+
+            $a = InModuleScope PolicyEngine -Parameters @{ F = $plain } { @(Read-PEExport -Path $F 3>$null) }
+            $b = InModuleScope PolicyEngine -Parameters @{ F = $bom } { @(Read-PEExport -Path $F 3>$null) }
+            $b.Count | Should -Be $a.Count
+            $a.Count | Should -BeGreaterThan 0
+            ($b | ForEach-Object { '{0}|{1}' -f $_.ResourceType, $_.Key }) | Should -Be ($a | ForEach-Object { '{0}|{1}' -f $_.ResourceType, $_.Key })
+            ($b | ForEach-Object { ($_.Properties.Keys | Sort-Object) -join ',' }) | Should -Be ($a | ForEach-Object { ($_.Properties.Keys | Sort-Object) -join ',' })
+        }
+        finally
+        {
+            Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

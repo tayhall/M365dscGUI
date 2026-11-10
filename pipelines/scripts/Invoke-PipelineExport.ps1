@@ -12,8 +12,8 @@ param
     [string]$Environment,
 
     # DSC workload prefixes, comma separated, for example AAD,Intune,EXO,Teams.
-    [Parameter(Mandatory)]
-    [ValidatePattern('\A[A-Za-z0-9,]+\z')]
+    # Not given: the ticked workload checkboxes (PE_WL_<Prefix>) are used.
+    [ValidatePattern('\A[A-Za-z0-9,]*\z')]
     [string]$Workloads,
 
     [Parameter(Mandatory)]
@@ -23,6 +23,12 @@ param
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $slug = $Environment.ToLowerInvariant()
+
+# Nothing may be imported or connected when there is nothing to export, so the list is settled first (a typed list wins).
+if (-not $Workloads)
+{
+    $Workloads = & (Join-Path $PSScriptRoot 'Get-WorkloadSelection.ps1')
+}
 
 try
 {

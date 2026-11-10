@@ -58,7 +58,7 @@ function Test-GalleryHas
 function Get-AdoSetting
 {
     # What Azure DevOps provides to the step. Names every missing one at once.
-    $names = 'SYSTEM_ACCESSTOKEN', 'SYSTEM_COLLECTIONURI', 'SYSTEM_TEAMPROJECT', 'BUILD_REPOSITORY_ID'
+    $names = 'SYSTEM_ACCESSTOKEN', 'SYSTEM_COLLECTIONURI', 'SYSTEM_TEAMPROJECT', 'BUILD_REPOSITORY_ID', 'BUILD_REPOSITORY_NAME'
     $missing = @($names | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
     if ($missing)
     {
@@ -68,6 +68,13 @@ function Get-AdoSetting
         Token  = $env:SYSTEM_ACCESSTOKEN
         Api    = '{0}/{1}/_apis/git/repositories/{2}' -f $env:SYSTEM_COLLECTIONURI.TrimEnd('/'), [uri]::EscapeDataString($env:SYSTEM_TEAMPROJECT), [uri]::EscapeDataString($env:BUILD_REPOSITORY_ID)
     }
+}
+
+function Get-PullRequestAddress
+{
+    # Built from known parts, not from the REST response.
+    param ([int]$Id)
+    '{0}/{1}/_git/{2}/pullrequest/{3}' -f $env:SYSTEM_COLLECTIONURI.TrimEnd('/'), [uri]::EscapeDataString($env:SYSTEM_TEAMPROJECT), [uri]::EscapeDataString($env:BUILD_REPOSITORY_NAME), $Id
 }
 
 function Invoke-AdoRest
@@ -106,12 +113,12 @@ function Get-OpenPullRequestAddress
     $ref = [uri]::EscapeDataString("refs/heads/$Branch")
     $found = Invoke-AdoRest -Ado $Ado -Method Get -Path "/pullrequests?searchCriteria.sourceRefName=$ref&searchCriteria.status=active&api-version=7.1"
     $first = @($found.value) | Select-Object -First 1
-    if ($first) { "$($first.repository.webUrl)/pullrequest/$($first.pullRequestId)" }
+    if ($first) { Get-PullRequestAddress -Id $first.pullRequestId }
 }
 
 # 1. Shape of the arguments, before anything is touched or any command is built.
-if ($Version -cnotmatch '\A\d+\.\d+\.\d+\.\d+\z') { throw "Version '$Version' must be four numbers separated by dots, for example 2.26.1104.1." }
-if ($GraphAuthenticationVersion -and $GraphAuthenticationVersion -cnotmatch '\A\d+\.\d+\.\d+\z') { throw "GraphAuthenticationVersion '$GraphAuthenticationVersion' must be three numbers separated by dots, for example 2.41.1 (or empty to keep it)." }
+if ($Version -cnotmatch '\A[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\z') { throw "Version '$Version' must be four numbers separated by dots, for example 2.26.1104.1." }
+if ($GraphAuthenticationVersion -and $GraphAuthenticationVersion -cnotmatch '\A[0-9]+\.[0-9]+\.[0-9]+\z') { throw "GraphAuthenticationVersion '$GraphAuthenticationVersion' must be three numbers separated by dots, for example 2.41.1 (or empty to keep it)." }
 if (-not (Test-Path -LiteralPath $PinPath -PathType Leaf)) { throw "No pin file at $PinPath." }
 $PinPath = (Resolve-Path -LiteralPath $PinPath).ProviderPath
 
@@ -159,6 +166,12 @@ if ($CreatePullRequest)
         return
     }
     $target = Get-DefaultBranch -Ado $ado
+    # The branch is cut from the checked-out commit, so that commit must be the tip of the default branch: a run from a feature branch
+    # would otherwise carry all of its commits into the pull request.
+    $head = (Invoke-Git -RepoPath $repoPath -GitArguments @('rev-parse', 'HEAD') | Select-Object -First 1).ToString().Trim()
+    $remoteRef = "refs/remotes/origin/$target"
+    $tip = try { (Invoke-Git -RepoPath $repoPath -GitArguments @('rev-parse', '--verify', '--quiet', $remoteRef) | Select-Object -First 1).ToString().Trim() } catch { '(not found)' }
+    if ($head -ne $tip) { throw "Run this pipeline from the default branch: expected the checked-out commit to be the tip of origin/$target ($tip), but it is $head. Nothing was changed." }
 }
 
 # 5. The edit: only the value on the pin line.
@@ -173,7 +186,7 @@ if (-not $CreatePullRequest) { return }
 
 # 6. Branch, commit, push, pull request. The only writes: this branch and this pull request.
 $message = "chore: pin $($summary -join ', ')"
-Invoke-Git -RepoPath $repoPath -GitArguments @('checkout', '-b', $branch) | Out-Null
+Invoke-Git -RepoPath $repoPath -GitArguments @('checkout', '-B', $branch) | Out-Null
 Invoke-Git -RepoPath $repoPath -GitArguments @('add', '--', $PinPath) | Out-Null
 Invoke-Git -RepoPath $repoPath -GitArguments @('-c', 'user.name=M365DSC pin pipeline', '-c', 'user.email=pin-pipeline@localhost', 'commit', '-m', $message) | Out-Null
 Invoke-Git -RepoPath $repoPath -GitArguments @('push', 'origin', "refs/heads/${branch}:refs/heads/$branch") | Out-Null
@@ -188,4 +201,4 @@ $body = @{
     description   = ($description -join "`n`n")
 }
 $pr = Invoke-AdoRest -Ado $ado -Method Post -Path '/pullrequests?api-version=7.1' -Body $body
-Write-Host "Pull request: $($pr.repository.webUrl)/pullrequest/$($pr.pullRequestId)"
+Write-Host "Pull request: $(Get-PullRequestAddress -Id $pr.pullRequestId)"

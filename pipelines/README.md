@@ -99,7 +99,8 @@ the script as environment variables, never inside the command text.
 
 **Permissions.** The project's build service identity (`<Project> Build Service (<Organization>)`) needs these on the repository: **Contribute**,
 **Create branch** and **Contribute to pull requests**. The step uses `persistCredentials` for git and `System.AccessToken` for the REST call, so no
-secret is stored. If a branch policy on the default branch needs reviewers, they are added to the pull request in the usual way.
+secret is stored. If a branch policy on the default branch needs reviewers, they are added to the pull request in the usual way. If the project uses "Limit job authorization scope" or "Protect access to repositories in YAML pipelines", the build identity (and the repository) may need access granted explicitly.
+The pipeline refuses to run from any commit other than the tip of the default branch, so queue it from the default branch.
 
 **After merging the pull request:**
 - Take fresh exports: an export made with another pin is refused.

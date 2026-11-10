@@ -4,7 +4,7 @@ BeforeAll {
     $script:Thumb = 'ABCDEF0123456789ABCDEF0123456789ABCDEF01'
     $script:AppId = '11111111-2222-3333-4444-555555555555'
     $script:Tenant = 'contoso.onmicrosoft.com'
-    $script:Pin = '2.26.1021.1'
+    $script:Pin = '2.26.1104.1'
     $script:AppPath = Join-Path $TestDrive 'Writer.json'
     @{ Role = 'Writer'; TenantId = $script:Tenant; ApplicationId = $script:AppId; Thumbprint = $script:Thumb } |
         ConvertTo-Json | Set-Content -LiteralPath $script:AppPath
@@ -38,7 +38,7 @@ BeforeAll {
         @"
 Configuration PETest
 {
-    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1021.1'
+    Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1104.1'
 
     Node localhost
     {
@@ -52,7 +52,7 @@ $($body -join "`n")
     function New-TestResource
     {
         param ([string]$Id = '[AADGroup]G1', [hashtable]$Properties, [string[]]$DependsOn = @(), [string]$Type = 'AADGroup',
-            [string]$ModuleName = 'Microsoft365DSC', [string]$ModuleVersion = '2.26.1021.1')
+            [string]$ModuleName = 'Microsoft365DSC', [string]$ModuleVersion = '2.26.1104.1')
 
         if (-not $Properties)
         {

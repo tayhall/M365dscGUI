@@ -16,7 +16,7 @@ BeforeAll {
     {
         param ([object[]]$Item)
         $side = { param ($run) @{ Run = $run; ExportedAt = '2026-11-03T10:00:00Z'; Fingerprint = $script:Fp } }
-        New-PEApprovedList -Tenant 'dev' -ApprovedBy 'andrew' -Source (& $side '1') -Target (& $side '2') -Item $Item -ModuleVersion '2.26.1021.1'
+        New-PEApprovedList -Tenant 'dev' -ApprovedBy 'andrew' -Source (& $side '1') -Target (& $side '2') -Item $Item -ModuleVersion '2.26.1104.1'
     }
     function Get-Approved
     {

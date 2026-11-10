@@ -12,7 +12,7 @@ const item = (action, type, key, differences = []) => ({
 });
 const data = {
   Meta: {
-    Tenant: 'dev', ModuleVersion: '2.26.1021.1', GeneratedUtc: '2026-11-03T11:00:00Z', ReportId: 'c'.repeat(64),
+    Tenant: 'dev', ModuleVersion: '2.26.1104.1', GeneratedUtc: '2026-11-03T11:00:00Z', ReportId: 'c'.repeat(64),
     Source: { Run: '101', ExportedAt: '2026-11-03T10:00:00Z', Fingerprint: 'a'.repeat(64) },
     Target: { Run: '102', ExportedAt: '2026-11-03T10:05:00Z', Fingerprint: 'b'.repeat(64) },
   },

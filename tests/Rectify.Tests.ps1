@@ -504,7 +504,7 @@ Describe 'ConvertTo-PEDscConfig' {
         }
 
         It 'includes the pinned Import-DscResource line and a Node localhost wrapper' {
-            $script:MixedConfig | Should -Match "Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1021.1'"
+            $script:MixedConfig | Should -Match "Import-DscResource -ModuleName 'Microsoft365DSC' -ModuleVersion '2.26.1104.1'"
             $script:MixedConfig | Should -Match '(?m)^\s*Node localhost\s*$'
             $script:MixedConfig | Should -Match '(?m)^Configuration Rectify\s*$'
         }

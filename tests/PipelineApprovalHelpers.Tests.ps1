@@ -8,7 +8,7 @@ BeforeAll {
         $root = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-ah-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path (Join-Path $root 'approvals') -Force | Out-Null
         $side = { param ($run) @{ Run = $run; ExportedAt = '2026-11-03T10:00:00Z'; Fingerprint = ('a' * 64) } }
-        $list = New-PEApprovedList -Tenant 'dev' -ApprovedBy 'andrew' -Source (& $side '4711') -Target (& $side '4712') -ModuleVersion '2.26.1021.1' `
+        $list = New-PEApprovedList -Tenant 'dev' -ApprovedBy 'andrew' -Source (& $side '4711') -Target (& $side '4712') -ModuleVersion '2.26.1104.1' `
             -Item @(@{ Action = 'Create'; ResourceType = 'AADGroup'; Key = 'Finance'; ExcludedProperties = @() })
         $path = Join-Path $root 'approvals\a.json'
         Save-PEApprovedList -List $list -Path $path

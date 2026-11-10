@@ -18,7 +18,7 @@ BeforeAll {
                 @{ Action = 'Update'; ResourceType = 'AADGroup'; Key = 'Sales'; ExcludedProperties = @('MailNickname') }
             )
         }
-        New-PEApprovedList -Tenant 'dev' -ApprovedBy 'andrew' -Source (New-Side '101') -Target (New-Side '102') -Item $Item -ModuleVersion '2.26.1021.1' -CreatedUtc ([datetime]'2026-11-03T11:00:00Z')
+        New-PEApprovedList -Tenant 'dev' -ApprovedBy 'andrew' -Source (New-Side '101') -Target (New-Side '102') -Item $Item -ModuleVersion '2.26.1104.1' -CreatedUtc ([datetime]'2026-11-03T11:00:00Z')
     }
     function Save-Json
     {
@@ -85,7 +85,7 @@ Describe 'Read-PEApprovedList Counts order' {
             @{ Action = 'Create'; ResourceType = 'AADGroup'; Key = 'Finance'; ExcludedProperties = @() }
             @{ Action = 'Create'; ResourceType = 'EXOAcceptedDomain'; Key = 'contoso.com'; ExcludedProperties = @() }
         )
-        $j = (New-PEApprovedList -Tenant 'dev' -ApprovedBy 'a' -Source (New-Side '1') -Target (New-Side '2') -Item $items -ModuleVersion '2.26.1021.1' | ConvertTo-Json -Depth 8) | ConvertFrom-Json -DateKind String
+        $j = (New-PEApprovedList -Tenant 'dev' -ApprovedBy 'a' -Source (New-Side '1') -Target (New-Side '2') -Item $items -ModuleVersion '2.26.1104.1' | ConvertTo-Json -Depth 8) | ConvertFrom-Json -DateKind String
         $j.Counts = @($j.Counts[2], $j.Counts[0], $j.Counts[1])
         $path = Save-Json ($j | ConvertTo-Json -Depth 8)
         { Read-PEApprovedList -Path $path } | Should -Not -Throw

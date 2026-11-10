@@ -83,6 +83,23 @@ Describe 'pipelines\scripts\New-PipelineYaml.ps1 and the approved-apply pipeline
     }
 }
 
+Describe 'the bump-pins pipeline' {
+    It 'fills with no token left and passes its two parameters as environment variables, not in the script text' {
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Bump-Dsc-Pin.yaml') -Raw
+        $text | Should -Not -Match '__[A-Z][A-Z_]*__'
+        $text | Should -Match "name: 'M365DSC - Bump DSC pins'"
+        $text | Should -Match 'PE_PIN_VERSION: \$\{\{ parameters.version \}\}'
+        $text | Should -Match 'PE_PIN_GRAPH_VERSION: \$\{\{ parameters.graphAuthenticationVersion \}\}'
+        # The only place the parameters appear is the env block.
+        ([regex]::Matches($text, '\$\{\{ parameters\.')).Count | Should -Be 2
+        $text | Should -Match 'persistCredentials: true'
+        $text | Should -Match 'fetchDepth: 0'
+        $text | Should -Match 'Update-DscPin\.ps1.*-CreatePullRequest'
+        $text | Should -Match '(?m)^trigger: none'
+        $text | Should -Match '(?m)^pr: none'
+    }
+}
+
 Describe 'the retention step of the approved apply' {
     It 'only runs when applying, so repeated Test runs do not pile up leases' {
         $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Apply-Approved-Dev.yaml') -Raw

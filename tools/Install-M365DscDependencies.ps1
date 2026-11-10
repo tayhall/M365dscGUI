@@ -9,14 +9,30 @@
 .EXAMPLE
     pwsh -NoProfile -File tools\Install-M365DscDependencies.ps1
 .EXAMPLE
-    pwsh -NoProfile -File tools\Install-M365DscDependencies.ps1 -ModuleVersion 2.26.1021.1
+    pwsh -NoProfile -File tools\Install-M365DscDependencies.ps1 -ModuleVersion <version>
+    Installs another version than the pin in src\PolicyEngine\Data\Versions.psd1 (the default).
 #>
 param
 (
-    [string]$ModuleVersion = '2.26.1021.1'
+    # Default: the pin in src\PolicyEngine\Data\Versions.psd1 (shared with the PolicyEngine module).
+    [string]$ModuleVersion
 )
 
 $ErrorActionPreference = 'Stop'
+
+if (-not $ModuleVersion)
+{
+    $pinPath = Join-Path $PSScriptRoot '..\src\PolicyEngine\Data\Versions.psd1'
+    if (-not (Test-Path -LiteralPath $pinPath -PathType Leaf))
+    {
+        throw "Pin file not found: $pinPath. Pass -ModuleVersion or restore the file."
+    }
+    $ModuleVersion = (Import-PowerShellDataFile -LiteralPath $pinPath).Microsoft365DSC
+    if (-not $ModuleVersion)
+    {
+        throw "Versions.psd1 has no Microsoft365DSC entry ($pinPath). Pass -ModuleVersion or add the entry."
+    }
+}
 
 if ($PSVersionTable.PSVersion -lt [version]'7.6')
 {

@@ -4,10 +4,7 @@ trigger: none
 
 # PreProd's tenant, Key Vault and app id are in pipelines/config/PreProd.psd1, read by the script.
 parameters:
-  - name: workloads
-    displayName: Workloads (DSC prefixes, comma separated)
-    type: string
-    default: 'AAD,Intune,EXO,Teams'
+  __EXPORT_WORKLOAD_PARAMETERS__
 
 pool:
   name: '__POOL__'   # needs pwsh 7.6+ and local admin
@@ -30,9 +27,9 @@ jobs:
           pwsh: true
           ScriptType: InlineScript
           Inline: |
-            & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineExport.ps1' -Environment PreProd -Workloads $env:PE_WORKLOADS -OutputPath '$(Build.ArtifactStagingDirectory)/export'
+            & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineExport.ps1' -Environment PreProd -OutputPath '$(Build.ArtifactStagingDirectory)/export'
         env:
-          PE_WORKLOADS: ${{ parameters.workloads }}
+          __WORKLOAD_ENV__
 
       - pwsh: |
           & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug preprod -Role Reader

@@ -18,10 +18,7 @@ parameters:
     values:
       - Combined
       - PerWorkload
-  - name: completeWorkloads
-    displayName: Workloads the Dev export covers completely (an empty type then counts as empty, so PreProd objects become Missing)
-    type: string
-    default: 'AAD,Intune,EXO,Teams'
+  __COMPLETE_WORKLOAD_PARAMETERS__
 
 pool:
   name: '__POOL__'   # needs pwsh 7.6+ and local admin
@@ -51,10 +48,10 @@ jobs:
                 -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
                 -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
                 -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
-                -MofLayout '${{ parameters.mofLayout }}' -CompleteWorkloads $env:PE_COMPLETE_WORKLOADS `
+                -MofLayout '${{ parameters.mofLayout }}' `
                 -PreProdRun $env:PE_PREPROD_RUN -DevRun $env:PE_DEV_RUN
         env:
-          PE_COMPLETE_WORKLOADS: ${{ parameters.completeWorkloads }}
+          __WORKLOAD_ENV__
           PE_PREPROD_RUN: $(resources.pipeline.preprodExport.runID)
           PE_DEV_RUN: $(resources.pipeline.devExport.runID)
 

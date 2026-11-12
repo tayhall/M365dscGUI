@@ -32,6 +32,8 @@ $tokens = [ordered]@{
     ExportPreProdPipelineId = '__EXPORT_PREPROD_PIPELINE_ID__'
     ExportDevPipelineId     = '__EXPORT_DEV_PIPELINE_ID__'
     DefaultBranch           = '__DEFAULT_BRANCH__'
+    # Not a setting: built below from the two export pipeline ids, for the Tenant-Changes pipeline (it finds the runs itself at run time).
+    TenantMap               = '__TENANT_MAP__'
 }
 $defaults = @{
     RepoFolder            = 'M365dscGUI'
@@ -42,7 +44,7 @@ $defaults = @{
     DefaultBranch         = 'main'
 }
 # Settings with no default that a template may leave unused: needed (and checked) only by the templates that contain their token.
-$optional = @('ExportPreProdPipelineId', 'ExportDevPipelineId')
+$optional = @('ExportPreProdPipelineId', 'ExportDevPipelineId', 'TenantMap')
 
 if (-not (Test-Path -LiteralPath $SettingsPath))
 {
@@ -62,6 +64,7 @@ if ($kept.ContainsKey('ServiceConnection'))
     $kept.Remove('ServiceConnection')
 }
 $settings = $kept
+if ($settings.ContainsKey('TenantMap')) { throw 'TenantMap is not a setting: it is built from ExportDevPipelineId and ExportPreProdPipelineId.' }
 $unknown = @($settings.Keys | Where-Object { -not $tokens.Contains($_) })
 if ($unknown) { throw "Unknown setting(s): $($unknown -join ', '). Known: $($tokens.Keys -join ', ')." }
 
@@ -83,6 +86,11 @@ foreach ($name in $tokens.Keys)
     $values[$name] = $value -replace "'", "''"
 }
 if ($problems) { throw "Fix $SettingsPath first:`n  $($problems -join "`n  ")" }
+# The tenant map is only there when both ids are (the ids were checked to be digits above).
+if ($values.ContainsKey('ExportDevPipelineId') -and $values.ContainsKey('ExportPreProdPipelineId'))
+{
+    $values['TenantMap'] = "Dev=$($values['ExportDevPipelineId']);PreProd=$($values['ExportPreProdPipelineId'])"
+}
 
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 $OutputPath = (Resolve-Path -LiteralPath $OutputPath).ProviderPath
@@ -99,7 +107,7 @@ foreach ($file in $sources)
     if ($left)
     {
         # One template that cannot be filled does not stop the others from being written; the problems are reported at the end.
-        $needs = @($optional | Where-Object { $left -contains $tokens[$_] })
+        $needs = @($optional | Where-Object { $left -contains $tokens[$_] } | ForEach-Object { if ($_ -eq 'TenantMap') { 'ExportDevPipelineId'; 'ExportPreProdPipelineId' } else { $_ } } | Select-Object -Unique)
         $failed += $(if ($needs) { "$($file.Name) needs the setting(s) $($needs -join ', ') in $SettingsPath (the number of each export pipeline, from its address in Azure DevOps)." }
             else { "$($file.Name) still has token(s) $($left -join ', '): add them to the token table in this script." })
         continue

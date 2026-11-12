@@ -1,4 +1,4 @@
-name: 'M365DSC - Export PreProd tenant'
+name: 'PreProd-export-v$(Rev:r)'
 
 trigger: none
 

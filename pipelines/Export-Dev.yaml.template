@@ -1,4 +1,4 @@
-name: 'M365DSC - Export Dev tenant'
+name: 'Dev-export-v$(Rev:r)'
 
 trigger: none
 

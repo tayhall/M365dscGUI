@@ -113,3 +113,56 @@ Describe 'the retention step of the approved apply' {
         $text | Should -Match "(?s)displayName: Keep the two export runs.*?condition: eq\('\$\{\{ parameters.mode \}\}', 'Apply'\)"
     }
 }
+
+Describe 'the Tenant-Changes pipeline and the readable export run names' {
+    It 'is generated with every token filled and carries the tenant map of the two export pipeline ids' {
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Tenant-Changes.yaml') -Raw
+        $text | Should -Not -Match '__[A-Z][A-Z_]*__'
+        $text | Should -Match "PE_TENANT_MAP: 'Dev=22;PreProd=21'"
+    }
+
+    It 'is queued by hand, with the tenant and the two optional versions as parameters' {
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Tenant-Changes.yaml') -Raw
+        $text | Should -Match '(?m)^trigger: none'
+        $text | Should -Match '(?m)^pr: none'
+        $text | Should -Match "(?s)- name: tenant\s+displayName: [^\r\n]+\s+type: string\s+default: Dev\s+values:\s+- Dev\s+- PreProd"
+        $text | Should -Match "(?s)- name: exportVersion\s+displayName: [^\r\n]+\s+type: string\s+default: ''"
+        $text | Should -Match "(?s)- name: previousVersion\s+displayName: [^\r\n]+\s+type: string\s+default: ''"
+    }
+
+    It 'resolves the runs, downloads both by run id from the resolved pipeline, and publishes TenantChanges' {
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Tenant-Changes.yaml') -Raw
+        $text | Should -Match '(?s)Resolve-TenantExports\.ps1.*?-SetVariables'
+        $text | Should -Match "definition: '\`$\(DEFINITION_ID\)'"
+        $text | Should -Match "pipelineId: '\`$\(LATEST_RUN\)'"
+        $text | Should -Match "pipelineId: '\`$\(PREVIOUS_RUN\)'"
+        $text | Should -Match "artifactName: '\`$\(ARTIFACT_NAME\)'"
+        $text | Should -Match 'Invoke-PipelineTenantChanges\.ps1'
+        $text | Should -Match '(?m)^\s+artifact: TenantChanges'
+    }
+
+    It 'never puts a resolved value or a parameter inside a command line: they travel as environment variables' {
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Tenant-Changes.yaml') -Raw
+        $commandLines = @($text -split "`n" | Where-Object { $_ -match '\.ps1' })
+        $commandLines | Where-Object { $_ -match '\$\((LATEST|PREVIOUS)_(RUN|NAME)\)|parameters\.' } | Should -BeNullOrEmpty
+        $text | Should -Match 'PE_LATEST_RUN: \$\(LATEST_RUN\)'
+        $text | Should -Match 'SYSTEM_ACCESSTOKEN: \$\(System\.AccessToken\)'
+    }
+
+    It 'uses the tenant''s own service connection, chosen when the YAML is compiled' {
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Tenant-Changes.yaml') -Raw
+        $text | Should -Match "(?s)\`$\{\{ if eq\(parameters\.tenant, 'Dev'\) \}\}:\s+azureSubscription: 'sc-dev'\s+\`$\{\{ else \}\}:\s+azureSubscription: 'sc-preprod'"
+    }
+
+    It 'needs both export pipeline ids and says so' {
+        $settings = New-Settings -Without 'ExportDevPipelineId'
+        $out = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-yaml-out-' + [guid]::NewGuid().ToString('N'))
+        { & $script:Generator -SettingsPath $settings -OutputPath $out 6>&1 3>$null | Out-Null } | Should -Throw '*Tenant-Changes.yaml*ExportDevPipelineId*'
+    }
+
+    It 'names the export runs with a counter, per tenant, so the run list tells them apart' {
+        $out = New-Yaml (New-Settings)
+        (Get-Content (Join-Path $out 'Export-Dev.yaml') -Raw) | Should -Match "(?m)^name: 'Dev-export-v\`$\(Rev:r\)'"
+        (Get-Content (Join-Path $out 'Export-PreProd.yaml') -Raw) | Should -Match "(?m)^name: 'PreProd-export-v\`$\(Rev:r\)'"
+    }
+}

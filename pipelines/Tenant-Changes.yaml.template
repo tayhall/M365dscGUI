@@ -1,0 +1,99 @@
+name: 'M365DSC - Tenant changes'
+
+trigger: none
+pr: none
+
+# What changed in ONE tenant between two of its own exports. Queue it by hand: choose the tenant; leave both versions blank for the latest
+# export against the successful one before it, or type a name such as v7 (or a run id for an old run) to compare other exports.
+# Outputs (artifact TenantChanges): <Tenant>Changes.html, the revert configuration (Revert\, compiled for a tenant with a Writer app) and
+# the promote configuration (<Tenant>Changes.ps1). Apply-Dev can apply the revert; nothing here writes to a tenant.
+parameters:
+  - name: tenant
+    displayName: Tenant to look at
+    type: string
+    default: Dev
+    values:
+      - Dev
+      - PreProd
+  - name: exportVersion
+    displayName: 'Export to look at, for example v9 (blank = the latest successful export)'
+    type: string
+    default: ''
+  - name: previousVersion
+    displayName: 'Export to compare it with, for example v7 (blank = the successful export just before)'
+    type: string
+    default: ''
+
+pool:
+  name: '__POOL__'   # needs pwsh 7.6+ and local admin
+
+jobs:
+  - job: TenantChanges
+    steps:
+      - checkout: self
+
+      # Finds the two export runs over the Azure DevOps API and sets DEFINITION_ID, ARTIFACT_NAME, LATEST_RUN, PREVIOUS_RUN,
+      # LATEST_NAME and PREVIOUS_NAME for the next steps. It stops, saying why, if it cannot find two usable exports.
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-TenantExports.ps1' `
+              -Tenant $env:PE_TENANT -TenantMap $env:PE_TENANT_MAP -ExportVersion $env:PE_EXPORT_VERSION -PreviousVersion $env:PE_PREVIOUS_VERSION -SetVariables
+        displayName: Find the two export runs
+        env:
+          PE_TENANT: ${{ parameters.tenant }}
+          PE_TENANT_MAP: '__TENANT_MAP__'
+          PE_EXPORT_VERSION: ${{ parameters.exportVersion }}
+          PE_PREVIOUS_VERSION: ${{ parameters.previousVersion }}
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+      - task: DownloadPipelineArtifact@2
+        displayName: Download the latest export
+        inputs:
+          buildType: 'specific'
+          project: '$(System.TeamProjectId)'
+          definition: '$(DEFINITION_ID)'
+          buildVersionToDownload: 'specific'
+          pipelineId: '$(LATEST_RUN)'
+          artifactName: '$(ARTIFACT_NAME)'
+          targetPath: '$(Pipeline.Workspace)/latest'
+      - task: DownloadPipelineArtifact@2
+        displayName: Download the previous export
+        inputs:
+          buildType: 'specific'
+          project: '$(System.TeamProjectId)'
+          definition: '$(DEFINITION_ID)'
+          buildVersionToDownload: 'specific'
+          pipelineId: '$(PREVIOUS_RUN)'
+          artifactName: '$(ARTIFACT_NAME)'
+          targetPath: '$(Pipeline.Workspace)/previous'
+
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Install-PipelineDependencies.ps1'
+        displayName: Install PowerShell modules
+
+      # The service connection is chosen when the YAML is compiled: Dev needs Key Vault for its Writer certificate's thumbprint.
+      - task: AzurePowerShell@5
+        displayName: Compare the two exports
+        inputs:
+          ${{ if eq(parameters.tenant, 'Dev') }}:
+            azureSubscription: '__DEV_SERVICE_CONNECTION__'
+          ${{ else }}:
+            azureSubscription: '__PREPROD_SERVICE_CONNECTION__'
+          azurePowerShellVersion: LatestVersion
+          pwsh: true
+          ScriptType: InlineScript
+          Inline: |
+            & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineTenantChanges.ps1' `
+                -Tenant $env:PE_TENANT `
+                -PreviousExportPath '$(Pipeline.Workspace)/previous' -LatestExportPath '$(Pipeline.Workspace)/latest' `
+                -OutputPath '$(Build.ArtifactStagingDirectory)/changes' `
+                -PreviousRun $env:PE_PREVIOUS_RUN -LatestRun $env:PE_LATEST_RUN -PreviousName $env:PE_PREVIOUS_NAME -LatestName $env:PE_LATEST_NAME
+        env:
+          PE_TENANT: ${{ parameters.tenant }}
+          PE_PREVIOUS_RUN: $(PREVIOUS_RUN)
+          PE_LATEST_RUN: $(LATEST_RUN)
+          PE_PREVIOUS_NAME: $(PREVIOUS_NAME)
+          PE_LATEST_NAME: $(LATEST_NAME)
+
+      # The report, the revert and the promote configuration.
+      - publish: $(Build.ArtifactStagingDirectory)/changes
+        artifact: TenantChanges

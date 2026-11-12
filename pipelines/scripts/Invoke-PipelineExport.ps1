@@ -12,7 +12,7 @@ param
     [string]$Environment,
 
     # DSC workload prefixes, comma separated, for example AAD,Intune,EXO,Teams.
-    # Not given: the ticked workload checkboxes (PE_WL_<Prefix>) are used.
+    # Not given: the workload picker of the run (PE_WORKLOAD: Full or one workload) is used.
     [ValidatePattern('\A[A-Za-z0-9,]*\z')]
     [string]$Workloads,
 
@@ -24,25 +24,11 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $slug = $Environment.ToLowerInvariant()
 
-# Nothing may be imported or connected when there is nothing to export, so the list is settled first (a typed list wins).
+# Nothing may be imported or connected when there is nothing valid to export, so the list is settled first (a typed list wins). The picker
+# (PE_WORKLOAD) is Full or one workload; the run keeps the name the pipeline gave it (<Tenant>-<Workload>-v<counter>).
 if (-not $Workloads)
 {
-    $Workloads = & (Join-Path $PSScriptRoot 'Get-WorkloadSelection.ps1')
-}
-
-# Name the Azure DevOps run after what it exports (Compare's run picker shows it). A local run stays quiet.
-# The name is cosmetic: a failure to build it only warns and never stops the export.
-if ($env:TF_BUILD -eq 'True')
-{
-    try
-    {
-        $runName = & (Join-Path $PSScriptRoot 'Get-ExportRunName.ps1') -Environment $Environment -Workloads $Workloads
-        Write-Output "##vso[build.updatebuildnumber]$runName"
-    }
-    catch
-    {
-        Write-Warning "Run name not set: $($_.Exception.Message)"
-    }
+    $Workloads = & (Join-Path $PSScriptRoot Resolve-WorkloadChoice.ps1)
 }
 
 try

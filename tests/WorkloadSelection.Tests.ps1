@@ -69,56 +69,48 @@ Describe 'Get-WorkloadSelection.ps1' {
     }
 }
 
-Describe 'Invoke-PipelineExport.ps1 workload selection' {
+Describe 'Invoke-PipelineExport.ps1 workload picker' {
     BeforeEach {
-        $script:saved = @{}
-        foreach ($name in @([Environment]::GetEnvironmentVariables().Keys | Where-Object { $_ -like 'PE_WL_*' }))
-        {
-            $script:saved[$name] = [Environment]::GetEnvironmentVariable($name)
-        }
-        Clear-WorkloadEnv
+        $script:savedPicker = $env:PE_WORKLOAD
+        Remove-Item Env:PE_WORKLOAD -ErrorAction SilentlyContinue
 
         # A copy of the script in a temp tree whose connect, disconnect and export steps are stubs that write marker lines.
         $script:tree = Join-Path $TestDrive 'repo'
         $scripts = New-Item -ItemType Directory -Path (Join-Path $tree 'pipelines\scripts') -Force
         New-Item -ItemType Directory -Path (Join-Path $tree 'tools'), (Join-Path $tree 'src\PolicyEngine\Data') -Force | Out-Null
-        Copy-Item (Join-Path $repoRoot 'pipelines\scripts\Invoke-PipelineExport.ps1'), $selector -Destination $scripts
+        Copy-Item (Join-Path $repoRoot 'pipelines\scripts\Invoke-PipelineExport.ps1'), (Join-Path $repoRoot 'pipelines\scripts\Resolve-WorkloadChoice.ps1') -Destination $scripts
         Copy-Item (Join-Path $repoRoot 'src\PolicyEngine\Data\Workloads.psd1') -Destination (Join-Path $tree 'src\PolicyEngine\Data')
         Set-Content (Join-Path $scripts 'Connect-PipelineTenant.ps1') 'param($Environment, $Role) "CONNECT"'
         Set-Content (Join-Path $scripts 'Disconnect-PipelineTenant.ps1') 'param($Slug, $Role) "DISCONNECT"'
         Set-Content (Join-Path $tree 'tools\Export-M365DscTenant.ps1') 'param($Role, $Tenant, $Workloads, $OutputPath) "EXPORT:$Workloads"'
         $script:exportScript = Join-Path $scripts 'Invoke-PipelineExport.ps1'
     }
-    AfterEach {
-        Clear-WorkloadEnv
-        foreach ($name in $script:saved.Keys) { Set-Item -LiteralPath "Env:$name" -Value $script:saved[$name] }
+    AfterEach { if ($null -eq $script:savedPicker) { Remove-Item Env:PE_WORKLOAD -ErrorAction SilentlyContinue } else { $env:PE_WORKLOAD = $script:savedPicker } }
+
+    It 'exports the one workload the picker names' {
+        $env:PE_WORKLOAD = 'AAD'
+        (@(& $exportScript -Environment Dev -OutputPath (Join-Path $TestDrive 'out'))) | Should -Contain 'EXPORT:AAD'
     }
 
-    It 'stops with the no-workload message before it connects to the tenant' {
+    It 'exports every default workload for Full, and for no picker at all' {
+        $env:PE_WORKLOAD = 'Full'
+        (@(& $exportScript -Environment Dev -OutputPath (Join-Path $TestDrive 'out'))) | Should -Contain 'EXPORT:AAD,Intune,EXO,Teams'
+        Remove-Item Env:PE_WORKLOAD
+        (@(& $exportScript -Environment Dev -OutputPath (Join-Path $TestDrive 'out'))) | Should -Contain 'EXPORT:AAD,Intune,EXO,Teams'
+    }
+
+    It 'stops before it connects to the tenant when the picker is not a workload' {
+        $env:PE_WORKLOAD = 'Exchange'
         $out = @()
         $thrown = $null
         try { $out = @(& $exportScript -Environment Dev -OutputPath (Join-Path $TestDrive 'out')) } catch { $thrown = $_ }
-        $thrown | Should -Not -BeNullOrEmpty
-        $thrown.Exception.Message | Should -Match 'No workload is ticked'
+        $thrown.Exception.Message | Should -Match 'Exchange.*Full, AAD'
         ($out -join ' ') | Should -Not -Match 'CONNECT|EXPORT'
     }
 
-    It 'exports the ticked workloads when -Workloads is not given' {
-        $env:PE_WL_AAD = 'True'
-        $env:PE_WL_Teams = 'True'
-        $out = @(& $exportScript -Environment Dev -OutputPath (Join-Path $TestDrive 'out'))
-        $out | Should -Contain 'EXPORT:AAD,Teams'
-    }
-
-    It 'lets a typed -Workloads win over the ticked boxes' {
-        $env:PE_WL_AAD = 'True'
-        $out = @(& $exportScript -Environment Dev -Workloads 'EXO' -OutputPath (Join-Path $TestDrive 'out'))
-        $out | Should -Contain 'EXPORT:EXO'
-    }
-
-    It 'still works for a typed -Workloads when nothing is ticked' {
-        $out = @(& $exportScript -Environment Dev -Workloads 'EXO,SC' -OutputPath (Join-Path $TestDrive 'out'))
-        $out | Should -Contain 'EXPORT:EXO,SC'
+    It 'lets a typed -Workloads win over the picker' {
+        $env:PE_WORKLOAD = 'AAD'
+        (@(& $exportScript -Environment Dev -Workloads 'EXO,SC' -OutputPath (Join-Path $TestDrive 'out'))) | Should -Contain 'EXPORT:EXO,SC'
     }
 }
 

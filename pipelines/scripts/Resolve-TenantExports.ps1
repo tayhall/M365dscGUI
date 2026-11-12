@@ -23,6 +23,10 @@ param
     [ValidatePattern('\A[A-Za-z0-9]+=\d{1,9}(;[A-Za-z0-9]+=\d{1,9})*\z')]
     [string]$TenantMap,
 
+    # Which export series: Full or one workload prefix (AAD, Intune, EXO, Teams, SC). Runs are named <Tenant>-<Workload>-v<counter>.
+    [ValidatePattern('\A[A-Za-z0-9]{1,20}\z')]
+    [string]$Workload = 'Full',
+
     # The "after" export: blank (latest), a friendly name such as v9, or a numeric run id.
     [ValidatePattern('\A(v\d{1,6}|\d{1,12})?\z')]
     [string]$ExportVersion = '',
@@ -40,6 +44,8 @@ $definitionId = $null
 foreach ($pair in $TenantMap -split ';') { $name, $value = $pair -split '=', 2; if ($name -ceq $Tenant) { $definitionId = [int]$value } }
 if (-not $definitionId) { throw "The tenant map has no export pipeline id for $Tenant. Add it to the settings (ExportDevPipelineId / ExportPreProdPipelineId) and generate the YAML again." }
 $artifactName = "${Tenant}Export"
+$what = "$Tenant $Workload"
+$seriesPattern = '\A' + [regex]::Escape("$Tenant-$Workload") + '-v\d{1,6}\z'
 
 $collection = ([string]$env:SYSTEM_COLLECTIONURI).TrimEnd('/')
 $project = [string]$env:SYSTEM_TEAMPROJECT
@@ -77,6 +83,8 @@ for ($page = 0; $page -lt 10; $page++)
     if (-not $token) { break }
 }
 $builds = @($builds | Sort-Object { -[int]$_.id })
+# Only the chosen workloads series (<Tenant>-<Workload>-v<counter>) is a candidate for a default or a v-name.
+$seriesBuilds = @($builds | Where-Object { [string]$_.buildNumber -cmatch $seriesPattern })
 
 function Test-Artifact
 {
@@ -106,8 +114,8 @@ function Resolve-Version
     param ([string]$Version)
     if ($Version -cmatch '\Av\d{1,6}\z')
     {
-        $found = @($builds | Where-Object { [string]$_.buildNumber -cmatch "(\A|-)$Version\z" }) | Select-Object -First 1
-        if (-not $found) { throw "There is no completed run named $Version of the $Tenant export pipeline (run names look like $Tenant-export-v9)." }
+        $found = @($seriesBuilds | Where-Object { [string]$_.buildNumber -cmatch "-$Version\z" }) | Select-Object -First 1
+        if (-not $found) { throw "There is no completed run named $Version of the $what exports (run names look like $Tenant-$Workload-v9)." }
     }
     else
     {
@@ -118,9 +126,14 @@ function Resolve-Version
             if (-not $found) { throw "There is no run $Version in this project." }
             if ([int]$found.definition.id -ne $definitionId) { throw "Run $Version belongs to another pipeline than the $Tenant export pipeline." }
         }
+        # A run of another workload series is refused (an old run with no series name, such as the legacy export-vN, is still allowed).
+        if ([string]$found.buildNumber -cmatch "\A$([regex]::Escape($Tenant))-([A-Za-z0-9]+)-v\d{1,6}\z" -and $Matches[1] -cne $Workload -and $Matches[1] -cne 'export')
+        {
+            throw "Run $Version is a $($Matches[1]) export, not $Workload. Pick a run of the $what exports."
+        }
     }
-    if ([string]$found.result -ne 'succeeded') { throw "Run $(Get-RunLabel $found) (id $($found.id)) of the $Tenant export did not succeed (result: $($found.result))." }
-    if (-not (Test-Artifact ([int]$found.id))) { throw "Run $(Get-RunLabel $found) (id $($found.id)) of the $Tenant export no longer has its artifact $artifactName (retention deleted it). Pick another run." }
+    if ([string]$found.result -ne 'succeeded') { throw "Run $(Get-RunLabel $found) (id $($found.id)) of the $what export did not succeed (result: $($found.result))." }
+    if (-not (Test-Artifact ([int]$found.id))) { throw "Run $(Get-RunLabel $found) (id $($found.id)) of the $what export no longer has its artifact $artifactName (retention deleted it). Pick another run." }
     return $found
 }
 
@@ -129,7 +142,7 @@ function Get-Candidate
 {
     param ([int]$BelowId = [int]::MaxValue, [int]$Skip = 0)
     $count = 0
-    foreach ($build in $builds | Where-Object { [string]$_.result -eq 'succeeded' -and [int]$_.id -lt $BelowId })
+    foreach ($build in $seriesBuilds | Where-Object { [string]$_.result -eq 'succeeded' -and [int]$_.id -lt $BelowId })
     {
         if (-not (Test-Artifact ([int]$build.id))) { continue }
         if ($count -ge $Skip) { return $build }
@@ -139,7 +152,7 @@ function Get-Candidate
 }
 
 $latest = if ($ExportVersion) { Resolve-Version $ExportVersion } else { Get-Candidate }
-if (-not $latest) { throw "There is no successful export of $Tenant with its artifact still available; take a fresh export first." }
+if (-not $latest) { throw "There is no successful export of $what with its artifact still available; take a fresh export first." }
 
 if ($PreviousVersion)
 {
@@ -150,7 +163,7 @@ if ($PreviousVersion)
 else
 {
     $previous = Get-Candidate -BelowId ([int]$latest.id)
-    if (-not $previous) { throw "There is no earlier successful export of $Tenant; take a fresh export first (the latest is $(Get-RunLabel $latest), id $($latest.id))." }
+    if (-not $previous) { throw "There is no earlier successful export of $what; take a fresh export first (the latest is $(Get-RunLabel $latest), id $($latest.id))." }
 }
 
 $result = [pscustomobject]@{
@@ -159,7 +172,7 @@ $result = [pscustomobject]@{
     Latest       = [pscustomobject]@{ RunId = [string]$latest.id; Name = Get-RunLabel $latest }
     Previous     = [pscustomobject]@{ RunId = [string]$previous.id; Name = Get-RunLabel $previous }
 }
-Write-Host "$Tenant changes: previous $($result.Previous.Name) (run $($result.Previous.RunId)) -> latest $($result.Latest.Name) (run $($result.Latest.RunId))"
+Write-Host "$what changes: previous $($result.Previous.Name) (run $($result.Previous.RunId)) -> latest $($result.Latest.Name) (run $($result.Latest.RunId))"
 if ($SetVariables)
 {
     $variables = [ordered]@{

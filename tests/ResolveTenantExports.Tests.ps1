@@ -19,8 +19,8 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
         $env:SYSTEM_TEAMPROJECT = 'M365'
         $env:SYSTEM_ACCESSTOKEN = 'token-not-printed'
         Set-FakeAdo -Builds @(
-            (New-Build 130 'Dev-export-v9'), (New-Build 125 'Dev-export-v8' 'failed'), (New-Build 120 'Dev-export-v7'),
-            (New-Build 110 'Dev-export-v6'), (New-Build 90 'M365DSC - Export Dev tenant'))
+            (New-Build 130 'Dev-Full-v9'), (New-Build 125 'Dev-Full-v8' 'failed'), (New-Build 120 'Dev-Full-v7'),
+            (New-Build 110 'Dev-Full-v6'), (New-Build 90 'M365DSC - Export Dev tenant'))
 
         Mock Invoke-RestMethod {
             if ($global:PEFake.FailWith) { throw [System.Net.Http.HttpRequestException]::new($global:PEFake.FailWith) }
@@ -74,12 +74,12 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
         $r.Latest.RunId | Should -Be '120'
         $r.Previous.RunId | Should -Be '90'
         $r.Previous.Name | Should -Be 'run 90'
-        (Resolve-Exports @{ ExportVersion = '110' }).Latest.Name | Should -Be 'v6'
+        (Resolve-Exports @{ ExportVersion = '110'; PreviousVersion = '90' }).Latest.Name | Should -Be 'v6'
     }
 
     It 'does not take v1 for v19 or the other way round' {
-        Set-FakeAdo -Builds @((New-Build 200 'Dev-export-v19'), (New-Build 150 'Dev-export-v1'), (New-Build 100 'M365DSC - Export Dev tenant'))
-        (Resolve-Exports @{ ExportVersion = 'v1' }).Latest.RunId | Should -Be '150'
+        Set-FakeAdo -Builds @((New-Build 200 'Dev-Full-v19'), (New-Build 150 'Dev-Full-v1'), (New-Build 100 'M365DSC - Export Dev tenant'))
+        (Resolve-Exports @{ ExportVersion = 'v1'; PreviousVersion = '100' }).Latest.RunId | Should -Be '150'
     }
 
     It 'uses the successful run just before a named export as the default previous' {
@@ -112,8 +112,8 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
     }
 
     It 'says to take a fresh export when there is no earlier successful export' {
-        Set-FakeAdo -Builds @(New-Build 130 'Dev-export-v1')
-        { Resolve-Exports } | Should -Throw '*no earlier successful export of Dev; take a fresh export first*'
+        Set-FakeAdo -Builds @(New-Build 130 'Dev-Full-v1')
+        { Resolve-Exports } | Should -Throw '*no earlier successful export of Dev Full; take a fresh export first*'
     }
 
     It 'names the View builds permission when Azure DevOps refuses the token' {
@@ -139,10 +139,11 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
     }
 
     It 'refuses a selected run whose name could inject a logging command, and prints nothing of it' {
-        Set-FakeAdo -Builds @((New-Build 140 'Dev-export-v10]%0D##vso[task.setvariable variable=LATEST_RUN]1'), (New-Build 120 'Dev-export-v7'))
+        Set-FakeAdo -Builds @((New-Build 140 'Dev-Full-v10]%0D##vso[task.setvariable variable=LATEST_RUN]1'), (New-Build 120 'Dev-Full-v7'))
+        # A name outside the plain characters is part of no series, so a default pick never meets it; chosen by its run id it is refused.
         $thrown = $null
         $out = ''
-        try { $out = (& $script:Script -Tenant Dev -TenantMap $script:Map -SetVariables 6>&1 | ForEach-Object { "$_" }) -join "`n" } catch { $thrown = $_.Exception.Message }
+        try { $out = (& $script:Script -Tenant Dev -TenantMap $script:Map -ExportVersion 140 -PreviousVersion 120 -SetVariables 6>&1 | ForEach-Object { "$_" }) -join "`n" } catch { $thrown = $_.Exception.Message }
         $thrown | Should -Match 'run name'
         $out | Should -Not -Match '##vso'
         $thrown | Should -Not -Match '##vso'
@@ -158,9 +159,9 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
     It 'never puts a run name in a message before it was checked: a failed run, a missing artifact, a bad pair, a default pick' {
         $bad = 'Dev ##vso[task.logissue type=error]-v10'
         $cases = @(
-            @{ Builds = @((New-Build 140 $bad 'failed'), (New-Build 120 'Dev-export-v7')); Arguments = @{ ExportVersion = 'v10' }; NoArtifact = @() },
-            @{ Builds = @((New-Build 140 $bad), (New-Build 120 'Dev-export-v7')); Arguments = @{ ExportVersion = 'v10' }; NoArtifact = @(140) },
-            @{ Builds = @((New-Build 140 $bad), (New-Build 120 'Dev-export-v7')); Arguments = @{ ExportVersion = 'v7'; PreviousVersion = 'v10' }; NoArtifact = @() },
+            @{ Builds = @((New-Build 140 $bad 'failed'), (New-Build 120 'Dev-Full-v7')); Arguments = @{ ExportVersion = 'v10' }; NoArtifact = @() },
+            @{ Builds = @((New-Build 140 $bad), (New-Build 120 'Dev-Full-v7')); Arguments = @{ ExportVersion = 'v10' }; NoArtifact = @(140) },
+            @{ Builds = @((New-Build 140 $bad), (New-Build 120 'Dev-Full-v7')); Arguments = @{ ExportVersion = 'v7'; PreviousVersion = 'v10' }; NoArtifact = @() },
             @{ Builds = @((New-Build 140 $bad)); Arguments = @{}; NoArtifact = @() }
         )
         foreach ($case in $cases)
@@ -176,5 +177,70 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
     It 'refuses a tenant with no entry in the map, and a bad version' {
         { & $script:Script -Tenant PreProd -TenantMap 'Dev=22' } | Should -Throw '*PreProd*'
         { Resolve-Exports @{ ExportVersion = 'latest;rm' } } | Should -Throw
+    }
+}
+
+Describe 'pipelines\scripts\Resolve-TenantExports.ps1 per-workload series' {
+    BeforeEach {
+        $env:SYSTEM_COLLECTIONURI = 'https://dev.azure.com/contoso/'
+        $env:SYSTEM_TEAMPROJECT = 'M365'
+        $env:SYSTEM_ACCESSTOKEN = 'token-not-printed'
+        # Full and AAD runs are interleaved: each series has its own counter and its own newest/previous.
+        Set-FakeAdo -Builds @(
+            (New-Build 150 'Dev-AAD-v3'), (New-Build 140 'Dev-Full-v9'), (New-Build 135 'Dev-AAD-v2'), (New-Build 130 'Dev-Intune-v1'),
+            (New-Build 120 'Dev-Full-v8'), (New-Build 110 'Dev-AAD-v1'), (New-Build 100 'Dev-export-v7'), (New-Build 90 'M365DSC - Export Dev tenant'))
+        Mock Invoke-RestMethod {
+            if ($Uri -match '/artifacts\?') { return [pscustomobject]@{ name = 'DevExport' } }
+            if ($Uri -match '/builds/(\d+)\?') { $id = [int]$Matches[1]; return @($global:PEFake.Builds) | Where-Object { $_.id -eq $id } }
+            if ($Uri -match '/builds\?')
+            {
+                if ($ResponseHeadersVariable) { Set-Variable -Name $ResponseHeadersVariable -Value @{} -Scope 1 }
+                return [pscustomobject]@{ value = @($global:PEFake.Builds | Sort-Object { -$_.id }); count = $global:PEFake.Builds.Count }
+            }
+            throw "unexpected uri $Uri"
+        }
+    }
+
+    It 'takes the newest and the previous run of the chosen workload only' {
+        $aad = Resolve-Exports @{ Workload = 'AAD' }
+        $aad.Latest.RunId | Should -Be '150'
+        $aad.Latest.Name | Should -Be 'v3'
+        $aad.Previous.RunId | Should -Be '135'
+        $full = Resolve-Exports @{ Workload = 'Full' }
+        $full.Latest.RunId | Should -Be '140'
+        $full.Previous.RunId | Should -Be '120'
+    }
+
+    It 'defaults to the Full series' {
+        (Resolve-Exports).Latest.RunId | Should -Be '140'
+    }
+
+    It 'resolves a v-name inside the chosen workload, not across workloads' {
+        (Resolve-Exports @{ Workload = 'AAD'; ExportVersion = 'v2' }).Latest.RunId | Should -Be '135'
+        (Resolve-Exports @{ Workload = 'Full'; ExportVersion = 'v8'; PreviousVersion = '100' }).Latest.RunId | Should -Be '120'
+        { Resolve-Exports @{ Workload = 'Intune'; ExportVersion = 'v2' } } | Should -Throw '*v2*Intune*'
+    }
+
+    It 'says which workload has no earlier export' {
+        { Resolve-Exports @{ Workload = 'Intune' } } | Should -Throw '*no earlier successful export of Dev Intune*'
+    }
+
+    It 'says which workload has no export at all' {
+        { Resolve-Exports @{ Workload = 'Teams' } } | Should -Throw '*no successful export of Dev Teams*'
+    }
+
+    It 'refuses a numeric run id that belongs to another workload series, and takes an old run with no series name' {
+        { Resolve-Exports @{ Workload = 'AAD'; ExportVersion = '140' } } | Should -Throw '*Full*not*AAD*'
+        $r = Resolve-Exports @{ Workload = 'Full'; ExportVersion = '140'; PreviousVersion = '90' }
+        $r.Previous.RunId | Should -Be '90'
+    }
+
+    It 'refuses a workload name that is not a plain word' {
+        { Resolve-Exports @{ Workload = 'AAD;rm' } } | Should -Throw
+    }
+
+    It 'sets a WORKLOAD pipeline variable with -SetVariables' {
+        $out = (& $script:Script -Tenant Dev -TenantMap $script:Map -Workload AAD -SetVariables 6>&1 | ForEach-Object { "$_" }) -join "`n"
+        $out | Should -Match '##vso\[task\.setvariable variable=LATEST_RUN\]150'
     }
 }

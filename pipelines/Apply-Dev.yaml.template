@@ -2,14 +2,25 @@ name: 'M365DSC - Apply compared MOF files to Dev'
 
 trigger: none
 
-# Applies what "Compare PreProd to Dev and build MOFs" produced. DEV ONLY: the target is fixed in the script.
-# Dev's tenant and Writer app id are in pipelines/config/Dev.psd1.
+# Applies what "Compare PreProd to Dev and build MOFs" produced (source Compare), or the revert of a "Tenant changes" run of Dev (source
+# TenantChanges: puts Dev back to its previous export). DEV ONLY: the target is fixed in the script, and a tenant-changes run of another
+# tenant is refused. Dev's tenant and Writer app id are in pipelines/config/Dev.psd1.
+# Both pipelines are listed in the run form; the one the source parameter does not name is ignored.
 resources:
   pipelines:
     - pipeline: compare
       source: '__COMPARE_PIPELINE__'
+    - pipeline: tenantChanges
+      source: '__TENANT_CHANGES_PIPELINE__'
 
 parameters:
+  - name: source
+    displayName: 'Compare = the MOF files of a PreProd-to-Dev compare run; TenantChanges = the revert of a Tenant changes run of Dev'
+    type: string
+    default: Compare
+    values:
+      - Compare
+      - TenantChanges
   - name: mode
     displayName: Test only reports what would change; Apply changes Dev
     type: string
@@ -38,8 +49,12 @@ jobs:
         deploy:
           steps:
             - checkout: self
-            - download: compare
-              artifact: DriftReport
+            - ${{ if eq(parameters.source, 'TenantChanges') }}:
+              - download: tenantChanges
+                artifact: TenantChanges
+            - ${{ else }}:
+              - download: compare
+                artifact: DriftReport
 
             - pwsh: |
                 & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Install-PipelineDependencies.ps1'
@@ -54,11 +69,18 @@ jobs:
                 ScriptType: InlineScript
                 Inline: |
                   & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineApply.ps1' `
-                      -ReportPath '$(Pipeline.Workspace)/compare/DriftReport' `
+                      -ReportPath $env:PE_REPORT_PATH -RequireTenant:($env:PE_REQUIRE_TENANT -eq 'True') `
                       -Mode '${{ parameters.mode }}' -Workloads $env:PE_WORKLOADS -IncludeRemovals '${{ parameters.includeRemovals }}' -CompareRun $env:PE_COMPARE_RUN
               env:
                 PE_WORKLOADS: ${{ parameters.workloads }}
-                PE_COMPARE_RUN: $(resources.pipeline.compare.runID)
+                ${{ if eq(parameters.source, 'TenantChanges') }}:
+                  PE_REPORT_PATH: '$(Pipeline.Workspace)/tenantChanges/TenantChanges/Revert'
+                  PE_REQUIRE_TENANT: 'True'
+                  PE_COMPARE_RUN: $(resources.pipeline.tenantChanges.runID)
+                ${{ else }}:
+                  PE_REPORT_PATH: '$(Pipeline.Workspace)/compare/DriftReport'
+                  PE_REQUIRE_TENANT: 'False'
+                  PE_COMPARE_RUN: $(resources.pipeline.compare.runID)
 
             - pwsh: |
                 & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug dev -Role Writer

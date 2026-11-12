@@ -28,6 +28,7 @@ $tokens = [ordered]@{
     ExportPreProdPipeline   = '__EXPORT_PREPROD_PIPELINE__'
     ExportDevPipeline       = '__EXPORT_DEV_PIPELINE__'
     ComparePipeline         = '__COMPARE_PIPELINE__'
+    TenantChangesPipeline   = '__TENANT_CHANGES_PIPELINE__'
     # Only the approved-apply pipeline uses these three; the others generate without them.
     ExportPreProdPipelineId = '__EXPORT_PREPROD_PIPELINE_ID__'
     ExportDevPipelineId     = '__EXPORT_DEV_PIPELINE_ID__'
@@ -41,6 +42,7 @@ $defaults = @{
     ExportPreProdPipeline = 'M365DSC - Export PreProd tenant'
     ExportDevPipeline     = 'M365DSC - Export Dev tenant'
     ComparePipeline       = 'M365DSC - Compare PreProd to Dev and build MOFs'
+    TenantChangesPipeline = 'M365DSC - Tenant changes'
     DefaultBranch         = 'main'
 }
 # Settings with no default that a template may leave unused: needed (and checked) only by the templates that contain their token.

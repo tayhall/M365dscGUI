@@ -27,7 +27,10 @@ param
 
     # Name of the compare run being applied, shown in the log with the export runs it used (from the report's summary.json).
     [ValidatePattern('\A[\w .#()-]{0,100}\z')]
-    [string]$CompareRun = ''
+    [string]$CompareRun = '',
+
+    # For a tenant-changes report (its summary.json carries the tenant): refuse a report that does not say which tenant it is for.
+    [switch]$RequireTenant
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,7 +40,22 @@ $windowsPowerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\
 
 # What is being applied.
 $summary = Get-Content -LiteralPath (Join-Path $ReportPath 'summary.json') -Raw | ConvertFrom-Json
-"Compare run: $(if ($CompareRun) { $CompareRun } else { '(unknown)' }); generated $($summary.GeneratedAtUtc); PreProd export run $($summary.PreProdExportRun); Dev export run $($summary.DevExportRun)"
+# This pipeline applies to Dev and nothing else. A tenant-changes report says which tenant it was made for: another tenant's is refused
+# before anything connects. A compare report has no Tenant (it is always Dev's); -RequireTenant is for the tenant-changes source.
+if ($summary.PSObject.Properties.Name -contains 'Tenant')
+{
+    if ([string]$summary.Tenant -cne 'Dev') { throw "This report is for tenant '$($summary.Tenant)', but this pipeline applies to Dev. Nothing was applied." }
+}
+elseif ($RequireTenant) { throw 'This report has no tenant in its summary.json, so it is not a tenant-changes report. Nothing was applied.' }
+
+if ($summary.PSObject.Properties.Name -contains 'Tenant')
+{
+    "Tenant changes of $($summary.Tenant): previous $($summary.PreviousName) (run $($summary.PreviousRun)), latest $($summary.LatestName) (run $($summary.LatestRun)); generated $($summary.GeneratedAtUtc); run $(if ($CompareRun) { $CompareRun } else { '(unknown)' })"
+}
+else
+{
+    "Compare run: $(if ($CompareRun) { $CompareRun } else { '(unknown)' }); generated $($summary.GeneratedAtUtc); PreProd export run $($summary.PreProdExportRun); Dev export run $($summary.DevExportRun)"
+}
 "Drift: $($summary.OpenFindings) open ($($summary.ByKind)); layout $($summary.MofLayout); mode $Mode; removals $IncludeRemovals"
 
 $names = @($Workloads -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })

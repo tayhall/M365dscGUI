@@ -17,6 +17,7 @@
         'tools\Invoke-PEApprovedBuild.ps1'
         'tools\Invoke-PELcm.ps1'
         'tools\Invoke-PEPipelineCompare.ps1'
+        'tools\Invoke-PETenantChanges.ps1'
         'tools\Invoke-PETests.ps1'
         'tools\New-PEDriftReport.ps1'
         'tools\PEAppPath.ps1'

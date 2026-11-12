@@ -20,6 +20,7 @@ param
     [string]$MofLayout = 'Combined',
 
     # Workloads whose Dev export is complete, comma separated, for example AAD,Intune,EXO,Teams.
+    # Not given: the ticked workload checkboxes (PE_WL_<Prefix>) when the pipeline passes them, else this default.
     [ValidatePattern('\A[A-Za-z0-9,]*\z')]
     [string]$CompleteWorkloads = 'AAD,Intune,EXO,Teams',
 
@@ -33,6 +34,15 @@ param
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+
+# The pipeline passes one PE_WL_<Prefix> variable per workload: then the ticked boxes are the complete workloads, and no box ticked
+# means nothing is complete. With no such variable at all (a manual run) the parameter's default stays.
+$anyBox = @([Environment]::GetEnvironmentVariables().Keys | Where-Object { $_ -like 'PE_WL_*' }).Count -gt 0
+if (-not $PSBoundParameters.ContainsKey('CompleteWorkloads') -and $anyBox)
+{
+    $CompleteWorkloads = & (Join-Path $PSScriptRoot 'Get-WorkloadSelection.ps1') -AllowNone
+}
+
 $dev = & (Join-Path $PSScriptRoot 'Get-PipelineConfig.ps1') -Environment Dev -Require TenantDomain, OrganizationName, WriterAppId
 $thumbprint = & (Join-Path $PSScriptRoot 'Connect-PipelineTenant.ps1') -Environment Dev -Role Writer -ThumbprintOnly
 

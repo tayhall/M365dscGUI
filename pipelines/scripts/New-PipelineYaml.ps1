@@ -12,7 +12,9 @@
 param
 (
     [string]$SettingsPath = (Join-Path $PSScriptRoot '..\pipeline.settings.psd1'),
-    [string]$OutputPath = (Join-Path $PSScriptRoot '..')
+    [string]$OutputPath = (Join-Path $PSScriptRoot '..'),
+    # The one list of workloads (Prefix, Name, Default); the export and compare pipelines get one checkbox per entry.
+    [string]$WorkloadsPath = (Join-Path $PSScriptRoot '..\..\src\PolicyEngine\Data\Workloads.psd1')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -94,6 +96,35 @@ if ($values.ContainsKey('ExportDevPipelineId') -and $values.ContainsKey('ExportP
     $values['TenantMap'] = "Dev=$($values['ExportDevPipelineId']);PreProd=$($values['ExportPreProdPipelineId'])"
 }
 
+# The workload checkboxes: a token alone on a line in a template is replaced by one entry per workload of Workloads.psd1.
+# Names and prefixes end up inside single-quoted YAML strings and names of variables, so they are checked here.
+if (-not (Test-Path -LiteralPath $WorkloadsPath)) { throw "No workload list at $WorkloadsPath." }
+$workloadList = @((Import-PowerShellDataFile -Path $WorkloadsPath).Workloads)
+if ($workloadList.Count -eq 0) { throw "No workloads in $WorkloadsPath." }
+foreach ($w in $workloadList)
+{
+    if ([string]$w.Prefix -cnotmatch '\A[A-Za-z0-9]+\z') { throw "A workload Prefix in $WorkloadsPath must be letters and digits only (got '$($w.Prefix)')." }
+    if ([string]$w.Name -match '[
+]') { throw "The Name of workload $($w.Prefix) in $WorkloadsPath must be one line." }
+}
+function Get-WorkloadParameterLines
+{
+    param ([string]$LabelPrefix)
+    foreach ($w in $workloadList)
+    {
+        $label = ($LabelPrefix + $w.Name + ' (' + $w.Prefix + ')') -replace "'", "''"
+        "- name: $($w.Prefix)"
+        "  displayName: '$label'"
+        '  type: boolean'
+        "  default: $(if ($w.Default) { 'true' } else { 'false' })"
+    }
+}
+$expansions = [ordered]@{
+    '__EXPORT_WORKLOAD_PARAMETERS__'   = @(Get-WorkloadParameterLines -LabelPrefix '')
+    '__COMPLETE_WORKLOAD_PARAMETERS__' = @(Get-WorkloadParameterLines -LabelPrefix 'Complete in the Dev export: ')
+    '__WORKLOAD_ENV__'                 = @($workloadList | ForEach-Object { "PE_WL_$($_.Prefix): `${{ parameters.$($_.Prefix) }}" })
+}
+
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 $OutputPath = (Resolve-Path -LiteralPath $OutputPath).ProviderPath
 
@@ -104,6 +135,13 @@ $failed = @()
 foreach ($file in $sources)
 {
     $text = [IO.File]::ReadAllText($file.FullName)
+    $eol = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    foreach ($token in $expansions.Keys)
+    {
+        # The whole token line becomes the expanded lines, each with the token line's own indentation.
+        $lines = $expansions[$token]
+        $text = [regex]::Replace($text, "(?m)^([ 	]*)$token[ 	]*(?=?$)", { param ($m) ($lines | ForEach-Object { $m.Groups[1].Value + $_ }) -join $eol })
+    }
     foreach ($name in $tokens.Keys) { if ($values.ContainsKey($name)) { $text = $text.Replace($tokens[$name], $values[$name]) } }
     $left = [regex]::Matches($text, '__[A-Z][A-Z_]*__') | ForEach-Object { $_.Value } | Sort-Object -Unique
     if ($left)

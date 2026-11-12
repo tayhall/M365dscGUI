@@ -55,9 +55,9 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
     It 'blank and blank give the newest successful export and the successful one before it, skipping the failed run' {
         $r = Resolve-Exports
         $r.Latest.RunId | Should -Be '130'
-        $r.Latest.Name | Should -Be 'Dev-export-v9'
+        $r.Latest.Name | Should -Be 'v9'
         $r.Previous.RunId | Should -Be '120'
-        $r.Previous.Name | Should -Be 'Dev-export-v7'
+        $r.Previous.Name | Should -Be 'v7'
         $r.DefinitionId | Should -Be '22'
         $r.ArtifactName | Should -Be 'DevExport'
     }
@@ -73,8 +73,8 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
         $r = Resolve-Exports @{ ExportVersion = 'v7'; PreviousVersion = '90' }
         $r.Latest.RunId | Should -Be '120'
         $r.Previous.RunId | Should -Be '90'
-        $r.Previous.Name | Should -Be 'M365DSC - Export Dev tenant'
-        (Resolve-Exports @{ ExportVersion = '110' }).Latest.Name | Should -Be 'Dev-export-v6'
+        $r.Previous.Name | Should -Be 'run 90'
+        (Resolve-Exports @{ ExportVersion = '110' }).Latest.Name | Should -Be 'v6'
     }
 
     It 'does not take v1 for v19 or the other way round' {
@@ -146,6 +146,31 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
         $thrown | Should -Match 'run name'
         $out | Should -Not -Match '##vso'
         $thrown | Should -Not -Match '##vso'
+    }
+
+    It 'labels runs as vN, or as run <id> for an old run, in the result and in the pipeline variables' {
+        $out = (& $script:Script -Tenant Dev -TenantMap $script:Map -ExportVersion 'v7' -PreviousVersion '90' -SetVariables 6>&1 | ForEach-Object { "$_" }) -join "`n"
+        $out | Should -Match '##vso\[task\.setvariable variable=LATEST_NAME\]v7'
+        $out | Should -Match '##vso\[task\.setvariable variable=PREVIOUS_NAME\]run 90'
+        $out | Should -Match 'previous run 90 \(run 90\) -> latest v7 \(run 120\)'
+    }
+
+    It 'never puts a run name in a message before it was checked: a failed run, a missing artifact, a bad pair, a default pick' {
+        $bad = 'Dev ##vso[task.logissue type=error]-v10'
+        $cases = @(
+            @{ Builds = @((New-Build 140 $bad 'failed'), (New-Build 120 'Dev-export-v7')); Arguments = @{ ExportVersion = 'v10' }; NoArtifact = @() },
+            @{ Builds = @((New-Build 140 $bad), (New-Build 120 'Dev-export-v7')); Arguments = @{ ExportVersion = 'v10' }; NoArtifact = @(140) },
+            @{ Builds = @((New-Build 140 $bad), (New-Build 120 'Dev-export-v7')); Arguments = @{ ExportVersion = 'v7'; PreviousVersion = 'v10' }; NoArtifact = @() },
+            @{ Builds = @((New-Build 140 $bad)); Arguments = @{}; NoArtifact = @() }
+        )
+        foreach ($case in $cases)
+        {
+            Set-FakeAdo -Builds $case.Builds -NoArtifact $case.NoArtifact
+            $thrown = $null
+            try { Resolve-Exports $case.Arguments | Out-Null } catch { $thrown = $_.Exception.Message }
+            $thrown | Should -Not -BeNullOrEmpty
+            $thrown | Should -Not -Match '##vso'
+        }
     }
 
     It 'refuses a tenant with no entry in the map, and a bad version' {

@@ -84,6 +84,22 @@ function Test-Artifact
     return [bool](Invoke-Ado "$base/$RunId/artifacts?artifactName=$artifactName&api-version=7.1")
 }
 
+function Get-RunLabel
+{
+    # How a run is called in messages, labels, variables and the run name: 'v9' (the counter at the end of its name) or 'run <id>' for an old
+    # run without one. A run name is text a person or a step could have set (any step can print ##vso[build.updatebuildnumber]), and it ends up
+    # inside Azure DevOps logging commands: only plain characters go through (no brackets, percent signs, semicolons or #), so a run whose
+    # name has others is refused here, before anything prints it. Every message uses this, never the raw name.
+    param ($Build)
+    $name = [string]$Build.buildNumber
+    if ($name -cnotmatch '\A[\w .()-]{1,40}\z')
+    {
+        throw "The run name of export run id $($Build.id) has characters or a length this pipeline will not pass on (letters, digits, space, dot, hyphen and round brackets, up to 40). It is set by the export pipeline's name: line."
+    }
+    if ($name -cmatch '(?:\A|-)(v\d{1,6})\z') { return $Matches[1] }
+    return "run $($Build.id)"
+}
+
 function Resolve-Version
 {
     # A named run: friendly name or numeric id -> the build, after checking it is a successful run of this pipeline with its artifact.
@@ -103,8 +119,8 @@ function Resolve-Version
             if ([int]$found.definition.id -ne $definitionId) { throw "Run $Version belongs to another pipeline than the $Tenant export pipeline." }
         }
     }
-    if ([string]$found.result -ne 'succeeded') { throw "Run $($found.buildNumber) (id $($found.id)) of the $Tenant export did not succeed (result: $($found.result))." }
-    if (-not (Test-Artifact ([int]$found.id))) { throw "Run $($found.buildNumber) (id $($found.id)) of the $Tenant export no longer has its artifact $artifactName (retention deleted it). Pick another run." }
+    if ([string]$found.result -ne 'succeeded') { throw "Run $(Get-RunLabel $found) (id $($found.id)) of the $Tenant export did not succeed (result: $($found.result))." }
+    if (-not (Test-Artifact ([int]$found.id))) { throw "Run $(Get-RunLabel $found) (id $($found.id)) of the $Tenant export no longer has its artifact $artifactName (retention deleted it). Pick another run." }
     return $found
 }
 
@@ -128,30 +144,20 @@ if (-not $latest) { throw "There is no successful export of $Tenant with its art
 if ($PreviousVersion)
 {
     $previous = Resolve-Version $PreviousVersion
-    if ([int]$previous.id -eq [int]$latest.id) { throw "The previous and the latest export are the same run ($($latest.buildNumber), id $($latest.id)); pick two different exports." }
-    if ([int]$previous.id -gt [int]$latest.id) { throw "The previous export ($($previous.buildNumber)) must be older than the latest ($($latest.buildNumber)), but it is newer. Swap them." }
+    if ([int]$previous.id -eq [int]$latest.id) { throw "The previous and the latest export are the same run ($(Get-RunLabel $latest), id $($latest.id)); pick two different exports." }
+    if ([int]$previous.id -gt [int]$latest.id) { throw "The previous export ($(Get-RunLabel $previous)) must be older than the latest ($(Get-RunLabel $latest)), but it is newer. Swap them." }
 }
 else
 {
     $previous = Get-Candidate -BelowId ([int]$latest.id)
-    if (-not $previous) { throw "There is no earlier successful export of $Tenant; take a fresh export first (the latest is $($latest.buildNumber), id $($latest.id))." }
-}
-
-# The run name is printed inside Azure DevOps logging commands and passed on to scripts: only plain characters go through (no brackets,
-# percent signs, semicolons or # that could close a command or start another). The name is not echoed when it is refused.
-foreach ($run in @($latest, $previous))
-{
-    if ([string]$run.buildNumber -cnotmatch '\A[\w .()-]{1,40}\z')
-    {
-        throw "The run name of export run id $($run.id) has characters or a length this pipeline will not pass on (letters, digits, space, dot, hyphen and round brackets, up to 40). It is set by the export pipeline's name: line."
-    }
+    if (-not $previous) { throw "There is no earlier successful export of $Tenant; take a fresh export first (the latest is $(Get-RunLabel $latest), id $($latest.id))." }
 }
 
 $result = [pscustomobject]@{
     DefinitionId = [string]$definitionId
     ArtifactName = $artifactName
-    Latest       = [pscustomobject]@{ RunId = [string]$latest.id; Name = [string]$latest.buildNumber }
-    Previous     = [pscustomobject]@{ RunId = [string]$previous.id; Name = [string]$previous.buildNumber }
+    Latest       = [pscustomobject]@{ RunId = [string]$latest.id; Name = Get-RunLabel $latest }
+    Previous     = [pscustomobject]@{ RunId = [string]$previous.id; Name = Get-RunLabel $previous }
 }
 Write-Host "$Tenant changes: previous $($result.Previous.Name) (run $($result.Previous.RunId)) -> latest $($result.Latest.Name) (run $($result.Latest.RunId))"
 if ($SetVariables)

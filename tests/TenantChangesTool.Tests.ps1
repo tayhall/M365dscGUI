@@ -71,3 +71,33 @@ Describe 'tools\Invoke-PETenantChanges.ps1' {
         { Invoke-Tool -Previous 'other-version.ps1' } | Should -Throw '*made with another Microsoft365DSC version*Take a fresh export*'
     }
 }
+
+Describe 'tools\Invoke-PETenantChanges.ps1 report' {
+    BeforeAll { Import-Module "$PSScriptRoot\..\src\PolicyEngine\PolicyEngine.psd1" -Force }
+
+    It 'writes DevChanges.html with both run ids, the export names as labels and the tenant slug dev-changes' {
+        $r = Invoke-Tool
+        $html = [System.IO.File]::ReadAllText((Join-Path $r.Out 'DevChanges.html'))
+        $json = [regex]::Match($html, '(?s)<script type="application/json" id="report-data">(.*?)</script>').Groups[1].Value
+        $data = $json | ConvertFrom-Json
+        $data.Meta.Tenant | Should -Be 'dev-changes'
+        $data.Meta.Source.Run | Should -Be '101'
+        $data.Meta.Target.Run | Should -Be '102'
+        $html | Should -Match 'Dev v8'
+        $html | Should -Match 'Dev v9'
+        Test-Path (Join-Path $r.Out 'drift-report.html') | Should -BeFalse
+    }
+
+    It 'makes a list that the approved apply for dev refuses' {
+        $source = New-ExportCopy 'entra.ps1'
+        $list = New-PEApprovedList -Tenant 'dev-changes' -ApprovedBy 'andrew' -ModuleVersion '2.26.1104.1' `
+            -Item @(@{ Action = 'Create'; ResourceType = 'AADGroup'; Key = 'Finance'; ExcludedProperties = @() }) `
+            -Source @{ Run = '101'; ExportedAt = '2026-11-03T10:00:00Z'; Fingerprint = (Get-PEExportFingerprint -Path $source) } `
+            -Target @{ Run = '102'; ExportedAt = '2026-11-03T10:00:00Z'; Fingerprint = (Get-PEExportFingerprint -Path $source) }
+        $listPath = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-tc-list-' + [guid]::NewGuid().ToString('N') + '.json')
+        Save-PEApprovedList -List $list -Path $listPath
+        { & (Join-Path $PSScriptRoot '..\tools\Invoke-PEApprovedBuild.ps1') -ListPath $listPath -SourceExportPath $source -TargetExportPath $source `
+            -TargetTenantDomain 'contoso-dev.onmicrosoft.com' -OutputPath (Join-Path ([System.IO.Path]::GetTempPath()) 'pe-tc-never') -NoCompile } |
+            Should -Throw "*tenant 'dev-changes'*"
+    }
+}

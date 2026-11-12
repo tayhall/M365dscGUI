@@ -110,6 +110,27 @@ foreach ($kind in 'Changes', 'Removals')
 }
 Remove-Item -LiteralPath $promotePath -Recurse -Force
 
+# The report of the previous-to-latest comparison. An extra: if it cannot be built, everything above is still good. Its tenant slug is
+# '<tenant>-changes', so an approved list made from it is refused by the approved apply (which expects 'dev').
+$reportWork = Join-Path $OutputPath 'work-report'
+try
+{
+    & (Join-Path $PSScriptRoot 'New-PEDriftReport.ps1') -SourceExportPath $PreviousExportPath -TargetExportPath $LatestExportPath `
+        -TargetTenantDomain $TargetTenantDomain -OutputPath $reportWork -SourceRun $PreviousRun -TargetRun $LatestRun `
+        -Tenant ($Tenant.ToLowerInvariant() + '-changes') -SourceLabel "$Tenant $PreviousName" -TargetLabel "$Tenant $LatestName" `
+        -CompleteWorkload $CompleteWorkload | Out-Null
+    Copy-Item -LiteralPath (Join-Path $reportWork 'drift-report.html') -Destination (Join-Path $OutputPath "${Tenant}Changes.html")
+}
+catch
+{
+    $reason = (([string]$_.Exception.Message) -split "`r?`n")[0]
+    Write-Host "##vso[task.logissue type=warning]${Tenant}Changes.html was not built: $reason"
+}
+finally
+{
+    if (Test-Path -LiteralPath $reportWork) { Remove-Item -LiteralPath $reportWork -Recurse -Force }
+}
+
 # The compiled revert MOFs, under the names a person looks for.
 foreach ($kind in 'Changes', 'Removals')
 {

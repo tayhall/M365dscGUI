@@ -8,6 +8,7 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 | `Compare-PreProd-to-Dev.yaml` | Takes the latest of both exports, runs `tools\Invoke-PEPipelineCompare.ps1`, publishes `DriftReport` (`drift-report.html`, `drift.csv`, `drift.json`, `Changes.ps1`, `Removals.ps1`, `Manual.json`, `MOF\Changes`, `MOF\Removals`). |
 | `Apply-Dev.yaml` | Applies the MOFs to Dev through the LCM (`tools\Invoke-PELcm.ps1`). Default mode is `Test`; Removals only when asked; gated by the `m365-dev` environment approval. |
 | `Apply-Approved-Dev.yaml` | Applies exactly the items of one approved list (`approvals/*.json`, from the drift report). Default mode `Test`; gated by the `m365-dev` environment approval. See "Approved apply" below. |
+| `Tenant-Changes.yaml` | What changed in ONE tenant between two of its own exports. See "Tenant changes" below. |
 | `Bump-Dsc-Pin.yaml` | Changes the pinned Microsoft365DSC (and optionally Microsoft.Graph.Authentication) version in `src\PolicyEngine\Data\Versions.psd1` and opens a pull request. See "Bumping the DSC pins" below. |
 
 **Drift report (choose what to apply, in the browser).** The compare pipeline also publishes `drift-report.html` in the `DriftReport` artifact
@@ -80,6 +81,30 @@ branch and the folder, not who reviewed the change.
   MOFs were compiled with. A run with no drift ends with "Nothing to apply". In Apply mode a resource still not in the desired state fails the step and
   Removals do not follow; in Test mode differences are only reported.
 - When you queue Apply by hand, Azure DevOps lets you pick which compare run to use (Resources); the default is the latest.
+
+## Tenant changes (`Tenant-Changes.yaml`): what changed in this tenant since the last export
+Queue it by hand (nothing triggers it). Parameters: `tenant` (Dev or PreProd), `exportVersion` and `previousVersion` (both optional).
+It compares the tenant's **previous** export (what it should look like) with its **latest** export (what it looks like), with the same comparison as the
+compare pipeline, so the report shows only the tenant's own changes, not differences between tenants.
+- **Which exports.** Blank means the newest successful export that still has its artifact, and the successful one just before it. A failed or cancelled run in between is
+  skipped. To look further back type a name such as `v7` (the counter in the run name `Dev-export-v7`; the export pipelines now name their runs this way, each tenant
+  counting on its own) or, for an old run whose name has no counter, its numeric run id. "Previous" is looked up over the Azure DevOps API, not calculated as the number minus one, because the
+  counter also counts failed runs. The run renames itself to what it compared (`Dev changes v8 to v9`) and says so first in the log.
+- **Outputs** (artifact `TenantChanges`): `<Tenant>Changes.html` (the drift report; its list cannot be applied by `Apply-Approved-Dev`, the tenant in it is `dev-changes`),
+  `Revert\` (previous = expected: `Changes.ps1`, `Removals.ps1`, `Manual.json`, `drift.*`, `summary.json`, and for a tenant with a Writer app (Dev) the MOFs and
+  `ConfigurationData.psd1`; the layout of a compare run), `RevertDevChanges.mof` and `RevertDevRemovals.mof` (copies), and `DevChanges.ps1` / `DevRemovals.ps1` (the
+  other direction: the configuration that takes a tenant in the previous state to the latest, the thing to promote). The promote configuration is **not compiled**: a
+  MOF holds the identity of the tenant it will be applied to.
+- **Revert.** Run `Apply-Dev` with `source` = `TenantChanges` and pick the Tenant changes run in Resources. It applies `Revert\` through the usual approval, Test before
+  Apply. It refuses a report of another tenant (the report's `summary.json` carries `Tenant`).
+- **Nothing changed** is a green run that says `No changes`.
+- **Refusals, each with its reason:** a name that does not exist, a run that did not succeed, a run of another pipeline, an export whose artifact retention deleted, an
+  "after" that is not newer than the "before", no earlier successful export (take a fresh export first), an export made with another Microsoft365DSC version, and a run name with
+  characters other than letters, digits, space, dot, hyphen and round brackets.
+- **Prerequisite:** the project's build service identity needs **View builds** on the export pipelines (the same identity that creates the retention leases).
+- **Setting up:** both export pipeline ids must be in `pipeline.settings.psd1` (`ExportDevPipelineId`, `ExportPreProdPipelineId`); the generator builds the tenant map from them. Create the pipeline
+  from `Tenant-Changes.yaml`, named as `TenantChangesPipeline` (default `M365DSC - Tenant changes`), and generate again so `Apply-Dev.yaml` can find it.
+- **Prod** is not offered yet: it has no config file or export pipeline. Adding it is one more value of `tenant` and one more entry of the map.
 
 ## Bumping the DSC pins
 `Bump-Dsc-Pin.yaml` (`pipelines\scripts\Update-DscPin.ps1`) moves the versions pinned in `src\PolicyEngine\Data\Versions.psd1`, the one file every pipeline,

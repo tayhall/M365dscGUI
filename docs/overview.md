@@ -54,6 +54,9 @@ Secrets and certificates live outside the repo, in `~\.m365dsc-policy\`.
 - `Invoke-PERectify`: builds a plan, saves an audit folder, generates a DSC config, compiles it with `Invoke-M365DSCConfigurationBuild` and applies it through the Local Configuration Manager (`Start-DscConfiguration`, `tools/Invoke-PEApply.ps1`, `tools/Invoke-PELcm.ps1`).
 - Safety rules: plans are single-use, writing to the master needs `-ConfirmMasterWrite`, Security and Compliance types are check-only.
 
+**Tenant changes (pipelines)**
+- `tools/Invoke-PETenantChanges.ps1`: two exports of one tenant (previous and latest) go through `Invoke-PEPipelineCompare.ps1` in both directions: a report, a revert configuration (MOFs for a tenant with a Writer app) and a promote configuration. Run by the `Tenant-Changes` pipeline (`pipelines/README.md`, "Tenant changes"); `pipelines/scripts/Resolve-TenantExports.ps1` finds the two export runs.
+
 **Scheduling**
 - `Register-PESchedule`, `Register-PEScopeSchedule`: Windows scheduled tasks for full checks and scope checks.
 

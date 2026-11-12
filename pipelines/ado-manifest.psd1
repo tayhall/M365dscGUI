@@ -106,11 +106,16 @@
         'tests\OwnId.Tests.ps1'
         'tests\Parse.Tests.ps1'
         'tests\PipelineApplyResult.Tests.ps1'
+        'tests\PipelineApplyTenant.Tests.ps1'
         'tests\PipelineApprovalHelpers.Tests.ps1'
         'tests\PipelineApprovedApply.Tests.ps1'
+        'tests\PipelineTenantChanges.Tests.ps1'
         'tests\PipelineYaml.Tests.ps1'
         'tests\References.Tests.ps1'
+        'tests\ResolveTenantExports.Tests.ps1'
         'tests\Store.Tests.ps1'
+        'tests\TenantChangesNoise.Tests.ps1'
+        'tests\TenantChangesTool.Tests.ps1'
         'tests\UpdateDscPin.Tests.ps1'
     )
 

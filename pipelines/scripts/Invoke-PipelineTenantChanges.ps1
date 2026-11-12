@@ -39,8 +39,9 @@ param
     [ValidatePattern('\A[\w .()-]{1,40}\z')]
     [string]$LatestName,
 
-    [ValidatePattern('\A[A-Za-z0-9,]*\z')]
-    [string]$CompleteWorkloads = 'AAD,Intune,EXO,Teams',
+    # Which export series was compared: Full or one workload. Only that workload is compared, so a component that was not exported is not
+    # reported as unchecked.
+    [string]$Workload = 'Full',
 
     # For tests: another config folder, the tool and the certificate script.
     [string]$ConfigPath = (Join-Path $PSScriptRoot '..\config'),
@@ -50,11 +51,12 @@ param
 
 $ErrorActionPreference = 'Stop'
 $config = & (Join-Path $PSScriptRoot 'Get-PipelineConfig.ps1') -Environment $Tenant -Require TenantDomain -ConfigPath $ConfigPath
+$completeWorkloads = & (Join-Path $PSScriptRoot 'Resolve-WorkloadChoice.ps1') -Choice $Workload
 
 $arguments = @{
     Tenant = $Tenant; PreviousExportPath = $PreviousExportPath; LatestExportPath = $LatestExportPath; TargetTenantDomain = $config.TenantDomain
     OutputPath = $OutputPath; PreviousRun = $PreviousRun; LatestRun = $LatestRun; PreviousName = $PreviousName; LatestName = $LatestName
-    CompleteWorkload = $CompleteWorkloads
+    CompleteWorkload = $completeWorkloads
 }
 # Compile the revert only for a tenant with a real Writer app and organization name (a CHANGE-ME value is the unfilled example).
 $hasWriter = $config.WriterAppId -and $config.WriterAppId -notmatch 'CHANGE-ME' -and $config.OrganizationName -and $config.OrganizationName -notmatch 'CHANGE-ME'
@@ -68,6 +70,6 @@ else { "$Tenant has no Writer app in its config: the report and the configuratio
 & $ToolPath @arguments
 
 # The run states what it compared ('>' is not allowed in a run name).
-Write-Host "##vso[build.updatebuildnumber]$Tenant changes $PreviousName to $LatestName"
+Write-Host "##vso[build.updatebuildnumber]$Tenant $Workload changes $PreviousName to $LatestName"
 $summary = Get-Content -LiteralPath (Join-Path $OutputPath 'summary.json') -Raw | ConvertFrom-Json
 Write-Host "##vso[task.logissue type=warning]Changes: $($summary.Revert.OpenFindings) open ($($summary.Revert.ByKind)); $($summary.Revert.Manual) item(s) need manual action."

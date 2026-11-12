@@ -31,9 +31,9 @@ $PSBoundParameters | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $OutputPat
 
     function Invoke-Script
     {
-        param ([string]$Tenant = 'Dev', [string]$ConfigPath = (New-Config $script:DevConfig $script:PreProdConfig))
+        param ([string]$Tenant = 'Dev', [string]$Workload = 'Full', [string]$ConfigPath = (New-Config $script:DevConfig $script:PreProdConfig))
         $out = Join-Path $script:Temp ('out-' + [guid]::NewGuid().ToString('N'))
-        $messages = & $script:Script -Tenant $Tenant -PreviousExportPath 'prev' -LatestExportPath 'latest' -OutputPath $out `
+        $messages = & $script:Script -Tenant $Tenant -Workload $Workload -PreviousExportPath 'prev' -LatestExportPath 'latest' -OutputPath $out `
             -PreviousRun '101' -LatestRun '102' -PreviousName 'v8' -LatestName 'v9' -ConfigPath $ConfigPath `
             -ToolPath $script:StubTool -ConnectScript $script:StubConnect 6>&1 3>&1
         [pscustomobject]@{ Out = $out; Messages = @($messages | ForEach-Object { "$_" }); Args = (Get-Content (Join-Path $out 'args.json') -Raw | ConvertFrom-Json) }
@@ -69,8 +69,19 @@ Describe 'pipelines\scripts\Invoke-PipelineTenantChanges.ps1' {
     It 'renames the run once, to what it compared, and warns with the counts' {
         $r = Invoke-Script
         @($r.Messages | Where-Object { $_ -match 'build\.updatebuildnumber' }).Count | Should -Be 1
-        ($r.Messages | Where-Object { $_ -match 'build\.updatebuildnumber' }) | Should -Be '##vso[build.updatebuildnumber]Dev changes v8 to v9'
+        ($r.Messages | Where-Object { $_ -match 'build\.updatebuildnumber' }) | Should -Be '##vso[build.updatebuildnumber]Dev Full changes v8 to v9'
         ($r.Messages -join "`n") | Should -Match 'Changes: 2 open \(TargetOnly=2\)'
+    }
+
+    It 'compares only the chosen workload and names it in the run' {
+        $r = Invoke-Script -Workload AAD
+        $r.Args.CompleteWorkload | Should -Be 'AAD'
+        ($r.Messages | Where-Object { $_ -match 'build\.updatebuildnumber' }) | Should -Be '##vso[build.updatebuildnumber]Dev AAD changes v8 to v9'
+        (Invoke-Script -Workload Full).Args.CompleteWorkload | Should -Be 'AAD,Intune,EXO,Teams'
+    }
+
+    It 'refuses a workload that is not in the list' {
+        { Invoke-Script -Workload Exchange } | Should -Throw '*Exchange*'
     }
 
     It 'stops when the tenant config has no usable TenantDomain' {

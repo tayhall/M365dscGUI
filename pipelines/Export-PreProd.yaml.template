@@ -1,10 +1,16 @@
-name: 'PreProd-export-v$(Rev:r)'
+# One series of runs per workload: PreProd-Full-v1, PreProd-AAD-v1 ... each counts on its own. Tenant-Changes compares a run with the one before it in its series.
+name: 'PreProd-${{ parameters.workload }}-v$(Rev:r)'
 
 trigger: none
 
 # PreProd's tenant, Key Vault and app id are in pipelines/config/PreProd.psd1, read by the script.
 parameters:
-  __EXPORT_WORKLOAD_PARAMETERS__
+  - name: workload
+    displayName: 'What to export: Full (every default workload) or one workload'
+    type: string
+    default: Full
+    values:
+      __WORKLOAD_CHOICES__
 
 pool:
   name: '__POOL__'   # needs pwsh 7.6+ and local admin
@@ -29,7 +35,7 @@ jobs:
           Inline: |
             & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineExport.ps1' -Environment PreProd -OutputPath '$(Build.ArtifactStagingDirectory)/export'
         env:
-          __WORKLOAD_ENV__
+          PE_WORKLOAD: ${{ parameters.workload }}
 
       - pwsh: |
           & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Disconnect-PipelineTenant.ps1' -Slug preprod -Role Reader

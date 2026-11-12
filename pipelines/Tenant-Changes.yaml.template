@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 # What changed in ONE tenant between two of its own exports. Queue it by hand: choose the tenant; leave both versions blank for the latest
-# export against the successful one before it, or type a name such as v7 (or a run id for an old run) to compare other exports.
+# export of the chosen workload (Full by default) against the successful one before it, or type a name such as v7 (or a run id for an old run) to compare other exports.
 # Outputs (artifact TenantChanges): <Tenant>Changes.html, the revert configuration (Revert\, compiled for a tenant with a Writer app) and
 # the promote configuration (<Tenant>Changes.ps1). Apply-Dev can apply the revert; nothing here writes to a tenant.
 parameters:
@@ -15,6 +15,12 @@ parameters:
     values:
       - Dev
       - PreProd
+  - name: workload
+    displayName: 'Which export series: Full or one workload (its latest export against its previous one)'
+    type: string
+    default: Full
+    values:
+      __WORKLOAD_CHOICES__
   - name: exportVersion
     displayName: 'Export to look at, for example v9 (blank = the latest successful export)'
     type: string
@@ -36,10 +42,11 @@ jobs:
       # LATEST_NAME and PREVIOUS_NAME for the next steps. It stops, saying why, if it cannot find two usable exports.
       - pwsh: |
           & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-TenantExports.ps1' `
-              -Tenant $env:PE_TENANT -TenantMap $env:PE_TENANT_MAP -ExportVersion $env:PE_EXPORT_VERSION -PreviousVersion $env:PE_PREVIOUS_VERSION -SetVariables
+              -Tenant $env:PE_TENANT -Workload $env:PE_WORKLOAD -TenantMap $env:PE_TENANT_MAP -ExportVersion $env:PE_EXPORT_VERSION -PreviousVersion $env:PE_PREVIOUS_VERSION -SetVariables
         displayName: Find the two export runs
         env:
           PE_TENANT: ${{ parameters.tenant }}
+          PE_WORKLOAD: ${{ parameters.workload }}
           PE_TENANT_MAP: '__TENANT_MAP__'
           PE_EXPORT_VERSION: ${{ parameters.exportVersion }}
           PE_PREVIOUS_VERSION: ${{ parameters.previousVersion }}
@@ -83,12 +90,13 @@ jobs:
           ScriptType: InlineScript
           Inline: |
             & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineTenantChanges.ps1' `
-                -Tenant $env:PE_TENANT `
+                -Tenant $env:PE_TENANT -Workload $env:PE_WORKLOAD `
                 -PreviousExportPath '$(Pipeline.Workspace)/previous' -LatestExportPath '$(Pipeline.Workspace)/latest' `
                 -OutputPath '$(Build.ArtifactStagingDirectory)/changes' `
                 -PreviousRun $env:PE_PREVIOUS_RUN -LatestRun $env:PE_LATEST_RUN -PreviousName $env:PE_PREVIOUS_NAME -LatestName $env:PE_LATEST_NAME
         env:
           PE_TENANT: ${{ parameters.tenant }}
+          PE_WORKLOAD: ${{ parameters.workload }}
           PE_PREVIOUS_RUN: $(PREVIOUS_RUN)
           PE_LATEST_RUN: $(LATEST_RUN)
           PE_PREVIOUS_NAME: $(PREVIOUS_NAME)

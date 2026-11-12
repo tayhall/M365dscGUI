@@ -117,6 +117,8 @@
         'tests\TenantChangesNoise.Tests.ps1'
         'tests\TenantChangesTool.Tests.ps1'
         'tests\UpdateDscPin.Tests.ps1'
+        'tests\WorkloadChoice.Tests.ps1'
+        'tests\WorkloadSelection.Tests.ps1'
     )
 
     # Left out of the Data folder (used only by the standards workflow).

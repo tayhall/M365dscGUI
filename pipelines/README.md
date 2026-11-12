@@ -4,14 +4,14 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 
 | Pipeline | Does |
 | --- | --- |
-| `Export-PreProd.yaml`, `Export-Dev.yaml` (generated from the `.yaml.template` files) | Imports the tenant's Reader certificate from Key Vault, runs `tools\Export-M365DscTenant.ps1`, publishes `PreProdExport` / `DevExport`. Which workloads to export are checkboxes when you run it (see Configuration). |
+| `Export-PreProd.yaml`, `Export-Dev.yaml` (generated from the `.yaml.template` files) | Imports the tenant's Reader certificate from Key Vault, runs `tools\Export-M365DscTenant.ps1`, publishes `PreProdExport` / `DevExport`. What to export is one picker when you run it: Full or a single workload (see Configuration). |
 | `Compare-PreProd-to-Dev.yaml` | Takes the latest of both exports, runs `tools\Invoke-PEPipelineCompare.ps1`, publishes `DriftReport` (`drift-report.html`, `drift.csv`, `drift.json`, `Changes.ps1`, `Removals.ps1`, `Manual.json`, `MOF\Changes`, `MOF\Removals`). |
 | `Apply-Dev.yaml` | Applies the MOFs to Dev through the LCM (`tools\Invoke-PELcm.ps1`). Default mode is `Test`; Removals only when asked; gated by the `m365-dev` environment approval. |
 | `Apply-Approved-Dev.yaml` | Applies exactly the items of one approved list (`approvals/*.json`, from the drift report). Default mode `Test`; gated by the `m365-dev` environment approval. See "Approved apply" below. |
 | `Tenant-Changes.yaml` | What changed in ONE tenant between two of its own exports. See "Tenant changes" below. |
 | `Bump-Dsc-Pin.yaml` | Changes the pinned Microsoft365DSC (and optionally Microsoft.Graph.Authentication) version in `src\PolicyEngine\Data\Versions.psd1` and opens a pull request. See "Bumping the DSC pins" below. |
 
-Each export run names itself `<Environment> <FULL|PARTIAL> <workloads> <date>` (for example `Dev FULL AAD+Intune+EXO+Teams 2026-11-10` or `PreProd PARTIAL SC 2026-11-12`), set from `Get-ExportRunName.ps1` with a `##vso[build.updatebuildnumber]` command before the tenant is contacted. FULL means every default workload of `Workloads.psd1` is in the run, otherwise PARTIAL; workloads appear in that file's order. Compare's Resources section shows this name in the run picker, so you can see what each export contains.
+Each export run names itself `<Tenant>-<Workload>-v<counter>`, for example `Dev-Full-v3` or `Dev-AAD-v1`, from the `name:` line of the pipeline (Full is every default workload of `Workloads.psd1`; otherwise the workload prefix). Azure DevOps counts each distinct name on its own, so every workload is a series with its own v1, v2, v3. Tenant-Changes compares a run with the one before it in its series, and Compare's Resources section shows the name in the run picker.
 
 **Drift report (choose what to apply, in the browser).** The compare pipeline also publishes `drift-report.html` in the `DriftReport` artifact
 (`tools\New-PEDriftReport.ps1`, built from the engine's own comparison, not a second one).
@@ -88,10 +88,13 @@ branch and the folder, not who reviewed the change.
 Queue it by hand (nothing triggers it). Parameters: `tenant` (Dev or PreProd), `exportVersion` and `previousVersion` (both optional).
 It compares the tenant's **previous** export (what it should look like) with its **latest** export (what it looks like), with the same comparison as the
 compare pipeline, so the report shows only the tenant's own changes, not differences between tenants.
+- **Which workload.** The `workload` picker (Full by default) chooses the series: `Dev-AAD-v4` is compared with `Dev-AAD-v3`, never with a Full export. Only that workload is compared, so
+  components the run never exported are not reported as unchecked. Take each workload's exports in turn (Full, AAD, EXO, Intune, Teams, SC) and the latest of each series stays
+  available for its own comparison for as long as Azure DevOps keeps the artifact.
 - **Which exports.** Blank means the newest successful export that still has its artifact, and the successful one just before it. A failed or cancelled run in between is
   skipped. To look further back type a name such as `v7` (the counter in the run name `Dev-export-v7`; the export pipelines now name their runs this way, each tenant
   counting on its own) or, for an old run whose name has no counter, its numeric run id. "Previous" is looked up over the Azure DevOps API, not calculated as the number minus one, because the
-  counter also counts failed runs. The run renames itself to what it compared (`Dev changes v8 to v9`) and says so first in the log.
+  counter also counts failed runs. The run renames itself to what it compared (`Dev Full changes v8 to v9`) and says so first in the log.
 - **Outputs** (artifact `TenantChanges`): `<Tenant>Changes.html` (the drift report; its list cannot be applied by `Apply-Approved-Dev`, the tenant in it is `dev-changes`),
   `Revert\` (previous = expected: `Changes.ps1`, `Removals.ps1`, `Manual.json`, `drift.*`, `summary.json`, and for a tenant with a Writer app (Dev) the MOFs and
   `ConfigurationData.psd1`; the layout of a compare run), `RevertDevChanges.mof` and `RevertDevRemovals.mof` (copies), and `DevChanges.ps1` / `DevRemovals.ps1` (the
@@ -154,7 +157,7 @@ The templates are not YAML as far as Azure DevOps is concerned, so they never sh
 3. Create the four pipelines in Azure DevOps from those `*.yaml` files, named as in the settings file (the `resources:` blocks look them up by name),
    and create the `m365-dev` environment with an approval check.
 
-**Workload checkboxes.** The export pipelines and the compare pipeline show one checkbox per workload instead of a typed list. The boxes are generated from `src\PolicyEngine\Data\Workloads.psd1` (the single list of workloads) by `New-PipelineYaml.ps1`; each box is passed to the script as a `PE_WL_<Prefix>` environment variable, never spliced into the script text. A box starts ticked as the workload's `Default` says, so Security and Compliance (SC) is unticked by default. The compare pipeline has a second set, labelled 'Complete in the Dev export', for the workloads the Dev export covers completely. After a change to the workload list, run the generator again and commit the regenerated `*.yaml`. `Apply-Dev.yaml` keeps its `workloads` text parameter.
+**Workload picker and checkboxes.** The export pipelines and Tenant-Changes have one picker: `Full` (every workload whose `Default` is true in `src\PolicyEngine\Data\Workloads.psd1`, which leaves out Security and Compliance) or one workload by prefix (AAD, Intune, EXO, Teams, SC). The values are generated from that list by `New-PipelineYaml.ps1`; the choice reaches the script as the `PE_WORKLOAD` environment variable, never spliced into the script text, and `Resolve-WorkloadChoice.ps1` turns it into the list the export takes. The compare pipeline still has one checkbox per workload (`PE_WL_<Prefix>`), labelled 'Complete in the Dev export', for the workloads the Dev export covers completely. After a change to the workload list, run the generator again and commit the regenerated `*.yaml`. `Apply-Dev.yaml` keeps its `workloads` text parameter.
 
 ## Where the project sits in the ADO repo
 The project can live in a folder of a repo that holds other things (for example `M365dscGUI\`, with `pipelines\`, `src\`, `tools\` and the rest

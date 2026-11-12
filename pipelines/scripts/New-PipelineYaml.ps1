@@ -120,7 +120,8 @@ function Get-WorkloadParameterLines
     }
 }
 $expansions = [ordered]@{
-    '__EXPORT_WORKLOAD_PARAMETERS__'   = @(Get-WorkloadParameterLines -LabelPrefix '')
+    # The values of the workload picker of the export and Tenant-Changes pipelines: Full (the default workloads) and each workload by prefix.
+    '__WORKLOAD_CHOICES__'             = @('- Full') + @($workloadList | ForEach-Object { "- $($_.Prefix)" })
     '__COMPLETE_WORKLOAD_PARAMETERS__' = @(Get-WorkloadParameterLines -LabelPrefix 'Complete in the Dev export: ')
     '__WORKLOAD_ENV__'                 = @($workloadList | ForEach-Object { "PE_WL_$($_.Prefix): `${{ parameters.$($_.Prefix) }}" })
 }

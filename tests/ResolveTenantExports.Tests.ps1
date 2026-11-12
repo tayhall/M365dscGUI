@@ -138,6 +138,16 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
         $out | Should -Not -Match 'token-not-printed'
     }
 
+    It 'refuses a selected run whose name could inject a logging command, and prints nothing of it' {
+        Set-FakeAdo -Builds @((New-Build 140 'Dev-export-v10]%0D##vso[task.setvariable variable=LATEST_RUN]1'), (New-Build 120 'Dev-export-v7'))
+        $thrown = $null
+        $out = ''
+        try { $out = (& $script:Script -Tenant Dev -TenantMap $script:Map -SetVariables 6>&1 | ForEach-Object { "$_" }) -join "`n" } catch { $thrown = $_.Exception.Message }
+        $thrown | Should -Match 'run name'
+        $out | Should -Not -Match '##vso'
+        $thrown | Should -Not -Match '##vso'
+    }
+
     It 'refuses a tenant with no entry in the map, and a bad version' {
         { & $script:Script -Tenant PreProd -TenantMap 'Dev=22' } | Should -Throw '*PreProd*'
         { Resolve-Exports @{ ExportVersion = 'latest;rm' } } | Should -Throw

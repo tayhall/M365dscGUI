@@ -137,6 +137,16 @@ else
     if (-not $previous) { throw "There is no earlier successful export of $Tenant; take a fresh export first (the latest is $($latest.buildNumber), id $($latest.id))." }
 }
 
+# The run name is printed inside Azure DevOps logging commands and passed on to scripts: only plain characters go through (no brackets,
+# percent signs, semicolons or # that could close a command or start another). The name is not echoed when it is refused.
+foreach ($run in @($latest, $previous))
+{
+    if ([string]$run.buildNumber -cnotmatch '\A[\w .()-]{1,40}\z')
+    {
+        throw "The run name of export run id $($run.id) has characters or a length this pipeline will not pass on (letters, digits, space, dot, hyphen and round brackets, up to 40). It is set by the export pipeline's name: line."
+    }
+}
+
 $result = [pscustomobject]@{
     DefinitionId = [string]$definitionId
     ArtifactName = $artifactName

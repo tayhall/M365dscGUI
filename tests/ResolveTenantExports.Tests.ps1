@@ -1,0 +1,145 @@
+BeforeAll {
+    $script:Script = Join-Path $PSScriptRoot '..\pipelines\scripts\Resolve-TenantExports.ps1'
+    $script:Map = 'Dev=22;PreProd=21'
+
+    # Fake Azure DevOps. $global:PEFake.Builds are the completed builds of definition 22 (newest has the highest id); builds listed in
+    # $global:PEFake.NoArtifact have lost their artifact to retention; $global:PEFake.Other are builds of another definition.
+    function Set-FakeAdo
+    {
+        param ([object[]]$Builds, [int[]]$NoArtifact = @(), [object[]]$Other = @(), [string]$FailWith = '', [int]$PageSize = 100)
+        $global:PEFake = @{ Builds = $Builds; NoArtifact = $NoArtifact; Other = $Other; FailWith = $FailWith; PageSize = $PageSize }
+    }
+    function New-Build { param ([int]$Id, [string]$Number, [string]$Result = 'succeeded', [int]$Definition = 22) [pscustomobject]@{ id = $Id; buildNumber = $Number; result = $Result; status = 'completed'; definition = [pscustomobject]@{ id = $Definition } } }
+    function Resolve-Exports { param ([hashtable]$Arguments = @{}) & $script:Script -Tenant Dev -TenantMap $script:Map @Arguments }
+}
+
+Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
+    BeforeEach {
+        $env:SYSTEM_COLLECTIONURI = 'https://dev.azure.com/contoso/'
+        $env:SYSTEM_TEAMPROJECT = 'M365'
+        $env:SYSTEM_ACCESSTOKEN = 'token-not-printed'
+        Set-FakeAdo -Builds @(
+            (New-Build 130 'Dev-export-v9'), (New-Build 125 'Dev-export-v8' 'failed'), (New-Build 120 'Dev-export-v7'),
+            (New-Build 110 'Dev-export-v6'), (New-Build 90 'M365DSC - Export Dev tenant'))
+
+        Mock Invoke-RestMethod {
+            if ($global:PEFake.FailWith) { throw [System.Net.Http.HttpRequestException]::new($global:PEFake.FailWith) }
+            if ($Uri -match '/artifacts\?') {
+                $id = [int]([regex]::Match($Uri, '/builds/(\d+)/artifacts').Groups[1].Value)
+                if ($global:PEFake.NoArtifact -contains $id) { throw [System.Net.Http.HttpRequestException]::new('Response status code does not indicate success: 404 (Not Found).') }
+                return [pscustomobject]@{ name = 'DevExport' }
+            }
+            if ($Uri -match '/builds/(\d+)\?') {
+                $id = [int]$Matches[1]
+                $found = @($global:PEFake.Builds + $global:PEFake.Other) | Where-Object { $_.id -eq $id }
+                if (-not $found) { throw [System.Net.Http.HttpRequestException]::new('Response status code does not indicate success: 404 (Not Found).') }
+                return $found
+            }
+            if ($Uri -match '/builds\?') {
+                $skip = 0
+                if ($Uri -match 'continuationToken=(\d+)') { $skip = [int]$Matches[1] }
+                $all = @($global:PEFake.Builds | Sort-Object { -$_.id })
+                $page = @($all | Select-Object -Skip $skip -First $global:PEFake.PageSize)
+                if ($ResponseHeadersVariable) {
+                    $headers = @{}
+                    if ($skip + $page.Count -lt $all.Count) { $headers['x-ms-continuationtoken'] = @([string]($skip + $page.Count)) }
+                    Set-Variable -Name $ResponseHeadersVariable -Value $headers -Scope 1
+                }
+                return [pscustomobject]@{ value = $page; count = $page.Count }
+            }
+            throw "unexpected uri $Uri"
+        }
+    }
+    AfterAll { Remove-Variable PEFake -Scope Global -ErrorAction SilentlyContinue; Remove-Item Env:SYSTEM_ACCESSTOKEN, Env:SYSTEM_COLLECTIONURI, Env:SYSTEM_TEAMPROJECT -ErrorAction SilentlyContinue }
+
+    It 'blank and blank give the newest successful export and the successful one before it, skipping the failed run' {
+        $r = Resolve-Exports
+        $r.Latest.RunId | Should -Be '130'
+        $r.Latest.Name | Should -Be 'Dev-export-v9'
+        $r.Previous.RunId | Should -Be '120'
+        $r.Previous.Name | Should -Be 'Dev-export-v7'
+        $r.DefinitionId | Should -Be '22'
+        $r.ArtifactName | Should -Be 'DevExport'
+    }
+
+    It 'skips an export whose artifact retention deleted, for the defaults' {
+        Set-FakeAdo -Builds $global:PEFake.Builds -NoArtifact @(130)
+        $r = Resolve-Exports
+        $r.Latest.RunId | Should -Be '120'
+        $r.Previous.RunId | Should -Be '110'
+    }
+
+    It 'resolves v-names, and a bare number as a run id, including an old run with no vN in its name' {
+        $r = Resolve-Exports @{ ExportVersion = 'v7'; PreviousVersion = '90' }
+        $r.Latest.RunId | Should -Be '120'
+        $r.Previous.RunId | Should -Be '90'
+        $r.Previous.Name | Should -Be 'M365DSC - Export Dev tenant'
+        (Resolve-Exports @{ ExportVersion = '110' }).Latest.Name | Should -Be 'Dev-export-v6'
+    }
+
+    It 'does not take v1 for v19 or the other way round' {
+        Set-FakeAdo -Builds @((New-Build 200 'Dev-export-v19'), (New-Build 150 'Dev-export-v1'), (New-Build 100 'M365DSC - Export Dev tenant'))
+        (Resolve-Exports @{ ExportVersion = 'v1' }).Latest.RunId | Should -Be '150'
+    }
+
+    It 'uses the successful run just before a named export as the default previous' {
+        $r = Resolve-Exports @{ ExportVersion = 'v7' }
+        $r.Latest.RunId | Should -Be '120'
+        $r.Previous.RunId | Should -Be '110'
+    }
+
+    It 'refuses a name that does not exist, naming it' {
+        { Resolve-Exports @{ ExportVersion = 'v42' } } | Should -Throw '*v42*'
+    }
+
+    It 'refuses an unsuccessful run' {
+        { Resolve-Exports @{ ExportVersion = 'v8' } } | Should -Throw '*did not succeed*'
+    }
+
+    It 'refuses a run of another pipeline' {
+        Set-FakeAdo -Builds $global:PEFake.Builds -Other @(New-Build 777 'PreProd-export-v3' 'succeeded' 21)
+        { Resolve-Exports @{ ExportVersion = '777' } } | Should -Throw '*another pipeline*'
+    }
+
+    It 'refuses a named run whose artifact is gone' {
+        Set-FakeAdo -Builds $global:PEFake.Builds -NoArtifact @(120)
+        { Resolve-Exports @{ ExportVersion = 'v7' } } | Should -Throw '*no longer has its artifact*'
+    }
+
+    It 'refuses an after that is not newer than the before, and the same run twice' {
+        { Resolve-Exports @{ ExportVersion = 'v6'; PreviousVersion = 'v7' } } | Should -Throw '*newer*'
+        { Resolve-Exports @{ ExportVersion = 'v7'; PreviousVersion = 'v7' } } | Should -Throw '*same*'
+    }
+
+    It 'says to take a fresh export when there is no earlier successful export' {
+        Set-FakeAdo -Builds @(New-Build 130 'Dev-export-v1')
+        { Resolve-Exports } | Should -Throw '*no earlier successful export of Dev; take a fresh export first*'
+    }
+
+    It 'names the View builds permission when Azure DevOps refuses the token' {
+        Set-FakeAdo -Builds $global:PEFake.Builds -FailWith 'Response status code does not indicate success: 403 (Forbidden).'
+        { Resolve-Exports } | Should -Throw '*View builds*'
+    }
+
+    It 'reads past the first page of builds' {
+        Set-FakeAdo -Builds $global:PEFake.Builds -PageSize 2
+        $r = Resolve-Exports @{ PreviousVersion = '90' }
+        $r.Latest.RunId | Should -Be '130'
+        $r.Previous.RunId | Should -Be '90'
+    }
+
+    It 'writes the six pipeline variables with -SetVariables, and never prints the token' {
+        $out = (& $script:Script -Tenant Dev -TenantMap $script:Map -SetVariables 6>&1 | ForEach-Object { "$_" }) -join "`n"
+        foreach ($name in 'DEFINITION_ID', 'ARTIFACT_NAME', 'LATEST_RUN', 'PREVIOUS_RUN', 'LATEST_NAME', 'PREVIOUS_NAME')
+        {
+            $out | Should -Match "##vso\[task\.setvariable variable=$name\]"
+        }
+        $out | Should -Match '##vso\[task\.setvariable variable=LATEST_RUN\]130'
+        $out | Should -Not -Match 'token-not-printed'
+    }
+
+    It 'refuses a tenant with no entry in the map, and a bad version' {
+        { & $script:Script -Tenant PreProd -TenantMap 'Dev=22' } | Should -Throw '*PreProd*'
+        { Resolve-Exports @{ ExportVersion = 'latest;rm' } } | Should -Throw
+    }
+}

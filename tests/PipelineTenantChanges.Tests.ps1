@@ -11,7 +11,8 @@ param ([string]$Tenant, [string]$PreviousExportPath, [string]$LatestExportPath, 
     [string]$ApplicationId, [string]$CertificateThumbprint, [string]$OrganizationName)
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 $PSBoundParameters | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $OutputPath 'args.json')
-'{ "Revert": { "OpenFindings": 2, "ByKind": "TargetOnly=2", "Manual": 0 }, "Promote": { "OpenFindings": 2, "ByKind": "Missing=2", "Manual": 0 } }' | Set-Content (Join-Path $OutputPath 'summary.json')
+$n = if ($env:PE_STUB_OPEN) { [int]$env:PE_STUB_OPEN } else { 2 }
+"{ ""Revert"": { ""OpenFindings"": $n, ""ByKind"": ""TargetOnly=$n"", ""Manual"": 0 }, ""Promote"": { ""OpenFindings"": $n, ""ByKind"": ""Missing=$n"", ""Manual"": 0 } }" | Set-Content (Join-Path $OutputPath 'summary.json')
 '@
     $script:StubConnect = Join-Path $script:Temp 'stub-connect.ps1'
     Set-Content $script:StubConnect -Value "param (`$Environment, `$Role, [switch]`$ThumbprintOnly)`n'AABBCCDDEEFF00112233445566778899AABBCCDD'"
@@ -78,6 +79,12 @@ Describe 'pipelines\scripts\Invoke-PipelineTenantChanges.ps1' {
         $r.Args.CompleteWorkload | Should -Be 'AAD'
         ($r.Messages | Where-Object { $_ -match 'build\.updatebuildnumber' }) | Should -Be '##vso[build.updatebuildnumber]Dev AAD changes v8 to v9'
         (Invoke-Script -Workload Full).Args.CompleteWorkload | Should -Be 'AAD,Intune,EXO,Teams'
+    }
+
+    It 'does not raise a warning line when nothing changed' {
+        $env:PE_STUB_OPEN = '0'
+        try { $r = Invoke-Script } finally { Remove-Item Env:PE_STUB_OPEN }
+        ($r.Messages -join "`n") | Should -Not -Match 'task\.logissue'
     }
 
     It 'refuses a workload that is not in the list' {

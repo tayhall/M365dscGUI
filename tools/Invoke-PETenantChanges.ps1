@@ -103,6 +103,22 @@ $promotePath = Join-Path $OutputPath 'work-promote'
 & $compare -SourceExportPath $LatestExportPath -TargetExportPath $PreviousExportPath -TargetTenantDomain $TargetTenantDomain `
     -OutputPath $promotePath -CompleteWorkload $CompleteWorkload | Out-Null
 $promote = Get-Content -LiteralPath (Join-Path $promotePath 'summary.json') -Raw | ConvertFrom-Json
+
+# What changed is not the same as what could not be compared. A component an export could not read (a 403, an incomplete log) and an item left
+# out of scope are findings of the comparison, but they say how the exports went, not that the tenant changed: the same on both sides, they would
+# be reported as changes in every run. Only the rest counts as a change here; the others are counted apart as 'not compared'.
+function Get-ChangeCount
+{
+    param ([string]$DriftPath, $Summary)
+    $notChanges = 'NotChecked', 'Excluded'
+    if (-not (Test-Path -LiteralPath $DriftPath)) { return [pscustomobject]@{ Changes = [int]$Summary.OpenFindings; ByKind = [string]$Summary.ByKind; NotCompared = 0 } }
+    $open = @(Get-Content -LiteralPath $DriftPath -Raw | ConvertFrom-Json | Where-Object { $_.State -eq 'Open' })
+    $changes = @($open | Where-Object { $_.Kind -notin $notChanges })
+    $byKind = (@($changes | Group-Object Kind | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Count)" })) -join ', '
+    [pscustomobject]@{ Changes = $changes.Count; ByKind = $byKind; NotCompared = $open.Count - $changes.Count }
+}
+$revertCount = Get-ChangeCount (Join-Path $revertPath 'drift.json') $revert
+$promoteCount = Get-ChangeCount (Join-Path $promotePath 'drift.json') $promote
 foreach ($kind in 'Changes', 'Removals')
 {
     $from = Join-Path $promotePath "$kind.ps1"
@@ -150,9 +166,10 @@ $revert | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $revertP
 $summary = [ordered]@{}
 foreach ($key in $identity.Keys) { $summary[$key] = $identity[$key] }
 $summary['Compiled'] = $compile
-$summary['Revert'] = [ordered]@{ OpenFindings = $revert.OpenFindings; ByKind = $revert.ByKind; Manual = $revert.Manual }
-$summary['Promote'] = [ordered]@{ OpenFindings = $promote.OpenFindings; ByKind = $promote.ByKind; Manual = $promote.Manual }
+$summary['Revert'] = [ordered]@{ OpenFindings = $revertCount.Changes; ByKind = $revertCount.ByKind; Manual = $revert.Manual; NotCompared = $revertCount.NotCompared }
+$summary['Promote'] = [ordered]@{ OpenFindings = $promoteCount.Changes; ByKind = $promoteCount.ByKind; Manual = $promote.Manual; NotCompared = $promoteCount.NotCompared }
 $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $OutputPath 'summary.json') -Encoding utf8
 
-if ($revert.OpenFindings -eq 0 -and $promote.OpenFindings -eq 0) { "No changes: $Tenant is the same in $PreviousName and $LatestName." }
-else { "Changes: $($revert.OpenFindings) open ($($revert.ByKind)); $($revert.Manual) item(s) need manual action." }
+if ($revertCount.Changes -eq 0 -and $promoteCount.Changes -eq 0) { "No changes: $Tenant is the same in $PreviousName and $LatestName." }
+else { "Changes: $($revertCount.Changes) open ($($revertCount.ByKind)); $($revert.Manual) item(s) need manual action." }
+if ($revertCount.NotCompared -gt 0) { "$($revertCount.NotCompared) item(s) not compared (not readable in an export, or out of scope); see the report." }

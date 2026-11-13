@@ -4,18 +4,18 @@ BeforeAll {
 
     function New-ExportCopy
     {
-        param ([string]$Fixture)
+        param ([string]$Fixture, [string]$Log = '')
         $folder = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-tc-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $folder | Out-Null
         Copy-Item -LiteralPath (Join-Path $script:Fixtures $Fixture) -Destination (Join-Path $folder 'export.ps1')
-        Set-Content -LiteralPath (Join-Path $folder 'export.log') -Value '' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $folder 'export.log') -Value $Log -Encoding utf8
         $folder
     }
     function Invoke-Tool
     {
-        param ([string]$Previous = 'entra.ps1', [string]$Latest = 'entra-plus-group.ps1')
+        param ([string]$Previous = 'entra.ps1', [string]$Latest = 'entra-plus-group.ps1', [string]$Log = '')
         $out = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-tc-out-' + [guid]::NewGuid().ToString('N'))
-        $messages = & $script:Tool -Tenant 'Dev' -PreviousExportPath (New-ExportCopy $Previous) -LatestExportPath (New-ExportCopy $Latest) `
+        $messages = & $script:Tool -Tenant 'Dev' -PreviousExportPath (New-ExportCopy $Previous $Log) -LatestExportPath (New-ExportCopy $Latest $Log) `
             -TargetTenantDomain 'contoso-dev.onmicrosoft.com' -OutputPath $out -PreviousRun '101' -LatestRun '102' `
             -PreviousName 'v8' -LatestName 'v9' -CompleteWorkload 'AAD' 6>&1 3>$null
         [pscustomobject]@{ Out = $out; Messages = @($messages | ForEach-Object { "$_" }) }
@@ -99,5 +99,33 @@ Describe 'tools\Invoke-PETenantChanges.ps1 report' {
         { & (Join-Path $PSScriptRoot '..\tools\Invoke-PEApprovedBuild.ps1') -ListPath $listPath -SourceExportPath $source -TargetExportPath $source `
             -TargetTenantDomain 'contoso-dev.onmicrosoft.com' -OutputPath (Join-Path ([System.IO.Path]::GetTempPath()) 'pe-tc-never') -NoCompile } |
             Should -Throw "*tenant 'dev-changes'*"
+    }
+}
+
+Describe 'components an export could not read are not changes' {
+    BeforeAll {
+        # The same failed component in both exports, as the real export log writes it.
+        $script:FailedLog = "[1/2] Extracting [AADFilteringPolicy] using {CertificateThumbprint}...`u{274C}`n    An error occurred while exporting resource {AADFilteringPolicy}: Forbidden: Authentication failed with status code 403 (Forbidden).`n"
+    }
+
+    It 'counts nothing and says No changes when only the unreadable component differs from nothing, and lists it as not compared' {
+        $r = Invoke-Tool -Previous 'entra.ps1' -Latest 'entra.ps1' -Log $script:FailedLog
+        $summary = Get-Content (Join-Path $r.Out 'summary.json') -Raw | ConvertFrom-Json
+        $summary.Revert.OpenFindings | Should -Be 0
+        $summary.Promote.OpenFindings | Should -Be 0
+        $summary.Revert.NotCompared | Should -BeGreaterThan 0
+        ($r.Messages -join "`n") | Should -Match 'No changes'
+        ($r.Messages -join "`n") | Should -Match 'not compared'
+        Test-Path (Join-Path $r.Out 'DevChanges.ps1') | Should -BeFalse
+    }
+
+    It 'counts only the new group when a component is unreadable in both exports' {
+        $r = Invoke-Tool -Previous 'entra.ps1' -Latest 'entra-plus-group.ps1' -Log $script:FailedLog
+        $summary = Get-Content (Join-Path $r.Out 'summary.json') -Raw | ConvertFrom-Json
+        $summary.Revert.OpenFindings | Should -Be 1
+        $summary.Revert.ByKind | Should -Be 'TargetOnly=1'
+        $summary.Revert.NotCompared | Should -BeGreaterThan 0
+        $summary.Promote.OpenFindings | Should -Be 1
+        ($r.Messages -join "`n") | Should -Match 'Changes: 1 open \(TargetOnly=1\)'
     }
 }

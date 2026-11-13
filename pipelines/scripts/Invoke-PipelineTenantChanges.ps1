@@ -72,4 +72,8 @@ else { "$Tenant has no Writer app in its config: the report and the configuratio
 # The run states what it compared ('>' is not allowed in a run name).
 Write-Host "##vso[build.updatebuildnumber]$Tenant $Workload changes $PreviousName to $LatestName"
 $summary = Get-Content -LiteralPath (Join-Path $OutputPath 'summary.json') -Raw | ConvertFrom-Json
-Write-Host "##vso[task.logissue type=warning]Changes: $($summary.Revert.OpenFindings) open ($($summary.Revert.ByKind)); $($summary.Revert.Manual) item(s) need manual action."
+# A warning marks the run as needing a look: only when something changed.
+if ([int]$summary.Revert.OpenFindings -gt 0 -or [int]$summary.Promote.OpenFindings -gt 0)
+{
+    Write-Host "##vso[task.logissue type=warning]Changes: $($summary.Revert.OpenFindings) open ($($summary.Revert.ByKind)); $($summary.Revert.Manual) item(s) need manual action."
+}

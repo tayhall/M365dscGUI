@@ -74,7 +74,7 @@ jobs:
               env:
                 PE_WORKLOADS: ${{ parameters.workloads }}
                 ${{ if eq(parameters.source, 'TenantChanges') }}:
-                  PE_REPORT_PATH: '$(Pipeline.Workspace)/tenantChanges/TenantChanges/Revert'
+                  PE_REPORT_PATH: '$(Pipeline.Workspace)/tenantChanges/TenantChanges/Dev/Revert'
                   PE_REQUIRE_TENANT: 'True'
                   PE_COMPARE_RUN: $(resources.pipeline.tenantChanges.runID)
                 ${{ else }}:

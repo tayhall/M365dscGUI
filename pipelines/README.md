@@ -95,12 +95,14 @@ compare pipeline, so the report shows only the tenant's own changes, not differe
   skipped. To look further back type a name such as `v7` (the counter in the run name `Dev-export-v7`; the export pipelines now name their runs this way, each tenant
   counting on its own) or, for an old run whose name has no counter, its numeric run id. "Previous" is looked up over the Azure DevOps API, not calculated as the number minus one, because the
   counter also counts failed runs. The run renames itself to what it compared (`Dev Full changes v8 to v9`) and says so first in the log.
-- **Outputs** (artifact `TenantChanges`): `<Tenant>Changes.html` (the drift report; its list cannot be applied by `Apply-Approved-Dev`, the tenant in it is `dev-changes`),
-  `Revert\` (previous = expected: `Changes.ps1`, `Removals.ps1`, `Manual.json`, `drift.*`, `summary.json`, and for a tenant with a Writer app (Dev) the MOFs and
-  `ConfigurationData.psd1`; the layout of a compare run), `RevertDevChanges.mof` and `RevertDevRemovals.mof` (copies), and `DevChanges.ps1` / `DevRemovals.ps1` (the
-  other direction: the configuration that takes a tenant in the previous state to the latest, the thing to promote). The promote configuration is **not compiled**: a
-  MOF holds the identity of the tenant it will be applied to.
-- **Revert.** Run `Apply-Dev` with `source` = `TenantChanges` and pick the Tenant changes run in Resources. It applies `Revert\` through the usual approval, Test before
+- **Outputs** (artifact `TenantChanges`, one folder named for the tenant, for example `Dev\`):
+  - `Report.html`: the drift report (its list cannot be applied by `Apply-Approved-Dev`, the tenant in it is `dev-changes`).
+  - `summary.json`: the tenant, both export names and run ids, and the counts of both directions.
+  - `Revert\`: previous = expected, the layout of a compare run (`Changes.ps1`, `Removals.ps1`, `Manual.json`, `drift.*`, `summary.json`, and for a tenant with a Writer app (Dev)
+    `ConfigurationData.psd1` and the compiled `MOF\Changes\localhost.mof` and `MOF\Removals\localhost.mof`).
+  - `Promote\`: `Changes.ps1` / `Removals.ps1`, the other direction: the configuration that takes a tenant in the previous state to the latest. It is **not compiled**: a MOF holds the identity of the tenant it will be applied to.
+  Changes and Removals stay separate so that removals (`Ensure = Absent`) are a deliberate second step.
+- **Revert.** Run `Apply-Dev` with `source` = `TenantChanges` and pick the Tenant changes run in Resources. It applies `Dev\Revert\` through the usual approval, Test before
   Apply. It refuses a report of another tenant (the report's `summary.json` carries `Tenant`).
 - **Nothing changed** is a green run that says `No changes`.
 - **Refusals, each with its reason:** a name that does not exist, a run that did not succeed, a run of another pipeline, an export whose artifact retention deleted, an

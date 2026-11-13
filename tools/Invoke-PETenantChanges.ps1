@@ -4,14 +4,15 @@
 .DESCRIPTION
     A thin arrangement of tools\Invoke-PEPipelineCompare.ps1 (and tools\New-PEDriftReport.ps1), called with two exports of the same tenant.
     -PreviousExportPath is what the tenant should look like (expected), -LatestExportPath is what it looks like now.
+    Everything is written under <OutputPath>\<Tenant>\ (for example out\Dev\):
       Revert\            previous expected, latest target: Changes/Removals that put the tenant back to the previous export (the
                          layout of a compare run, so tools such as the Apply step can read it). With -ApplicationId,
                          -CertificateThumbprint and -OrganizationName (the tenant's Writer app) it is compiled to MOF.
-      <Tenant>Changes.ps1, <Tenant>Removals.ps1
+      Promote\Changes.ps1, Promote\Removals.ps1
                          latest expected, previous target: the configuration that takes a tenant in the previous state to the
                          latest. Never compiled here: a MOF holds the identity of the tenant it will be applied to.
-      <Tenant>Changes.html   the drift report of the previous-to-latest comparison.
-      Revert<Tenant>Changes.mof, Revert<Tenant>Removals.mof   copies of the compiled revert MOFs, when there are any.
+      Report.html        the drift report of the previous-to-latest comparison.
+      Revert\MOF\Changes\localhost.mof, Revert\MOF\Removals\localhost.mof   the compiled revert (only with a Writer app).
       summary.json       tenant, the two export names and run ids, and the counts of both directions.
     Nothing here connects to a tenant and nothing is applied.
 .EXAMPLE
@@ -55,6 +56,10 @@ param
 
     [string[]]$CompleteWorkload = @('AAD', 'Intune', 'EXO', 'Teams'),
 
+    # Noise rules file (noise\noise-rules.json): what a rule matches is not a change. The rules' tenant name is the tenant's own (dev, preprod),
+    # as both sides of the comparison are that tenant.
+    [string]$NoiseRulePath,
+
     # The tenant's Writer app: when all three are given the revert configuration is compiled to MOF.
     [string]$ApplicationId,
     [string]$CertificateThumbprint,
@@ -84,9 +89,12 @@ foreach ($side in @(@{ Name = $PreviousName; Path = $PreviousExportPath; Label =
 }
 
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
-$OutputPath = (Resolve-Path -LiteralPath $OutputPath).ProviderPath
+$OutputPath = Join-Path (Resolve-Path -LiteralPath $OutputPath).ProviderPath $Tenant
+New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 $compare = Join-Path $PSScriptRoot 'Invoke-PEPipelineCompare.ps1'
 $compile = [bool]($ApplicationId -and $CertificateThumbprint -and $OrganizationName)
+$slug = $Tenant.ToLowerInvariant()
+$noise = if ($NoiseRulePath) { @{ NoiseRulePath = $NoiseRulePath; SourceTenant = $slug; TargetTenant = $slug } } else { @{} }
 
 # Revert: the previous export is what the tenant should be, the latest is what it is.
 $revertPath = Join-Path $OutputPath 'Revert'
@@ -94,6 +102,7 @@ $revertArguments = @{
     SourceExportPath = $PreviousExportPath; TargetExportPath = $LatestExportPath; TargetTenantDomain = $TargetTenantDomain
     OutputPath = $revertPath; CompleteWorkload = $CompleteWorkload
 }
+$revertArguments += $noise
 if ($compile) { $revertArguments += @{ Compile = $true; ApplicationId = $ApplicationId; CertificateThumbprint = $CertificateThumbprint; OrganizationName = $OrganizationName } }
 & $compare @revertArguments | Out-Null
 $revert = Get-Content -LiteralPath (Join-Path $revertPath 'summary.json') -Raw | ConvertFrom-Json
@@ -101,7 +110,7 @@ $revert = Get-Content -LiteralPath (Join-Path $revertPath 'summary.json') -Raw |
 # Promote: the latest export is what a tenant should be, the previous is what it was. Never compiled here.
 $promotePath = Join-Path $OutputPath 'work-promote'
 & $compare -SourceExportPath $LatestExportPath -TargetExportPath $PreviousExportPath -TargetTenantDomain $TargetTenantDomain `
-    -OutputPath $promotePath -CompleteWorkload $CompleteWorkload | Out-Null
+    -OutputPath $promotePath -CompleteWorkload $CompleteWorkload @noise | Out-Null
 $promote = Get-Content -LiteralPath (Join-Path $promotePath 'summary.json') -Raw | ConvertFrom-Json
 
 # What changed is not the same as what could not be compared. A component an export could not read (a 403, an incomplete log) and an item left
@@ -122,36 +131,34 @@ $promoteCount = Get-ChangeCount (Join-Path $promotePath 'drift.json') $promote
 foreach ($kind in 'Changes', 'Removals')
 {
     $from = Join-Path $promotePath "$kind.ps1"
-    if (Test-Path -LiteralPath $from) { Copy-Item -LiteralPath $from -Destination (Join-Path $OutputPath "$Tenant$kind.ps1") }
+    if (Test-Path -LiteralPath $from)
+    {
+        New-Item -ItemType Directory -Force -Path (Join-Path $OutputPath 'Promote') | Out-Null
+        Copy-Item -LiteralPath $from -Destination (Join-Path $OutputPath "Promote\$kind.ps1")
+    }
 }
 Remove-Item -LiteralPath $promotePath -Recurse -Force
 
 # The report of the previous-to-latest comparison. An extra: if it cannot be built, everything above is still good. Its tenant slug is
 # '<tenant>-changes', so an approved list made from it is refused by the approved apply (which expects 'dev').
 $reportWork = Join-Path $OutputPath 'work-report'
+$reportNoise = if ($NoiseRulePath) { @{ NoiseRulePath = $NoiseRulePath; SourceTenant = $slug; RuleTenant = $slug } } else { @{} }
 try
 {
     & (Join-Path $PSScriptRoot 'New-PEDriftReport.ps1') -SourceExportPath $PreviousExportPath -TargetExportPath $LatestExportPath `
         -TargetTenantDomain $TargetTenantDomain -OutputPath $reportWork -SourceRun $PreviousRun -TargetRun $LatestRun `
         -Tenant ($Tenant.ToLowerInvariant() + '-changes') -SourceLabel "$Tenant $PreviousName" -TargetLabel "$Tenant $LatestName" `
-        -CompleteWorkload $CompleteWorkload | Out-Null
-    Copy-Item -LiteralPath (Join-Path $reportWork 'drift-report.html') -Destination (Join-Path $OutputPath "${Tenant}Changes.html")
+        -CompleteWorkload $CompleteWorkload @reportNoise | Out-Null
+    Copy-Item -LiteralPath (Join-Path $reportWork 'drift-report.html') -Destination (Join-Path $OutputPath 'Report.html')
 }
 catch
 {
     $reason = (([string]$_.Exception.Message) -split "`r?`n")[0]
-    Write-Host "##vso[task.logissue type=warning]${Tenant}Changes.html was not built: $reason"
+    Write-Host "##vso[task.logissue type=warning]Report.html was not built: $reason"
 }
 finally
 {
     if (Test-Path -LiteralPath $reportWork) { Remove-Item -LiteralPath $reportWork -Recurse -Force }
-}
-
-# The compiled revert MOFs, under the names a person looks for.
-foreach ($kind in 'Changes', 'Removals')
-{
-    $mof = Get-ChildItem -LiteralPath (Join-Path $revertPath "MOF\$kind") -Filter *.mof -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($mof) { Copy-Item -LiteralPath $mof.FullName -Destination (Join-Path $OutputPath "Revert$Tenant$kind.mof") }
 }
 
 # What was compared, in the revert summary (the Apply step reads it) and in the top-level summary.

@@ -5,8 +5,8 @@ pr: none
 
 # What changed in ONE tenant between two of its own exports. Queue it by hand: choose the tenant; leave both versions blank for the latest
 # export of the chosen workload (Full by default) against the successful one before it, or type a name such as v7 (or a run id for an old run) to compare other exports.
-# Outputs (artifact TenantChanges): <Tenant>Changes.html, the revert configuration (Revert\, compiled for a tenant with a Writer app) and
-# the promote configuration (<Tenant>Changes.ps1). Apply-Dev can apply the revert; nothing here writes to a tenant.
+# Outputs (artifact TenantChanges): <Tenant>\Report.html, the revert configuration (<Tenant>\Revert\, compiled for a tenant with a Writer app) and
+# the promote configuration (<Tenant>\Promote\). Apply-Dev can apply the revert; nothing here writes to a tenant.
 parameters:
   - name: tenant
     displayName: Tenant to look at

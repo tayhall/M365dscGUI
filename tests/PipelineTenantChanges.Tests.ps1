@@ -12,7 +12,7 @@ param ([string]$Tenant, [string]$PreviousExportPath, [string]$LatestExportPath, 
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 $PSBoundParameters | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $OutputPath 'args.json')
 $n = if ($env:PE_STUB_OPEN) { [int]$env:PE_STUB_OPEN } else { 2 }
-"{ ""Revert"": { ""OpenFindings"": $n, ""ByKind"": ""TargetOnly=$n"", ""Manual"": 0 }, ""Promote"": { ""OpenFindings"": $n, ""ByKind"": ""Missing=$n"", ""Manual"": 0 } }" | Set-Content (Join-Path $OutputPath 'summary.json')
+"{ ""Revert"": { ""OpenFindings"": $n, ""ByKind"": ""TargetOnly=$n"", ""Manual"": 0 }, ""Promote"": { ""OpenFindings"": $n, ""ByKind"": ""Missing=$n"", ""Manual"": 0 } }" | Set-Content (Join-Path (New-Item -ItemType Directory -Force -Path (Join-Path $OutputPath $Tenant)).FullName 'summary.json')
 '@
     $script:StubConnect = Join-Path $script:Temp 'stub-connect.ps1'
     Set-Content $script:StubConnect -Value "param (`$Environment, `$Role, [switch]`$ThumbprintOnly)`n'AABBCCDDEEFF00112233445566778899AABBCCDD'"

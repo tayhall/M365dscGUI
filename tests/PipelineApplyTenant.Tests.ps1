@@ -82,7 +82,7 @@ Describe 'Apply-Dev.yaml and the tenant-changes revert' {
     }
 
     It 'applies the Revert folder of a tenant-changes run and requires its tenant, passing the choices as environment variables' {
-        $script:Text | Should -Match "tenantChanges/TenantChanges/Revert"
+        $script:Text | Should -Match "tenantChanges/TenantChanges/Dev/Revert"
         $script:Text | Should -Match "PE_REQUIRE_TENANT: 'True'"
         $script:Text | Should -Match "compare/DriftReport"
         $script:Text | Should -Match "PE_REQUIRE_TENANT: 'False'"

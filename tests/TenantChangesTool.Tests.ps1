@@ -18,7 +18,7 @@ BeforeAll {
         $messages = & $script:Tool -Tenant 'Dev' -PreviousExportPath (New-ExportCopy $Previous $Log) -LatestExportPath (New-ExportCopy $Latest $Log) `
             -TargetTenantDomain 'contoso-dev.onmicrosoft.com' -OutputPath $out -PreviousRun '101' -LatestRun '102' `
             -PreviousName 'v8' -LatestName 'v9' -CompleteWorkload 'AAD' 6>&1 3>$null
-        [pscustomobject]@{ Out = $out; Messages = @($messages | ForEach-Object { "$_" }) }
+        [pscustomobject]@{ Out = (Join-Path $out 'Dev'); Messages = @($messages | ForEach-Object { "$_" }) }
     }
 }
 
@@ -27,15 +27,15 @@ Describe 'tools\Invoke-PETenantChanges.ps1' {
         $r = Invoke-Tool
         Test-Path (Join-Path $r.Out 'Revert\summary.json') | Should -BeTrue
         (Get-Content (Join-Path $r.Out 'Revert\Removals.ps1') -Raw) | Should -Match 'Support'
-        (Get-Content (Join-Path $r.Out 'DevChanges.ps1') -Raw) | Should -Match 'Support'
-        Test-Path (Join-Path $r.Out 'DevRemovals.ps1') | Should -BeFalse
+        (Get-Content (Join-Path $r.Out 'Promote\Changes.ps1') -Raw) | Should -Match 'Support'
+        Test-Path (Join-Path $r.Out 'Promote\Removals.ps1') | Should -BeFalse
     }
 
     It 'says No changes, writes no configuration and no MOF, and does not fail, for identical exports' {
         $r = Invoke-Tool -Previous 'entra.ps1' -Latest 'entra.ps1'
         ($r.Messages -join "`n") | Should -Match 'No changes'
-        Test-Path (Join-Path $r.Out 'DevChanges.ps1') | Should -BeFalse
-        Test-Path (Join-Path $r.Out 'DevRemovals.ps1') | Should -BeFalse
+        Test-Path (Join-Path $r.Out 'Promote\Changes.ps1') | Should -BeFalse
+        Test-Path (Join-Path $r.Out 'Promote\Removals.ps1') | Should -BeFalse
         Test-Path (Join-Path $r.Out 'Revert\Changes.ps1') | Should -BeFalse
         @(Get-ChildItem $r.Out -Recurse -Filter *.mof) | Should -BeNullOrEmpty
     }
@@ -75,9 +75,9 @@ Describe 'tools\Invoke-PETenantChanges.ps1' {
 Describe 'tools\Invoke-PETenantChanges.ps1 report' {
     BeforeAll { Import-Module "$PSScriptRoot\..\src\PolicyEngine\PolicyEngine.psd1" -Force }
 
-    It 'writes DevChanges.html with both run ids, the export names as labels and the tenant slug dev-changes' {
+    It 'writes Report.html with both run ids, the export names as labels and the tenant slug dev-changes' {
         $r = Invoke-Tool
-        $html = [System.IO.File]::ReadAllText((Join-Path $r.Out 'DevChanges.html'))
+        $html = [System.IO.File]::ReadAllText((Join-Path $r.Out 'Report.html'))
         $json = [regex]::Match($html, '(?s)<script type="application/json" id="report-data">(.*?)</script>').Groups[1].Value
         $data = $json | ConvertFrom-Json
         $data.Meta.Tenant | Should -Be 'dev-changes'
@@ -116,7 +116,7 @@ Describe 'components an export could not read are not changes' {
         $summary.Revert.NotCompared | Should -BeGreaterThan 0
         ($r.Messages -join "`n") | Should -Match 'No changes'
         ($r.Messages -join "`n") | Should -Match 'not compared'
-        Test-Path (Join-Path $r.Out 'DevChanges.ps1') | Should -BeFalse
+        Test-Path (Join-Path $r.Out 'Promote\Changes.ps1') | Should -BeFalse
     }
 
     It 'counts only the new group when a component is unreadable in both exports' {

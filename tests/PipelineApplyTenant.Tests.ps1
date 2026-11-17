@@ -40,6 +40,11 @@ Describe 'pipelines\scripts\Invoke-PipelineApply.ps1 tenant check' {
         $out | Should -Not -Match 'applies to Dev'
     }
 
+    It 'refuses a read-only compare run (any pair other than PreProd to Dev) by rule, before anything else' {
+        $out = (Invoke-Apply (New-Report @{ ReadOnly = $true; SourceTenant = 'Prod'; TargetTenant = 'Dev' })) -join "`n"
+        $out | Should -Match 'THROWN: .*read-only comparison \(Prod to Dev\).*Nothing was applied'
+    }
+
     It 'takes a compare report that has no Tenant, as before' {
         $out = (Invoke-Apply (New-Report @{})) -join "`n"
         $out | Should -Match 'No valid certificate thumbprint'

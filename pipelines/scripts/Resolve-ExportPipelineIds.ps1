@@ -29,7 +29,7 @@ $headers = @{ Authorization = "Bearer $($env:SYSTEM_ACCESSTOKEN)" }
 
 function Get-DefinitionId
 {
-    param ([string]$Name)
+    param ([string]$Name, [switch]$Optional)
     $uri = "$collection/$([System.Uri]::EscapeDataString($project))/_apis/build/definitions?name=$([System.Uri]::EscapeDataString($Name))&api-version=7.1"
     try { $result = Invoke-RestMethod -Method Get -Uri $uri -Headers $headers }
     catch
@@ -39,6 +39,12 @@ function Get-DefinitionId
         throw
     }
     $found = @($result.value | Where-Object { $_.name -ceq $Name })
+    if ($found.Count -eq 0 -and $Optional)
+    {
+        # Only for Prod: a pipeline that is not created yet must not stop PreProd and Dev. Asking for a Prod export later still says why.
+        Write-Host "##vso[task.logissue type=warning]No pipeline is named '$Name' in project $project, so Prod cannot be used in this run (create it with exactly that name, or change ExportProdPipeline in the settings)."
+        return ''
+    }
     if ($found.Count -eq 0) { throw "No pipeline is named '$Name' in project $project. Create it in Azure DevOps with exactly that name (or change ExportPreProdPipeline / ExportDevPipeline in the settings and generate the YAML again)." }
     if ($found.Count -gt 1) { throw "More than one pipeline is named '$Name' in project $project." }
     [string][int]$found[0].id
@@ -46,8 +52,8 @@ function Get-DefinitionId
 
 $preProdId = Get-DefinitionId -Name $PreProdName
 $devId = Get-DefinitionId -Name $DevName
-$prodId = if ($ProdName) { Get-DefinitionId -Name $ProdName } else { '' }
-"Export pipelines: '$PreProdName' is $preProdId, '$DevName' is $devId."
+$prodId = if ($ProdName) { Get-DefinitionId -Name $ProdName -Optional } else { '' }
+"Export pipelines: '$PreProdName' is $preProdId, '$DevName' is $devId$(if ($prodId) { ", '$ProdName' is $prodId" })."
 "##vso[task.setvariable variable=EXPORT_PREPROD_ID]$preProdId"
 "##vso[task.setvariable variable=EXPORT_DEV_ID]$devId"
 if ($prodId) { "##vso[task.setvariable variable=EXPORT_PROD_ID]$prodId" }

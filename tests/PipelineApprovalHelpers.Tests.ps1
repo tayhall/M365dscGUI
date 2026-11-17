@@ -143,10 +143,20 @@ Describe 'pipelines\scripts\Resolve-ExportPipelineIds.ps1' {
         $out | Should -Match 'variable=EXPORT_PROD_ID\]7'
     }
 
-    It 'names the Prod pipeline when it is missing' {
-        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 4; name = 'Pre' }, [pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=(Pre|Dev)&' }
+    It 'a Prod pipeline that does not exist yet only warns, naming it, so PreProd and Dev still work' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 4; name = 'Pre' }) } } -ParameterFilter { $Uri -match 'name=Pre&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=Dev&' }
         Mock Invoke-RestMethod { [pscustomobject]@{ value = @() } } -ParameterFilter { $Uri -match 'name=Prod&' }
-        { & $script:Script -PreProdName 'Pre' -DevName 'Dev' -ProdName 'Prod' } | Should -Throw "*'Prod'*"
+        $out = @(& $script:Script -PreProdName 'Pre' -DevName 'Dev' -ProdName 'Prod' 6>&1 | ForEach-Object { "$_" }) -join "`n"
+        $out | Should -Match "task\.logissue type=warning\].*'Prod'"
+        $out | Should -Match 'variable=EXPORT_DEV_ID\]3'
+        $out | Should -Not -Match 'EXPORT_PROD_ID'
+    }
+
+    It 'still stops when two pipelines are named like the Prod pipeline' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 4; name = 'Pre' }, [pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=(Pre|Dev)&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 7; name = 'Prod' }, [pscustomobject]@{ id = 8; name = 'Prod' }) } } -ParameterFilter { $Uri -match 'name=Prod&' }
+        { & $script:Script -PreProdName 'Pre' -DevName 'Dev' -ProdName 'Prod' } | Should -Throw "*More than one*'Prod'*"
     }
 
     It 'stops, naming the pipeline, when none has that name' {

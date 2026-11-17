@@ -82,7 +82,7 @@ branch and the folder, not who reviewed the change.
   names a workload with no folder. It also refuses a report with no valid certificate thumbprint, and checks that the Writer certificate is the one the
   MOFs were compiled with. A run with no drift ends with "Nothing to apply". In Apply mode a resource still not in the desired state fails the step and
   Removals do not follow; in Test mode differences are only reported.
-- When you queue Apply by hand, Azure DevOps lets you pick which compare run to use (Resources); the default is the latest.
+- When you queue Apply by hand, Azure DevOps lets you pick which compare run to use (Resources); the default is the latest, so pick a PreProd-to-Dev run if a read-only Compare (any other pair) ran after it: Apply refuses a read-only run.
 
 ## Compare: pick the two tenants
 

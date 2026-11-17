@@ -40,6 +40,11 @@ $windowsPowerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\
 
 # What is being applied.
 $summary = Get-Content -LiteralPath (Join-Path $ReportPath 'summary.json') -Raw | ConvertFrom-Json
+# A read-only comparison (any pair other than PreProd to Dev) has no MOF files and can never be applied: refused by rule, not by a missing file.
+if ($summary.PSObject.Properties.Name -contains 'ReadOnly' -and $summary.ReadOnly)
+{
+    throw "This compare run is a read-only comparison ($($summary.SourceTenant) to $($summary.TargetTenant)) and cannot be applied. Pick a PreProd-to-Dev compare run. Nothing was applied."
+}
 # This pipeline applies to Dev and nothing else. A tenant-changes report says which tenant it was made for: another tenant's is refused
 # before anything connects. A compare report has no Tenant (it is always Dev's); -RequireTenant is for the tenant-changes source.
 if ($summary.PSObject.Properties.Name -contains 'Tenant')

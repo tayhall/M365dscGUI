@@ -51,7 +51,7 @@ $ErrorActionPreference = 'Stop'
 
 $definitionId = $null
 foreach ($pair in $TenantMap -split ';') { $name, $value = $pair -split '=', 2; if ($name -ceq $Tenant) { $definitionId = [int]$value } }
-if (-not $definitionId) { throw "The tenant map has no export pipeline id for $Tenant. Add it to the settings (ExportDevPipelineId / ExportPreProdPipelineId) and generate the YAML again." }
+if (-not $definitionId) { throw "The tenant map has no export pipeline id for $Tenant. Create the $Tenant export pipeline in Azure DevOps with the name in the settings (ExportDevPipeline / ExportPreProdPipeline / ExportProdPipeline) and run again." }
 $artifactName = "${Tenant}Export"
 $what = "$Tenant $Workload"
 $seriesPattern = '\A' + [regex]::Escape("$Tenant-$Workload") + '-v\d{1,6}\z'

@@ -17,10 +17,7 @@
     ExportDevPipeline     = 'M365DSC - Export Dev tenant'
     ComparePipeline       = 'M365DSC - Compare PreProd to Dev and build MOFs'
 
-    # Only for Apply-Approved-Dev: the number of each export pipeline (the definitionId in its address in Azure DevOps, digits only) so the apply
-    # can download the very export runs an approved list names, and the branch the approved lists must be merged to (default main).
-    # Leave them out and the other pipelines still generate; Apply-Approved-Dev.yaml then says what it needs.
-    ExportPreProdPipelineId = '21'
-    ExportDevPipelineId     = '22'
+    # The branch the approved lists must be merged to (default main). No pipeline ids are needed: the pipelines find the two export
+    # pipelines by the names above at run time.
     DefaultBranch           = 'main'
 }

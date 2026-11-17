@@ -118,3 +118,25 @@ Describe 'pipelines\scripts\Test-ApprovalLocation.ps1 test hook' {
         $env:PE_TEST_HOOKS = '1'
     }
 }
+
+Describe 'pipelines\scripts\Resolve-ExportPipelineIds.ps1' {
+    BeforeAll {
+        $script:Script = Join-Path $PSScriptRoot '..\pipelines\scripts\Resolve-ExportPipelineIds.ps1'
+        $env:SYSTEM_COLLECTIONURI = 'https://dev.azure.com/org/'; $env:SYSTEM_TEAMPROJECT = 'My Project'; $env:SYSTEM_ACCESSTOKEN = 'tok'
+    }
+    AfterAll { Remove-Item Env:SYSTEM_COLLECTIONURI, Env:SYSTEM_TEAMPROJECT, Env:SYSTEM_ACCESSTOKEN -ErrorAction SilentlyContinue }
+
+    It 'looks both pipelines up by exact name and sets the two variables' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 4; name = 'Pre' }, [pscustomobject]@{ id = 9; name = 'Pre extra' }) } } -ParameterFilter { $Uri -match 'name=Pre&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=Dev&' }
+        $out = @(& $script:Script -PreProdName 'Pre' -DevName 'Dev') -join "`n"
+        $out | Should -Match 'variable=EXPORT_PREPROD_ID\]4'
+        $out | Should -Match 'variable=EXPORT_DEV_ID\]3'
+        $out | Should -Not -Match 'tok'
+    }
+
+    It 'stops, naming the pipeline, when none has that name' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @() } }
+        { & $script:Script -PreProdName 'Pre' -DevName 'Dev' } | Should -Throw "*'Pre'*"
+    }
+}

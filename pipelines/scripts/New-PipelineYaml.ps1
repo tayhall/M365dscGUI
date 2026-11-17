@@ -31,12 +31,7 @@ $tokens = [ordered]@{
     ExportDevPipeline       = '__EXPORT_DEV_PIPELINE__'
     ComparePipeline         = '__COMPARE_PIPELINE__'
     TenantChangesPipeline   = '__TENANT_CHANGES_PIPELINE__'
-    # Only the approved-apply pipeline uses these three; the others generate without them.
-    ExportPreProdPipelineId = '__EXPORT_PREPROD_PIPELINE_ID__'
-    ExportDevPipelineId     = '__EXPORT_DEV_PIPELINE_ID__'
     DefaultBranch           = '__DEFAULT_BRANCH__'
-    # Not a setting: built below from the two export pipeline ids, for the Tenant-Changes pipeline (it finds the runs itself at run time).
-    TenantMap               = '__TENANT_MAP__'
 }
 $defaults = @{
     RepoFolder            = 'M365dscGUI'
@@ -47,8 +42,6 @@ $defaults = @{
     TenantChangesPipeline = 'M365DSC - Tenant changes'
     DefaultBranch         = 'main'
 }
-# Settings with no default that a template may leave unused: needed (and checked) only by the templates that contain their token.
-$optional = @('ExportPreProdPipelineId', 'ExportDevPipelineId', 'TenantMap')
 
 if (-not (Test-Path -LiteralPath $SettingsPath))
 {
@@ -58,8 +51,11 @@ $settings = Import-PowerShellDataFile -Path $SettingsPath
 # Earlier versions of this file also held the tenant identifiers. They now live in pipelines\config\<Environment>.psd1, read at run time.
 $moved = @($settings.Keys | Where-Object { $_ -match '^(Dev|PreProd)(TenantDomain|OrganizationName|KeyVault|ShortName|ReaderAppId|WriterAppId|ReaderCertSecret|WriterCertSecret|WriterThumbprint)$' })
 if ($moved) { Write-Warning "Ignored (these now belong in pipelines\config\Dev.psd1 / PreProd.psd1, and you can delete them here): $($moved -join ', ')" }
+# The export pipeline ids are no longer settings: the pipelines find the two export pipelines by name at run time.
+$ids = @($settings.Keys | Where-Object { $_ -in 'ExportPreProdPipelineId', 'ExportDevPipelineId' })
+if ($ids) { Write-Warning "Ignored (the pipelines now find the export pipelines by name, so the ids are not needed; delete them here): $($ids -join ', ')" }
 $kept = @{}
-foreach ($key in $settings.Keys) { if ($key -notin $moved) { $kept[$key] = $settings[$key] } }
+foreach ($key in $settings.Keys) { if ($key -notin $moved -and $key -notin $ids) { $kept[$key] = $settings[$key] } }
 # Earlier versions had one ServiceConnection for both tenants. It still works as the default for whichever of the two is not set.
 if ($kept.ContainsKey('ServiceConnection'))
 {
@@ -68,7 +64,6 @@ if ($kept.ContainsKey('ServiceConnection'))
     $kept.Remove('ServiceConnection')
 }
 $settings = $kept
-if ($settings.ContainsKey('TenantMap')) { throw 'TenantMap is not a setting: it is built from ExportDevPipelineId and ExportPreProdPipelineId.' }
 $unknown = @($settings.Keys | Where-Object { -not $tokens.Contains($_) })
 if ($unknown) { throw "Unknown setting(s): $($unknown -join ', '). Known: $($tokens.Keys -join ', ')." }
 
@@ -77,24 +72,17 @@ $problems = @()
 foreach ($name in $tokens.Keys)
 {
     $value = if ($settings.ContainsKey($name)) { [string]$settings[$name] } else { [string]$defaults[$name] }
-    if (-not $value -and $optional -contains $name) { continue }
     if (-not $value) { $problems += "$name is missing"; continue }
     if ($value -match 'CHANGE-ME') { $problems += "$name still has the example value (CHANGE-ME)"; continue }
     if ($value -match '[\r\n]') { $problems += "$name must be one line"; continue }
     # The folder of this project inside the repo, with forward slashes ('.' when the project is at the repo root): no '..', no drive or leading slash.
     if ($name -eq 'RepoFolder' -and $value -cnotmatch '\A(\.|[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*)\z') { $problems += "$name must be a folder path such as M365dscGUI or tools/M365dscGUI (forward slashes), or . for the repo root"; continue }
-    # Pipeline (definition) ids are digits; the branch is a plain branch name (it ends up in a command line).
-    if ($name -in 'ExportPreProdPipelineId', 'ExportDevPipelineId' -and $value -cnotmatch '\A\d{1,9}\z') { $problems += "$name must be the number of the pipeline (digits only, from its address in Azure DevOps)"; continue }
+    # The branch is a plain branch name (it ends up in a command line).
     if ($name -eq 'DefaultBranch' -and $value -cnotmatch '\A[A-Za-z0-9._/-]{1,100}\z') { $problems += "$name must be a branch name such as main"; continue }
     # The value goes inside a single-quoted YAML string.
     $values[$name] = $value -replace "'", "''"
 }
 if ($problems) { throw "Fix $SettingsPath first:`n  $($problems -join "`n  ")" }
-# The tenant map is only there when both ids are (the ids were checked to be digits above).
-if ($values.ContainsKey('ExportDevPipelineId') -and $values.ContainsKey('ExportPreProdPipelineId'))
-{
-    $values['TenantMap'] = "Dev=$($values['ExportDevPipelineId']);PreProd=$($values['ExportPreProdPipelineId'])"
-}
 
 # The workload checkboxes: a token alone on a line in a template is replaced by one entry per workload of Workloads.psd1.
 # Names and prefixes end up inside single-quoted YAML strings and names of variables, so they are checked here.
@@ -148,9 +136,7 @@ foreach ($file in $sources)
     if ($left)
     {
         # One template that cannot be filled does not stop the others from being written; the problems are reported at the end.
-        $needs = @($optional | Where-Object { $left -contains $tokens[$_] } | ForEach-Object { if ($_ -eq 'TenantMap') { 'ExportDevPipelineId'; 'ExportPreProdPipelineId' } else { $_ } } | Select-Object -Unique)
-        $failed += $(if ($needs) { "$($file.Name) needs the setting(s) $($needs -join ', ') in $SettingsPath (the number of each export pipeline, from its address in Azure DevOps)." }
-            else { "$($file.Name) still has token(s) $($left -join ', '): add them to the token table in this script." })
+        $failed += "$($file.Name) still has token(s) $($left -join ', '): add them to the token table in this script."
         continue
     }
     $targetName = $file.Name -replace '\.template$', ''

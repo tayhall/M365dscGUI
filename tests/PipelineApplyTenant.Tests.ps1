@@ -62,7 +62,7 @@ Describe 'pipelines\scripts\Invoke-PipelineApply.ps1 tenant check' {
 Describe 'Apply-Dev.yaml and the tenant-changes revert' {
     BeforeAll {
         $settings = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-pat-set-' + [guid]::NewGuid().ToString('N') + '.psd1')
-        Set-Content $settings -Value "@{ Pool = 'Agents'; DevServiceConnection = 'sc-dev'; PreProdServiceConnection = 'sc-preprod'; ExportPreProdPipelineId = '21'; ExportDevPipelineId = '22' }"
+        Set-Content $settings -Value "@{ Pool = 'Agents'; DevServiceConnection = 'sc-dev'; PreProdServiceConnection = 'sc-preprod' }"
         $out = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-pat-out-' + [guid]::NewGuid().ToString('N'))
         & $script:Generator -SettingsPath $settings -OutputPath $out 6>&1 3>$null | Out-Null
         $script:Text = Get-Content (Join-Path $out 'Apply-Dev.yaml') -Raw

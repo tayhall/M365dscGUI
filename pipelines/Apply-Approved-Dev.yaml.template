@@ -48,13 +48,21 @@ jobs:
               env:
                 PE_APPROVAL_FILE: ${{ parameters.approvalFile }}
 
+            # The two export pipelines are found by name, so no pipeline id has to be in the settings; sets EXPORT_PREPROD_ID and EXPORT_DEV_ID.
+            - pwsh: |
+                & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-ExportPipelineIds.ps1' `
+                    -PreProdName '__EXPORT_PREPROD_PIPELINE__' -DevName '__EXPORT_DEV_PIPELINE__'
+              displayName: Find the export pipelines
+              env:
+                SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
             # The very exports the list was reviewed against, by run id (the list pins them by hash too).
             - task: DownloadPipelineArtifact@2
               displayName: Download the PreProd export the list names
               inputs:
                 buildType: 'specific'
                 project: '$(System.TeamProjectId)'
-                definition: '__EXPORT_PREPROD_PIPELINE_ID__'
+                definition: '$(EXPORT_PREPROD_ID)'
                 buildVersionToDownload: 'specific'
                 pipelineId: '$(PREPROD_RUN)'
                 artifactName: 'PreProdExport'
@@ -64,7 +72,7 @@ jobs:
               inputs:
                 buildType: 'specific'
                 project: '$(System.TeamProjectId)'
-                definition: '__EXPORT_DEV_PIPELINE_ID__'
+                definition: '$(EXPORT_DEV_ID)'
                 buildVersionToDownload: 'specific'
                 pipelineId: '$(DEV_RUN)'
                 artifactName: 'DevExport'
@@ -73,7 +81,7 @@ jobs:
             # Keep both runs so the same list can be applied again later (a warning, not a failure, if this is not allowed).
             - pwsh: |
                 & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/New-ExportRetentionLease.ps1' `
-                    -PreProdRun '$(PREPROD_RUN)' -DevRun '$(DEV_RUN)' -PreProdDefinitionId '__EXPORT_PREPROD_PIPELINE_ID__' -DevDefinitionId '__EXPORT_DEV_PIPELINE_ID__'
+                    -PreProdRun '$(PREPROD_RUN)' -DevRun '$(DEV_RUN)' -PreProdDefinitionId '$(EXPORT_PREPROD_ID)' -DevDefinitionId '$(EXPORT_DEV_ID)'
               displayName: Keep the two export runs
               condition: eq('${{ parameters.mode }}', 'Apply')
               env:

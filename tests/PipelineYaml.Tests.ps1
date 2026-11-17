@@ -4,8 +4,7 @@ BeforeAll {
     function New-Settings
     {
         param ([hashtable]$Extra = @{}, [string[]]$Without = @())
-        $s = [ordered]@{ Pool = 'Agents'; DevServiceConnection = 'sc-dev'; PreProdServiceConnection = 'sc-preprod'
-            ExportPreProdPipelineId = '21'; ExportDevPipelineId = '22' }
+        $s = [ordered]@{ Pool = 'Agents'; DevServiceConnection = 'sc-dev'; PreProdServiceConnection = 'sc-preprod' }
         foreach ($k in $Extra.Keys) { $s[$k] = $Extra[$k] }
         foreach ($k in $Without) { $s.Remove($k) }
         $lines = $s.GetEnumerator() | ForEach-Object { "    $($_.Key) = '$($_.Value)'" }
@@ -30,10 +29,11 @@ Describe 'pipelines\scripts\New-PipelineYaml.ps1 and the approved-apply pipeline
         foreach ($name in $names) { (Get-Content (Join-Path $out $name) -Raw) | Should -Not -Match '__[A-Z][A-Z_]*__' }
     }
 
-    It 'puts the two export pipeline ids, the default branch and the Dev service connection into the approved apply' {
+    It 'finds the two export pipelines by name at run time, and puts the default branch and the Dev service connection into the approved apply' {
         $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Apply-Approved-Dev.yaml') -Raw
-        $text | Should -Match "definition: '21'"
-        $text | Should -Match "definition: '22'"
+        $text | Should -Match "(?s)Resolve-ExportPipelineIds\.ps1.*?-PreProdName 'M365DSC - Export PreProd tenant' -DevName 'M365DSC - Export Dev tenant'"
+        $text | Should -Match "definition: '\$\(EXPORT_PREPROD_ID\)'"
+        $text | Should -Match "definition: '\$\(EXPORT_DEV_ID\)'"
         $text | Should -Match "-DefaultBranch 'main'"
         $text | Should -Match "azureSubscription: 'sc-dev'"
         (New-Yaml (New-Settings -Extra @{ DefaultBranch = 'release' }) | ForEach-Object { Get-Content (Join-Path $_ 'Apply-Approved-Dev.yaml') -Raw }) | Should -Match "-DefaultBranch 'release'"
@@ -71,15 +71,13 @@ Describe 'pipelines\scripts\New-PipelineYaml.ps1 and the approved-apply pipeline
         $text | Should -Match 'ApprovedApplyReport'
     }
 
-    It 'refuses a pipeline id that is not digits' {
-        { New-Yaml (New-Settings -Extra @{ ExportDevPipelineId = '22; rm -rf' }) } | Should -Throw '*ExportDevPipelineId*'
-    }
-
-    It 'still generates the other pipelines when the new settings are not set, and says what the approved apply needs' {
-        $settings = New-Settings -Without 'ExportPreProdPipelineId', 'ExportDevPipelineId'
-        $out = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-yaml-out-' + [guid]::NewGuid().ToString('N'))
-        { & $script:Generator -SettingsPath $settings -OutputPath $out 6>&1 3>$null | Out-Null } | Should -Throw '*ExportPreProdPipelineId*'
-        (Test-Path (Join-Path $out 'Export-Dev.yaml')) | Should -BeTrue
+    It 'needs no pipeline ids, and ignores them (with a warning) when an old settings file still has them' {
+        $out = New-Yaml (New-Settings)
+        (Test-Path (Join-Path $out 'Apply-Approved-Dev.yaml')) | Should -BeTrue
+        $out2 = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-yaml-out-' + [guid]::NewGuid().ToString('N'))
+        $warnings = & $script:Generator -SettingsPath (New-Settings -Extra @{ ExportDevPipelineId = '22'; ExportPreProdPipelineId = '21' }) -OutputPath $out2 6>&1 3>&1 | ForEach-Object { "$_" }
+        ($warnings -join "`n") | Should -Match 'ExportDevPipelineId'
+        (Get-Content (Join-Path $out2 'Apply-Approved-Dev.yaml') -Raw) | Should -Not -Match "definition: '2[12]'"
     }
 
     It 'parses as YAML with the cleanup step last, when a YAML module is available' -Skip:(-not (Get-Module -ListAvailable powershell-yaml)) {
@@ -115,10 +113,11 @@ Describe 'the retention step of the approved apply' {
 }
 
 Describe 'the Tenant-Changes pipeline and the readable export run names' {
-    It 'is generated with every token filled and carries the tenant map of the two export pipeline ids' {
+    It 'is generated with every token filled and builds the tenant map from the export pipeline ids found at run time' {
         $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Tenant-Changes.yaml') -Raw
         $text | Should -Not -Match '__[A-Z][A-Z_]*__'
-        $text | Should -Match "PE_TENANT_MAP: 'Dev=22;PreProd=21'"
+        $text | Should -Match "Resolve-ExportPipelineIds\.ps1"
+        $text | Should -Match 'PE_TENANT_MAP: ''Dev=\$\(EXPORT_DEV_ID\);PreProd=\$\(EXPORT_PREPROD_ID\)'''
     }
 
     It 'is queued by hand, with the tenant and the two optional versions as parameters' {
@@ -159,12 +158,6 @@ Describe 'the Tenant-Changes pipeline and the readable export run names' {
     It 'uses the tenant''s own service connection, chosen when the YAML is compiled' {
         $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Tenant-Changes.yaml') -Raw
         $text | Should -Match "(?s)\`$\{\{ if eq\(parameters\.tenant, 'Dev'\) \}\}:\s+azureSubscription: 'sc-dev'\s+\`$\{\{ else \}\}:\s+azureSubscription: 'sc-preprod'"
-    }
-
-    It 'needs both export pipeline ids and says so' {
-        $settings = New-Settings -Without 'ExportDevPipelineId'
-        $out = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-yaml-out-' + [guid]::NewGuid().ToString('N'))
-        { & $script:Generator -SettingsPath $settings -OutputPath $out 6>&1 3>$null | Out-Null } | Should -Throw '*Tenant-Changes.yaml*ExportDevPipelineId*'
     }
 
     It 'names the export runs <Tenant>-<Workload>-v<counter>, so each workload has its own series and counter' {

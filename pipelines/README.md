@@ -59,8 +59,8 @@ A manual run of `Invoke-PipelineCompare.ps1` without numeric `-PreProdRun` / `-D
    finds what is already in the desired state (`NoActionRequired`), because the exported Dev the list was reviewed against does not know what a
    first run already did. An item is only `Applied` when the LCM reports its resource (`[Type]Name`) in the desired state; if it does not, the item
    is `Failed` with that reason, never silently green.
-Settings: add `ExportPreProdPipelineId`, `ExportDevPipelineId` (and optionally `DefaultBranch`) to `pipeline.settings.psd1`; the other pipelines
-generate without them. In Azure DevOps, a branch policy that requires a pull request review on `approvals/` is recommended: the pipeline checks the
+Settings: optionally `DefaultBranch` in `pipeline.settings.psd1`. No pipeline ids are needed: a first step finds the two export pipelines by the names in the settings
+(`Resolve-ExportPipelineIds.ps1`, using the build service identity's View build definition permission). In Azure DevOps, a branch policy that requires a pull request review on `approvals/` is recommended: the pipeline checks the
 branch and the folder, not who reviewed the change.
 
 **MOF layout** (`mofLayout` on the compare pipeline, `Invoke-PEPipelineCompare.ps1 -MofLayout`):
@@ -109,9 +109,9 @@ compare pipeline, so the report shows only the tenant's own changes, not differe
   "after" that is not newer than the "before", no earlier successful export (take a fresh export first), an export made with another Microsoft365DSC version, and a run name with
   characters other than letters, digits, space, dot, hyphen and round brackets.
 - **Prerequisite:** the project's build service identity needs **View builds** on the export pipelines (the same identity that creates the retention leases).
-- **Setting up:** both export pipeline ids must be in `pipeline.settings.psd1` (`ExportDevPipelineId`, `ExportPreProdPipelineId`); the generator builds the tenant map from them. Create the pipeline
+- **Setting up:** no pipeline ids are needed; the pipeline finds the two export pipelines by name at run time. Create the pipeline
   from `Tenant-Changes.yaml`, named as `TenantChangesPipeline` (default `M365DSC - Tenant changes`), and generate again so `Apply-Dev.yaml` can find it.
-- **Prod** is not offered yet: it has no config file or export pipeline. Adding it is one more value of `tenant` and one more entry of the map.
+- **Prod** is not offered yet: it has no config file or export pipeline. Adding it is one more value of `tenant` and one more entry of the tenant map in `Tenant-Changes.yaml.template`.
 
 ## Bumping the DSC pins
 `Bump-Dsc-Pin.yaml` (`pipelines\scripts\Update-DscPin.ps1`) moves the versions pinned in `src\PolicyEngine\Data\Versions.psd1`, the one file every pipeline,

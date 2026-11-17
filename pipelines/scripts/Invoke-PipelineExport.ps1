@@ -34,6 +34,8 @@ if (-not $Workloads)
 try
 {
     & (Join-Path $PSScriptRoot 'Connect-PipelineTenant.ps1') -Environment $Environment -Role Reader
+    # What the sign-in will use and whether it works, on screen. Its own process (the Graph module it loads must not affect the export), never stops the run.
+    & (Get-Process -Id $PID).Path -NoProfile -File (Join-Path $PSScriptRoot 'Test-PipelineSignIn.ps1') -Environment $Environment -Role Reader | Out-Host
     & (Join-Path $repoRoot 'tools\Export-M365DscTenant.ps1') -Role Reader -Tenant $slug -Workloads $Workloads -OutputPath $OutputPath
 }
 finally

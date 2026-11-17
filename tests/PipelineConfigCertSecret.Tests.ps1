@@ -34,4 +34,12 @@ Describe 'the certificate secret name in the config' {
         (& $run (New-ConfigFolder "ReaderCertSecret = 'my-reader-cert'")) | Should -Match "secret 'my-reader-cert'"
         (& $run (New-ConfigFolder)) | Should -Match "secret 'dev-Cert-Reader'"
     }
+
+    It 'reads a Prod config like the other tenants' {
+        $dir = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-cfg-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        Set-Content (Join-Path $dir 'Prod.psd1') -Value "@{ TenantDomain = 'prod.onmicrosoft.com'; KeyVault = 'prod-vault'; ShortName = 'prod'; ReaderAppId = '11111111-2222-3333-4444-555555555555' }"
+        $c = & (Join-Path $script:Scripts 'Get-PipelineConfig.ps1') -Environment Prod -ConfigPath $dir
+        $c.KeyVault | Should -Be 'prod-vault'
+    }
 }

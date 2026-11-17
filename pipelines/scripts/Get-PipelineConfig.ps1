@@ -12,7 +12,7 @@
 param
 (
     [Parameter(Mandatory)]
-    [ValidateSet('Dev', 'PreProd')]
+    [ValidateSet('Dev', 'PreProd', 'Prod')]
     [string]$Environment,
 
     [string[]]$Require = @(),

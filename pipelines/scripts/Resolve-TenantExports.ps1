@@ -15,7 +15,7 @@
 param
 (
     [Parameter(Mandatory)]
-    [ValidateSet('Dev', 'PreProd')]
+    [ValidateSet('Dev', 'PreProd', 'Prod')]
     [string]$Tenant,
 
     # Tenant name to export pipeline (definition) id, for example 'Dev=22;PreProd=21'.

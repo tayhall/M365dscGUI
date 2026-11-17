@@ -25,6 +25,9 @@ $tokens = [ordered]@{
     Pool                    = '__POOL__'
     DevServiceConnection    = '__DEV_SERVICE_CONNECTION__'
     PreProdServiceConnection = '__PREPROD_SERVICE_CONNECTION__'
+    # Prod is optional: setting ProdServiceConnection turns it on (Export-Prod.yaml is written and Prod is offered in the pickers).
+    ProdServiceConnection   = '__PROD_SERVICE_CONNECTION__'
+    ExportProdPipeline      = '__EXPORT_PROD_PIPELINE__'
     RepoFolder              = '__REPO_FOLDER__'
     DevEnvironment          = '__DEV_ENVIRONMENT__'
     ExportPreProdPipeline   = '__EXPORT_PREPROD_PIPELINE__'
@@ -38,6 +41,7 @@ $defaults = @{
     DevEnvironment        = 'm365-dev'
     ExportPreProdPipeline = 'M365DSC - Export PreProd tenant'
     ExportDevPipeline     = 'M365DSC - Export Dev tenant'
+    ExportProdPipeline    = 'M365DSC - Export Prod tenant'
     ComparePipeline       = 'M365DSC - Compare PreProd to Dev and build MOFs'
     TenantChangesPipeline = 'M365DSC - Tenant changes'
     DefaultBranch         = 'main'
@@ -71,10 +75,12 @@ $settings.Remove('AzurePowerShellVersion')
 $unknown = @($settings.Keys | Where-Object { -not $tokens.Contains($_) })
 if ($unknown) { throw "Unknown setting(s): $($unknown -join ', '). Known: $($tokens.Keys -join ', ')." }
 
+$prodEnabled = $settings.ContainsKey('ProdServiceConnection') -and -not [string]::IsNullOrWhiteSpace([string]$settings['ProdServiceConnection'])
 $values = @{}
 $problems = @()
 foreach ($name in $tokens.Keys)
 {
+    if ($name -in 'ProdServiceConnection', 'ExportProdPipeline' -and -not $prodEnabled) { continue }
     $value = if ($settings.ContainsKey($name)) { [string]$settings[$name] } else { [string]$defaults[$name] }
     if (-not $value) { $problems += "$name is missing"; continue }
     if ($value -match 'CHANGE-ME') { $problems += "$name still has the example value (CHANGE-ME)"; continue }
@@ -87,6 +93,12 @@ foreach ($name in $tokens.Keys)
     $values[$name] = $value -replace "'", "''"
 }
 if ($problems) { throw "Fix $SettingsPath first:`n  $($problems -join "`n  ")" }
+
+# Prod-only text, empty when Prod is not set up: the pipeline lookup argument, the tenant map entry (the Tenant-Changes pipeline).
+$prodTokens = @{
+    '__PROD_LOOKUP_ARGS__' = $(if ($prodEnabled) { "-ProdName '$($values['ExportProdPipeline'])'" } else { '' })
+    '__PROD_MAP__'         = $(if ($prodEnabled) { ';Prod=$(EXPORT_PROD_ID)' } else { '' })
+}
 
 # The workload checkboxes: a token alone on a line in a template is replaced by one entry per workload of Workloads.psd1.
 # Names and prefixes end up inside single-quoted YAML strings and names of variables, so they are checked here.
@@ -112,6 +124,9 @@ function Get-WorkloadParameterLines
     }
 }
 $expansions = [ordered]@{
+    # The tenants a picker offers; Prod only when it is set up. The service connection of a Prod target (an elseif between Dev and the default).
+    '__TENANT_CHOICES__'               = @('- Dev', '- PreProd') + @($(if ($prodEnabled) { '- Prod' }))
+    '__PROD_CONNECTION_BRANCH__'       = @($(if ($prodEnabled) { "`${{ elseif eq(parameters.tenant, 'Prod') }}:"; "  azureSubscription: '$($values['ProdServiceConnection'])'" }))
     # The values of the workload picker of the export and Tenant-Changes pipelines: Full (the default workloads) and each workload by prefix.
     '__WORKLOAD_CHOICES__'             = @('- Full') + @($workloadList | ForEach-Object { "- $($_.Prefix)" })
     '__COMPLETE_WORKLOAD_PARAMETERS__' = @(Get-WorkloadParameterLines -LabelPrefix 'Complete in the Dev export: ')
@@ -128,6 +143,8 @@ if ($sources.Count -eq 0) { throw "No *.yaml.template files in $pipelines." }
 $failed = @()
 foreach ($file in $sources)
 {
+    # Export-Prod is written only when Prod is set up.
+    if ($file.Name -eq 'Export-Prod.yaml.template' -and -not $prodEnabled) { continue }
     $text = [IO.File]::ReadAllText($file.FullName)
     $eol = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
     foreach ($token in $expansions.Keys)
@@ -137,6 +154,7 @@ foreach ($file in $sources)
         $text = [regex]::Replace($text, "(?m)^([ 	]*)$token[ 	]*(?=?$)", { param ($m) ($lines | ForEach-Object { $m.Groups[1].Value + $_ }) -join $eol })
     }
     foreach ($name in $tokens.Keys) { if ($values.ContainsKey($name)) { $text = $text.Replace($tokens[$name], $values[$name]) } }
+    foreach ($token in $prodTokens.Keys) { $text = $text.Replace($token, $prodTokens[$token]) }
     $left = [regex]::Matches($text, '__[A-Z][A-Z_]*__') | ForEach-Object { $_.Value } | Sort-Object -Unique
     if ($left)
     {

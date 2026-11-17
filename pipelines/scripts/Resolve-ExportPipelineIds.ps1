@@ -15,7 +15,10 @@ param
 
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
-    [string]$DevName
+    [string]$DevName,
+
+    # Optional: the Prod export pipeline (only when Prod is set up).
+    [string]$ProdName = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,6 +46,8 @@ function Get-DefinitionId
 
 $preProdId = Get-DefinitionId -Name $PreProdName
 $devId = Get-DefinitionId -Name $DevName
+$prodId = if ($ProdName) { Get-DefinitionId -Name $ProdName } else { '' }
 "Export pipelines: '$PreProdName' is $preProdId, '$DevName' is $devId."
 "##vso[task.setvariable variable=EXPORT_PREPROD_ID]$preProdId"
 "##vso[task.setvariable variable=EXPORT_DEV_ID]$devId"
+if ($prodId) { "##vso[task.setvariable variable=EXPORT_PROD_ID]$prodId" }

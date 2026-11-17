@@ -8,7 +8,7 @@
 param
 (
     [Parameter(Mandatory)]
-    [ValidateSet('Dev', 'PreProd')]
+    [ValidateSet('Dev', 'PreProd', 'Prod')]
     [string]$Environment,
 
     # DSC workload prefixes, comma separated, for example AAD,Intune,EXO,Teams.

@@ -13,8 +13,7 @@ parameters:
     type: string
     default: Dev
     values:
-      - Dev
-      - PreProd
+      __TENANT_CHOICES__
   - name: workload
     displayName: 'Which export series: Full or one workload (its latest export against its previous one)'
     type: string
@@ -41,7 +40,7 @@ jobs:
       # The two export pipelines are found by name, so no pipeline id has to be in the settings.
       - pwsh: |
           & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-ExportPipelineIds.ps1' `
-              -PreProdName '__EXPORT_PREPROD_PIPELINE__' -DevName '__EXPORT_DEV_PIPELINE__'
+              -PreProdName '__EXPORT_PREPROD_PIPELINE__' -DevName '__EXPORT_DEV_PIPELINE__' __PROD_LOOKUP_ARGS__
         displayName: Find the export pipelines
         env:
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
@@ -55,7 +54,7 @@ jobs:
         env:
           PE_TENANT: ${{ parameters.tenant }}
           PE_WORKLOAD: ${{ parameters.workload }}
-          PE_TENANT_MAP: 'Dev=$(EXPORT_DEV_ID);PreProd=$(EXPORT_PREPROD_ID)'
+          PE_TENANT_MAP: 'Dev=$(EXPORT_DEV_ID);PreProd=$(EXPORT_PREPROD_ID)__PROD_MAP__'
           PE_EXPORT_VERSION: ${{ parameters.exportVersion }}
           PE_PREVIOUS_VERSION: ${{ parameters.previousVersion }}
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
@@ -91,6 +90,7 @@ jobs:
         inputs:
           ${{ if eq(parameters.tenant, 'Dev') }}:
             azureSubscription: '__DEV_SERVICE_CONNECTION__'
+          __PROD_CONNECTION_BRANCH__
           ${{ else }}:
             azureSubscription: '__PREPROD_SERVICE_CONNECTION__'
           __AZ_POWERSHELL_VERSION__

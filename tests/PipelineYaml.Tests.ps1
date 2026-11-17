@@ -265,3 +265,24 @@ Describe 'AzurePowerShellVersion' {
         { New-Yaml (New-Settings -Extra @{ AzurePowerShellVersion = '5.3.2; x' }) } | Should -Throw '*AzurePowerShellVersion*'
     }
 }
+
+Describe 'Prod as a tenant' {
+    It 'generates Export-Prod.yaml and offers Prod only when ProdServiceConnection is set' {
+        $with = New-Yaml (New-Settings -Extra @{ ProdServiceConnection = 'sc-prod' })
+        (Test-Path (Join-Path $with 'Export-Prod.yaml')) | Should -BeTrue
+        $tc = Get-Content (Join-Path $with 'Tenant-Changes.yaml') -Raw
+        $tc | Should -Match '- Prod'
+        $tc | Should -Match 'Prod=\$\(EXPORT_PROD_ID\)'
+        $without = New-Yaml (New-Settings)
+        (Test-Path (Join-Path $without 'Export-Prod.yaml')) | Should -BeFalse
+        (Get-Content (Join-Path $without 'Tenant-Changes.yaml') -Raw) | Should -Not -Match '(?<!Pre)Prod'
+    }
+
+    It 'Export-Prod publishes the ProdExport artifact using the Prod service connection' {
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings -Extra @{ ProdServiceConnection = 'sc-prod' })) 'Export-Prod.yaml') -Raw
+        $text | Should -Match "azureSubscription: 'sc-prod'"
+        $text | Should -Match 'artifact: ProdExport'
+        $text | Should -Match "Prod-\$\{\{ parameters.workload \}\}-v"
+        $text | Should -Not -Match '__[A-Z][A-Z_]*__'
+    }
+}

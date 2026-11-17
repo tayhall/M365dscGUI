@@ -135,6 +135,20 @@ Describe 'pipelines\scripts\Resolve-ExportPipelineIds.ps1' {
         $out | Should -Not -Match 'tok'
     }
 
+    It 'sets EXPORT_PROD_ID when -ProdName is given' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 7; name = 'Prod' }) } } -ParameterFilter { $Uri -match 'name=Prod&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 4; name = 'Pre' }) } } -ParameterFilter { $Uri -match 'name=Pre&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=Dev&' }
+        $out = @(& $script:Script -PreProdName 'Pre' -DevName 'Dev' -ProdName 'Prod') -join "`n"
+        $out | Should -Match 'variable=EXPORT_PROD_ID\]7'
+    }
+
+    It 'names the Prod pipeline when it is missing' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 4; name = 'Pre' }, [pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=(Pre|Dev)&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @() } } -ParameterFilter { $Uri -match 'name=Prod&' }
+        { & $script:Script -PreProdName 'Pre' -DevName 'Dev' -ProdName 'Prod' } | Should -Throw "*'Prod'*"
+    }
+
     It 'stops, naming the pipeline, when none has that name' {
         Mock Invoke-RestMethod { [pscustomobject]@{ value = @() } }
         { & $script:Script -PreProdName 'Pre' -DevName 'Dev' } | Should -Throw "*'Pre'*"

@@ -18,7 +18,7 @@
 param
 (
     [Parameter(Mandatory)]
-    [ValidateSet('Dev', 'PreProd')]
+    [ValidateSet('Dev', 'PreProd', 'Prod')]
     [string]$Environment,
 
     [Parameter(Mandatory)]

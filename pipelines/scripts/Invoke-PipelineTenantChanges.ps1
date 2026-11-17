@@ -11,7 +11,7 @@
 param
 (
     [Parameter(Mandatory)]
-    [ValidateSet('Dev', 'PreProd')]
+    [ValidateSet('Dev', 'PreProd', 'Prod')]
     [string]$Tenant,
 
     [Parameter(Mandatory)]

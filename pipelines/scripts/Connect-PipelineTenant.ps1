@@ -49,6 +49,8 @@ $secretName = if ($config.ContainsKey($secretKey) -and $config[$secretKey] -notm
 $vault = $config.KeyVault
 $vaultFile = "pipelines\config\$Environment.psd1"
 $context = Get-AzContext
+$azVersions = (Get-Module -Name 'Az.Accounts', 'Az.KeyVault' | ForEach-Object { "$($_.Name) $($_.Version)" }) -join ', '
+Write-Host "Azure login (done by the pipeline task before this script): Az modules loaded: $(if ($azVersions) { $azVersions } else { 'none yet' }); context: $(if ($context) { "tenant $($context.Tenant.Id), account type $($context.Account.Type)" } else { 'NONE (the task did not sign in)' })."
 $who = if ($context) { "$($context.Account.Id) in subscription '$($context.Subscription.Name)'" } else { 'no Azure context' }
 Write-Host "Reading secret '$secretName' from Key Vault '$vault' (https://$vault.vault.azure.net) as $who."
 try

@@ -42,6 +42,25 @@ if (@($machinePath -split ';') -notcontains $ModulePath)
 }
 if (@($env:PSModulePath -split ';') -notcontains $ModulePath) { $env:PSModulePath = "$env:PSModulePath;$ModulePath" }
 
+function Write-AzDiagnostics
+{
+    # What the AzurePowerShell task's Azure login (the next step) will find on this agent. On screen only; nothing here is a secret.
+    param ([string]$When)
+    Write-Host "--- Azure module diagnostics ($When) ---"
+    Write-Host "Agent: $env:COMPUTERNAME, account $([Security.Principal.WindowsIdentity]::GetCurrent().Name), pwsh $($PSVersionTable.PSVersion) at $((Get-Process -Id $PID).Path)"
+    Write-Host "PSModulePath (this process): $env:PSModulePath"
+    Write-Host "PSModulePath (machine): $([Environment]::GetEnvironmentVariable('PSModulePath', 'Machine'))"
+    $azModules = @(Get-Module -ListAvailable -Name 'Az.Accounts', 'Az.KeyVault', 'Az.Resources', 'Microsoft.Graph.Authentication', 'MSAL.PS' -ErrorAction SilentlyContinue)
+    if ($azModules.Count -eq 0) { Write-Host 'No Az.Accounts, Az.KeyVault or Microsoft.Graph.Authentication found on the module path.' }
+    foreach ($m in $azModules | Sort-Object Name, Version) { Write-Host ('  {0,-34} {1,-12} {2}' -f $m.Name, $m.Version, $m.ModuleBase) }
+    $loaded = @(Get-Module -Name 'Az.*', 'Microsoft.Graph.*' -ErrorAction SilentlyContinue)
+    if ($loaded) { Write-Host "Already loaded in this process: $(($loaded | ForEach-Object { "$($_.Name) $($_.Version)" }) -join ', ')" }
+    Write-Host "Azure env: AZURE_CONFIG_DIR='$env:AZURE_CONFIG_DIR'; AZURESUBSCRIPTION_CLIENT_ID set: $([bool]$env:AZURESUBSCRIPTION_CLIENT_ID); SYSTEM_OIDCREQUESTURI set: $([bool]$env:SYSTEM_OIDCREQUESTURI)"
+    Write-Host '--- end diagnostics ---'
+}
+
+Write-AzDiagnostics -When 'before the install'
+
 $pin = Import-PowerShellDataFile -Path (Join-Path $repoRoot 'src\PolicyEngine\Data\Versions.psd1')
 
 function Test-ModuleInPath
@@ -83,3 +102,4 @@ foreach ($dependency in (Import-PowerShellDataFile $manifestPath).Dependencies)
 Import-Module (Join-Path $ModulePath "Microsoft365DSC\$($pin.Microsoft365DSC)\Microsoft365DSC.psd1") -Force -WarningAction SilentlyContinue
 Confirm-M365DSCDependencies
 "Dependency check passed. Modules are under $ModulePath."
+Write-AzDiagnostics -When "after the install: what the next step's Azure login will see"

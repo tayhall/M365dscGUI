@@ -128,7 +128,7 @@ Describe 'the Tenant-Changes pipeline and the readable export run names' {
         $text | Should -Match '(?m)^pr: none'
         $text | Should -Match "(?s)- name: tenant\s+displayName: [^\r\n]+\s+type: string\s+default: Dev\s+values:\s+- Dev\s+- PreProd"
         $text | Should -Match "(?s)- name: exportVersion\s+displayName: [^\r\n]+\s+type: string\s+default: latest"
-        $text | Should -Match "(?s)- name: previousVersion\s+displayName: [^\r\n]+\s+type: string\s+default: latest"
+        $text | Should -Match "(?s)- name: previousVersion\s+displayName: [^\r\n]+\s+type: string\s+default: previous"
     }
 
     It 'has a workload picker, Full by default, passed to the resolver and the compare as an environment variable' {
@@ -308,7 +308,8 @@ Describe 'the Compare pipeline with a From and a To picker' {
         foreach ($name in 'fromVersion', 'toVersion') { $script:C | Should -Match "(?s)  - name: $name\b.*?default: latest" }
         $script:C | Should -Not -Match "default: ''"
         $tc = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Tenant-Changes.yaml') -Raw
-        foreach ($name in 'exportVersion', 'previousVersion') { $tc | Should -Match "(?s)  - name: $name\b.*?default: latest" }
+        $tc | Should -Match "(?s)  - name: exportVersion\b.*?default: latest"
+        $tc | Should -Match "(?s)  - name: previousVersion\b.*?default: previous\b"
         $tc | Should -Not -Match "default: ''"
     }
 

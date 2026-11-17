@@ -32,8 +32,8 @@ param
     [ValidatePattern('\A(v\d{1,6}|\d{1,12}|latest)?\z')]
     [string]$ExportVersion = '',
 
-    # The "before" export, same forms. Blank or latest: the successful run just before the "after" one.
-    [ValidatePattern('\A(v\d{1,6}|\d{1,12}|latest)?\z')]
+    # The "before" export, same forms. Blank or the word previous (the field's default): the successful run just before the "after" one.
+    [ValidatePattern('\A(v\d{1,6}|\d{1,12}|previous|latest)?\z')]
     [string]$PreviousVersion = '',
 
     # Only the "after" export is wanted (the Compare pipeline looks up one export per tenant): no previous run is looked for or required, and
@@ -50,7 +50,7 @@ param
 
 $ErrorActionPreference = 'Stop'
 if ($ExportVersion -ieq 'latest') { $ExportVersion = '' }
-if ($PreviousVersion -ieq 'latest') { $PreviousVersion = '' }
+if ($PreviousVersion -ieq 'previous' -or $PreviousVersion -ieq 'latest') { $PreviousVersion = '' }
 
 $definitionId = $null
 foreach ($pair in $TenantMap -split ';') { $name, $value = $pair -split '=', 2; if ($name -ceq $Tenant) { $definitionId = [int]$value } }

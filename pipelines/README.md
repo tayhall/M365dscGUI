@@ -103,7 +103,7 @@ names `SourceTenant`, `TargetTenant` and the two run ids.
 or Tenant-changes pickers.
 
 ## Tenant changes (`Tenant-Changes.yaml`): what changed in this tenant since the last export
-Queue it by hand (nothing triggers it). Parameters: `tenant` (Dev or PreProd), `exportVersion` and `previousVersion` (both optional).
+Queue it by hand (nothing triggers it). Parameters: `tenant` (Dev or PreProd), `exportVersion` (default `latest`: the newest successful export of the chosen workload series, or a name such as `v9`) and `previousVersion` (default `previous`: the successful export just before it, or a name such as `v7`). The defaults are words, not empty, because Azure DevOps disables Run for an empty text parameter.
 It compares the tenant's **previous** export (what it should look like) with its **latest** export (what it looks like), with the same comparison as the
 compare pipeline, so the report shows only the tenant's own changes, not differences between tenants.
 - **Which workload.** The `workload` picker (Full by default) chooses the series: `Dev-AAD-v4` is compared with `Dev-AAD-v3`, never with a Full export. Only that workload is compared, so

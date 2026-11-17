@@ -128,14 +128,14 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
         $r.Previous.RunId | Should -Be '90'
     }
 
-    It 'the word latest (the default of the pipeline fields) means blank, for both versions, in any case' {
-        $r = Resolve-Exports @{ ExportVersion = 'latest'; PreviousVersion = 'Latest' }
+    It 'the words latest and previous (the pipeline field defaults) mean blank' {
+        $r = Resolve-Exports @{ ExportVersion = 'latest'; PreviousVersion = 'previous' }
         $r.Latest.RunId | Should -Be '130'
         $r.Previous.RunId | Should -Be '120'
     }
 
-    It 'latest for the previous export still means the successful run just before the chosen one' {
-        $r = Resolve-Exports @{ ExportVersion = 'v7'; PreviousVersion = 'latest' }
+    It 'the word previous (the default of the previous field) means the successful run just before the chosen one, in any case' {
+        $r = Resolve-Exports @{ ExportVersion = 'v7'; PreviousVersion = 'Previous' }
         $r.Latest.RunId | Should -Be '120'
         $r.Previous.RunId | Should -Be '110'
     }

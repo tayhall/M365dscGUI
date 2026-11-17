@@ -35,6 +35,7 @@
   var S = {
     selection: {},
     approvedBy: '',
+    fileName: '',
     includeRemovals: false,
     filter: { workload: '', type: '', kind: '', text: '' },
     openW: {},       // workload name -> true / false (absent: the default)
@@ -55,6 +56,7 @@
       var saved = JSON.parse(window.localStorage.getItem(STORE_KEY) || 'null');
       if (!saved || typeof saved !== 'object') { return; }
       S.approvedBy = typeof saved.approvedBy === 'string' ? saved.approvedBy.slice(0, 100) : '';
+      S.fileName = typeof saved.fileName === 'string' ? saved.fileName.slice(0, 100) : '';
       S.includeRemovals = saved.includeRemovals === true;
       var selection = saved.selection && typeof saved.selection === 'object' ? saved.selection : {};
       Object.keys(selection).forEach(function (id) {
@@ -70,7 +72,7 @@
 
   function saveState() {
     try {
-      window.localStorage.setItem(STORE_KEY, JSON.stringify({ selection: S.selection, approvedBy: S.approvedBy, includeRemovals: S.includeRemovals }));
+      window.localStorage.setItem(STORE_KEY, JSON.stringify({ selection: S.selection, approvedBy: S.approvedBy, fileName: S.fileName, includeRemovals: S.includeRemovals }));
     } catch (error) { /* storage unavailable: nothing is lost but the reload convenience */ }
   }
 
@@ -379,8 +381,6 @@
     });
     var removals = h('input', { type: 'checkbox', checked: S.includeRemovals });
     removals.addEventListener('change', function () { setIncludeRemovals(removals.checked); });
-    var approvedBy = h('input', { type: 'text', maxlength: '100', value: S.approvedBy, placeholder: 'Your name', 'aria-label': 'Approved by' });
-    approvedBy.addEventListener('input', function () { S.approvedBy = approvedBy.value; saveState(); refreshSelectionUi(); });
     var setAll = function (open) {
       tree.forEach(function (w) {
         S.openW[w.name] = open;
@@ -395,8 +395,7 @@
         h('button', { type: 'button', 'class': 'btn', text: 'Clear selection', on: { click: function () { S.selection = {}; saveState(); refreshSelectionUi(); } } }),
         h('button', { type: 'button', 'class': 'btn', text: 'Expand all', on: { click: function () { setAll(true); } } }),
         h('button', { type: 'button', 'class': 'btn', text: 'Collapse all', on: { click: function () { setAll(false); } } }),
-        h('label', { 'class': 'inline' }, [removals, ' Include removals']),
-        h('label', { 'class': 'inline' }, ['Approved by ', approvedBy])
+        h('label', { 'class': 'inline' }, [removals, ' Include removals'])
       ])
     ]);
   }
@@ -489,8 +488,16 @@
   function buildBar() {
     els.barLines = h('div', { 'class': 'lines' });
     els.reason = h('span', { 'class': 'why' });
-    els.download = h('button', { type: 'button', 'class': 'btn primary', text: 'Download approved.json', on: { click: download } });
-    return h('div', { 'class': 'bar', role: 'region', 'aria-label': 'Selection' }, [els.barLines, h('div', { 'class': 'bar-actions' }, [els.reason, els.download])]);
+    els.download = h('button', { type: 'button', 'class': 'btn primary', text: 'Download', on: { click: download } });
+    var approvedBy = h('input', { type: 'text', maxlength: '100', value: S.approvedBy, placeholder: 'Your name', 'aria-label': 'Approved by' });
+    approvedBy.addEventListener('input', function () { S.approvedBy = approvedBy.value; saveState(); refreshSelectionUi(); });
+    var fileName = h('input', { type: 'text', maxlength: '100', value: S.fileName, placeholder: 'approved', 'aria-label': 'File name' });
+    fileName.addEventListener('input', function () { S.fileName = fileName.value; saveState(); refreshSelectionUi(); });
+    var fields = h('div', { 'class': 'bar-fields' }, [
+      h('label', { 'class': 'inline' }, ['Approved by ', approvedBy]),
+      h('label', { 'class': 'inline' }, ['File name ', fileName, ' .json'])
+    ]);
+    return h('div', { 'class': 'bar', role: 'region', 'aria-label': 'Selection' }, [els.barLines, h('div', { 'class': 'bar-actions' }, [els.reason, fields, els.download])]);
   }
 
   function refreshSelectionUi() {
@@ -524,7 +531,14 @@
     summary.lines.forEach(function (line) { els.barLines.appendChild(h('span', { 'class': 'line', text: line })); });
     var why = R.whyNotDownloadable(data, S.selection, S.approvedBy, S.includeRemovals);
     els.download.disabled = why !== '';
+    els.download.textContent = 'Download ' + downloadName();
     els.reason.textContent = why;
+  }
+
+  // The file name is typed by the reviewer (for example a change record or ticket number); only safe characters are kept.
+  function downloadName() {
+    var name = String(S.fileName || '').replace(/\.json\s*$/i, '').replace(/[^A-Za-z0-9._ -]+/g, '-').replace(/^[.\s-]+|[.\s-]+$/g, '');
+    return (name || 'approved') + '.json';
   }
 
   function download() {
@@ -537,7 +551,7 @@
     }
     var blob = new Blob([JSON.stringify(list, null, 2) + '\n'], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
-    var anchor = h('a', { href: url, download: 'approved.json' });
+    var anchor = h('a', { href: url, download: downloadName() });
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);

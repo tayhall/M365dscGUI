@@ -29,7 +29,7 @@ Each export run names itself `<Tenant>-<Workload>-v<counter>`, for example `Dev-
    "Include removals". Items that cannot be approved (a key that matches more than one object, a type PreProd does not cover, anything the engine
    refuses) show the reason and have no checkbox. What the comparison did not look at (out of scope, not in the export, export log incomplete) is
    listed apart under "Not compared": it is information, not drift, and nothing there can be approved.
-3. Type your name in "Approved by" and click **Download approved.json**. The button says why it is disabled until the list is valid. The page
+3. In the bar at the bottom, type your name in "Approved by" and optionally a "File name" (for example the change record or ticket number; default `approved`) and click **Download**. The button says why it is disabled until the list is valid. The page
    remembers your ticks if you reload it.
 4. Commit `approved.json` to `approvals/` in the project folder (a pull request lets someone else review the list). It names items only, never
    values; the values always come from the PreProd export at apply time.

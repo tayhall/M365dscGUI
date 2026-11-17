@@ -19,9 +19,9 @@ Describe 'The drift report page source' {
         $script:Ui | Should -Match 'textContent'
     }
 
-    It 'reads the embedded data and offers Download approved.json' {
+    It 'reads the embedded data and offers a typed download file name' {
         $script:Ui | Should -Match "getElementById\('report-data'\)"
-        $script:Ui | Should -Match 'approved\.json'
+        $script:Ui | Should -Match 'downloadName'
         $script:Ui | Should -Match 'Include removals'
         $script:Ui | Should -Match 'Approved by'
     }

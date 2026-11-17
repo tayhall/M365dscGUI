@@ -45,17 +45,25 @@ if (@($env:PSModulePath -split ';') -notcontains $ModulePath) { $env:PSModulePat
 function Write-AzDiagnostics
 {
     # What the AzurePowerShell task's Azure login (the next step) will find on this agent. On screen only; nothing here is a secret.
+    # Every probe is guarded: a problem while looking is printed and never stops the install.
     param ([string]$When)
+    function Show ([string]$Label, [scriptblock]$Probe)
+    {
+        try { Write-Host ("{0}: {1}" -f $Label, (& $Probe)) } catch { Write-Host ("{0}: (could not read: {1})" -f $Label, $_.Exception.Message) }
+    }
     Write-Host "--- Azure module diagnostics ($When) ---"
-    Write-Host "Agent: $env:COMPUTERNAME, account $([Security.Principal.WindowsIdentity]::GetCurrent().Name), pwsh $($PSVersionTable.PSVersion) at $((Get-Process -Id $PID).Path)"
-    Write-Host "PSModulePath (this process): $env:PSModulePath"
-    Write-Host "PSModulePath (machine): $([Environment]::GetEnvironmentVariable('PSModulePath', 'Machine'))"
-    $azModules = @(Get-Module -ListAvailable -Name 'Az.Accounts', 'Az.KeyVault', 'Az.Resources', 'Microsoft.Graph.Authentication', 'MSAL.PS' -ErrorAction SilentlyContinue)
-    if ($azModules.Count -eq 0) { Write-Host 'No Az.Accounts, Az.KeyVault or Microsoft.Graph.Authentication found on the module path.' }
-    foreach ($m in $azModules | Sort-Object Name, Version) { Write-Host ('  {0,-34} {1,-12} {2}' -f $m.Name, $m.Version, $m.ModuleBase) }
-    $loaded = @(Get-Module -Name 'Az.*', 'Microsoft.Graph.*' -ErrorAction SilentlyContinue)
-    if ($loaded) { Write-Host "Already loaded in this process: $(($loaded | ForEach-Object { "$($_.Name) $($_.Version)" }) -join ', ')" }
-    Write-Host "Azure env: AZURE_CONFIG_DIR='$env:AZURE_CONFIG_DIR'; AZURESUBSCRIPTION_CLIENT_ID set: $([bool]$env:AZURESUBSCRIPTION_CLIENT_ID); SYSTEM_OIDCREQUESTURI set: $([bool]$env:SYSTEM_OIDCREQUESTURI)"
+    Show 'Agent' { "$env:COMPUTERNAME, account $([Security.Principal.WindowsIdentity]::GetCurrent().Name), pwsh $($PSVersionTable.PSVersion)" }
+    Show 'PSModulePath (this process)' { $env:PSModulePath }
+    Show 'PSModulePath (machine)' { [Environment]::GetEnvironmentVariable('PSModulePath', 'Machine') }
+    try
+    {
+        $azModules = @(Get-Module -ListAvailable -Name 'Az.Accounts', 'Az.KeyVault', 'Az.Resources', 'Microsoft.Graph.Authentication' -ErrorAction SilentlyContinue)
+        if ($azModules.Count -eq 0) { Write-Host 'No Az.Accounts, Az.KeyVault, Az.Resources or Microsoft.Graph.Authentication found on the module path.' }
+        foreach ($m in $azModules | Sort-Object Name, Version) { Write-Host ('  {0,-34} {1,-12} {2}' -f $m.Name, $m.Version, $m.ModuleBase) }
+    }
+    catch { Write-Host "Modules: (could not list: $($_.Exception.Message))" }
+    Show 'Already loaded in this process' { (@(Get-Module -Name 'Az.*', 'Microsoft.Graph.*') | ForEach-Object { "$($_.Name) $($_.Version)" }) -join ', ' }
+    Show 'Azure sign-in variables' { "AZURESUBSCRIPTION_CLIENT_ID set: $([bool]$env:AZURESUBSCRIPTION_CLIENT_ID); SYSTEM_OIDCREQUESTURI set: $([bool]$env:SYSTEM_OIDCREQUESTURI)" }
     Write-Host '--- end diagnostics ---'
 }
 

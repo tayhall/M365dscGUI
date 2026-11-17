@@ -73,9 +73,10 @@ Describe 'tools\New-PEDriftReport.ps1' {
         $script = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\pipelines\scripts\Invoke-PipelineCompare.ps1') -Raw
         $ast = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$null, [ref]$null)
         $try = $ast.FindAll({ param ($n) $n -is [System.Management.Automation.Language.TryStatementAst] }, $true) |
-            Where-Object { $_.Body.Extent.Text -match 'New-PEDriftReport\.ps1' }
-        @($try).Count | Should -Be 1
-        $try[0].CatchClauses[0].Body.Extent.Text | Should -Match 'task\.logissue type=warning'
+            Where-Object { $_.Body.Extent.Text -match '\$ReportTool' }
+        # One for PreProd to Dev, one for the read-only report of any other pair: both only warn.
+        @($try).Count | Should -Be 2
+        foreach ($t in $try) { $t.CatchClauses[0].Body.Extent.Text | Should -Match 'task\.logissue type=warning' }
     }
 
     It 'uses the labels and tenant it is given in the page and the list' {

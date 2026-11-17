@@ -253,3 +253,15 @@ Describe 'the workload picker of the export pipelines and the workload checkboxe
         }
     }
 }
+
+Describe 'AzurePowerShellVersion' {
+    It 'uses the newest Az on the agent by default, and pins the version when the setting is given' {
+        (Get-Content (Join-Path (New-Yaml (New-Settings)) 'Export-Dev.yaml') -Raw) | Should -Match 'azurePowerShellVersion: LatestVersion'
+        $text = Get-Content (Join-Path (New-Yaml (New-Settings -Extra @{ AzurePowerShellVersion = '15.2.0' })) 'Export-Dev.yaml') -Raw
+        $text | Should -Match "(?s)azurePowerShellVersion: OtherVersion\s+preferredAzurePowerShellVersion: '15\.2\.0'"
+        $text | Should -Not -Match 'LatestVersion'
+    }
+    It 'refuses a value that is not an Az version' {
+        { New-Yaml (New-Settings -Extra @{ AzurePowerShellVersion = '5.3.2; x' }) } | Should -Throw '*AzurePowerShellVersion*'
+    }
+}

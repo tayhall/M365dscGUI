@@ -64,6 +64,10 @@ if ($kept.ContainsKey('ServiceConnection'))
     $kept.Remove('ServiceConnection')
 }
 $settings = $kept
+# Optional, not a token: the Azure PowerShell (Az) version the AzurePowerShell task uses. Left out, the task takes the newest on the agent.
+$azVersion = if ($settings.ContainsKey('AzurePowerShellVersion')) { [string]$settings['AzurePowerShellVersion'] } else { '' }
+if ($azVersion -and $azVersion -cnotmatch '\A\d{1,3}\.\d{1,3}\.\d{1,3}\z') { throw "AzurePowerShellVersion must be an Az version such as 15.2.0 (the number of the Az module set, not Az.Accounts), or left out for the newest on the agent." }
+$settings.Remove('AzurePowerShellVersion')
 $unknown = @($settings.Keys | Where-Object { -not $tokens.Contains($_) })
 if ($unknown) { throw "Unknown setting(s): $($unknown -join ', '). Known: $($tokens.Keys -join ', ')." }
 
@@ -111,6 +115,7 @@ $expansions = [ordered]@{
     # The values of the workload picker of the export and Tenant-Changes pipelines: Full (the default workloads) and each workload by prefix.
     '__WORKLOAD_CHOICES__'             = @('- Full') + @($workloadList | ForEach-Object { "- $($_.Prefix)" })
     '__COMPLETE_WORKLOAD_PARAMETERS__' = @(Get-WorkloadParameterLines -LabelPrefix 'Complete in the Dev export: ')
+    '__AZ_POWERSHELL_VERSION__'        = @($(if ($azVersion) { 'azurePowerShellVersion: OtherVersion'; "preferredAzurePowerShellVersion: '$azVersion'" } else { 'azurePowerShellVersion: LatestVersion' }))
     '__WORKLOAD_ENV__'                 = @($workloadList | ForEach-Object { "PE_WL_$($_.Prefix): `${{ parameters.$($_.Prefix) }}" })
 }
 

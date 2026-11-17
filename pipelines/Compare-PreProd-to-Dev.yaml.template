@@ -40,7 +40,7 @@ jobs:
         displayName: Compare PreProd to Dev and build MOFs
         inputs:
           azureSubscription: '__DEV_SERVICE_CONNECTION__'
-          azurePowerShellVersion: LatestVersion
+          __AZ_POWERSHELL_VERSION__
           pwsh: true
           ScriptType: InlineScript
           Inline: |

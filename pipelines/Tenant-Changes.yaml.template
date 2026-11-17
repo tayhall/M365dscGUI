@@ -93,7 +93,7 @@ jobs:
             azureSubscription: '__DEV_SERVICE_CONNECTION__'
           ${{ else }}:
             azureSubscription: '__PREPROD_SERVICE_CONNECTION__'
-          azurePowerShellVersion: LatestVersion
+          __AZ_POWERSHELL_VERSION__
           pwsh: true
           ScriptType: InlineScript
           Inline: |

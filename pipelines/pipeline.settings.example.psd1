@@ -19,5 +19,8 @@
 
     # The branch the approved lists must be merged to (default main). No pipeline ids are needed: the pipelines find the two export
     # pipelines by the names above at run time.
+    # Optional: pin the Azure PowerShell (Az) version the AzurePowerShell task uses, for example '15.2.0' (the Az module set, as in the folder
+    # name az_15.2.0 in a working run's log). Left out, the task uses the newest on the agent, which can differ between agents.
+    # AzurePowerShellVersion = '15.2.0'
     DefaultBranch           = 'main'
 }

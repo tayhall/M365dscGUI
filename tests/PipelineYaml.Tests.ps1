@@ -204,7 +204,7 @@ Describe 'the workload picker of the export pipelines and the workload checkboxe
         $c = Get-Gen $out 'Compare-PreProd-to-Dev.yaml'
         $c | Should -Not -Match 'completeWorkloads|PE_COMPLETE_WORKLOADS|-CompleteWorkloads'
         $c | Should -Match '(?m)^  - name: mofLayout'
-        $c | Should -Match 'PE_PREPROD_RUN'
+        $c | Should -Match 'PE_FROM_RUN'
     }
 
     It 'the compare pipeline labels its boxes as complete in the Dev export' {
@@ -284,5 +284,53 @@ Describe 'Prod as a tenant' {
         $text | Should -Match 'artifact: ProdExport'
         $text | Should -Match "Prod-\$\{\{ parameters.workload \}\}-v"
         $text | Should -Not -Match '__[A-Z][A-Z_]*__'
+    }
+}
+
+Describe 'the Compare pipeline with a From and a To picker' {
+    BeforeAll {
+        $script:C = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Compare-PreProd-to-Dev.yaml') -Raw
+        $script:CProd = Get-Content (Join-Path (New-Yaml (New-Settings -Extra @{ ProdServiceConnection = 'sc-prod' })) 'Compare-PreProd-to-Dev.yaml') -Raw
+    }
+
+    It 'has from and to pickers: Dev and PreProd, and Prod only when Prod is set up' {
+        foreach ($name in 'from', 'to') { $script:C | Should -Match "(?s)  - name: $name\b.*?values:\s+- Dev\s+- PreProd\s+  - name:" }
+        foreach ($name in 'from', 'to') { $script:CProd | Should -Match "(?s)  - name: $name\b.*?values:\s+- Dev\s+- PreProd\s+- Prod\s+  - name:" }
+        $script:C | Should -Not -Match '(?<!Pre)Prod\b'
+    }
+
+    It 'has the optional versions of both sides, blank for the latest export' {
+        foreach ($name in 'fromVersion', 'toVersion') { $script:C | Should -Match "(?s)  - name: $name\b.*?default: ''" }
+    }
+
+    It 'has no pipeline resources and downloads both exports by the ids found at run time' {
+        $script:C | Should -Not -Match '(?m)^resources:'
+        $script:C | Should -Match "(?s)Resolve-ExportPipelineIds\.ps1.*?-PreProdName 'M365DSC - Export PreProd tenant' -DevName 'M365DSC - Export Dev tenant'"
+        $script:C | Should -Match "-NoPrevious -VariablePrefix 'FROM_'"
+        $script:C | Should -Match "-NoPrevious -VariablePrefix 'TO_'"
+        $script:C | Should -Match "definition: '\$\(FROM_DEFINITION_ID\)'"
+        $script:C | Should -Match "pipelineId: '\$\(TO_RUN\)'"
+        $script:C | Should -Match "artifactName: '\$\(TO_ARTIFACT_NAME\)'"
+    }
+
+    It 'stops before any lookup when both sides are the same tenant' {
+        $script:C | Should -Match "(?s)eq\(parameters\.from, parameters\.to\).*?Tenant changes.*?Resolve-ExportPipelineIds"
+    }
+
+    It 'chooses the service connection by the target tenant, Prod only when set up' {
+        $script:C | Should -Match "(?s)eq\(parameters\.to, 'Dev'\) \}\}:\s+azureSubscription: 'sc-dev'\s+\`$\{\{ else \}\}:\s+azureSubscription: 'sc-preprod'"
+        $script:CProd | Should -Match "(?s)eq\(parameters\.to, 'Dev'\) \}\}:\s+azureSubscription: 'sc-dev'\s+\`$\{\{ elseif eq\(parameters\.to, 'Prod'\) \}\}:\s+azureSubscription: 'sc-prod'\s+\`$\{\{ else \}\}:"
+    }
+
+    It 'passes the tenants and the run ids through the environment, not into the script text' {
+        $script:C | Should -Match '(?m)^\s+PE_FROM: \$\{\{ parameters\.from \}\}'
+        $script:C | Should -Match '(?m)^\s+PE_TO: \$\{\{ parameters\.to \}\}'
+        $script:C | Should -Match '(?m)^\s+PE_FROM_RUN: \$\(FROM_RUN\)'
+        $script:C | Should -Match '-SourceTenant \$env:PE_FROM -TargetTenant \$env:PE_TO'
+    }
+
+    It 'still publishes the DriftReport artifact that Apply-Dev reads, and is named for the pair' {
+        $script:C | Should -Match 'artifact: DriftReport'
+        $script:C | Should -Match "(?m)^name: 'Compare \$\{\{ parameters\.from \}\} to \$\{\{ parameters\.to \}\}"
     }
 }

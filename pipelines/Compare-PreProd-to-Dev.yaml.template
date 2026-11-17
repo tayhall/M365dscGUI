@@ -1,18 +1,33 @@
-name: 'M365DSC - Compare PreProd to Dev and build MOFs'
+name: 'Compare ${{ parameters.from }} to ${{ parameters.to }} $(Rev:r)'
 
 trigger: none
 
-# The latest successful run of each export pipeline is used. Dev's tenant, Writer app id and organization are in pipelines/config/Dev.psd1.
-resources:
-  pipelines:
-    - pipeline: preprodExport
-      source: '__EXPORT_PREPROD_PIPELINE__'
-    - pipeline: devExport
-      source: '__EXPORT_DEV_PIPELINE__'
-
+# Compares the latest successful Full export of one tenant (from) with that of another (to), or the exports you name. Only PreProd to Dev builds
+# the MOF files and a report you can approve from; any other pair gives the comparison as a read-only report. The exports are found at run time by
+# the names of the export pipelines. Dev's identifiers (for PreProd to Dev) are in pipelines/config/Dev.psd1.
 parameters:
+  - name: from
+    displayName: 'From: the tenant that is the reference (what the other should look like)'
+    type: string
+    default: PreProd
+    values:
+      __TENANT_CHOICES__
+  - name: to
+    displayName: 'To: the tenant that is compared against it'
+    type: string
+    default: Dev
+    values:
+      __TENANT_CHOICES__
+  - name: fromVersion
+    displayName: 'Export of the From tenant, for example v9 (blank = its latest successful Full export)'
+    type: string
+    default: ''
+  - name: toVersion
+    displayName: 'Export of the To tenant, for example v9 (blank = its latest successful Full export)'
+    type: string
+    default: ''
   - name: mofLayout
-    displayName: MOF layout (Combined = one Changes + one Removals; PerWorkload = a pair per workload, applied in stages)
+    displayName: MOF layout (Combined = one Changes + one Removals; PerWorkload = a pair per workload, applied in stages). PreProd to Dev only.
     type: string
     default: Combined
     values:
@@ -27,34 +42,95 @@ jobs:
   - job: CompareAndBuild
     steps:
       - checkout: self
-      - download: preprodExport
-        artifact: PreProdExport
-      - download: devExport
-        artifact: DevExport
+
+      # The same tenant on both sides is refused before anything is looked up (Tenant changes compares two exports of one tenant).
+      - ${{ if eq(parameters.from, parameters.to) }}:
+        - pwsh: |
+            Write-Error 'Choose two different tenants. To see what changed in one tenant between two of its own exports, use the Tenant changes pipeline.'
+            exit 1
+          displayName: Choose two different tenants
+
+      # The export pipelines are found by name, so no pipeline id has to be in the settings.
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-ExportPipelineIds.ps1' `
+              -PreProdName '__EXPORT_PREPROD_PIPELINE__' -DevName '__EXPORT_DEV_PIPELINE__' __PROD_LOOKUP_ARGS__
+        displayName: Find the export pipelines
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+      # The export of each tenant: the named one, or the latest successful Full export that still has its artifact. Sets FROM_* and TO_*.
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-TenantExports.ps1' `
+              -Tenant $env:PE_TENANT -TenantMap $env:PE_TENANT_MAP -Workload Full -ExportVersion $env:PE_VERSION -NoPrevious -VariablePrefix 'FROM_' -SetVariables
+        displayName: Find the From export
+        env:
+          PE_TENANT: ${{ parameters.from }}
+          PE_TENANT_MAP: 'Dev=$(EXPORT_DEV_ID);PreProd=$(EXPORT_PREPROD_ID)__PROD_MAP__'
+          PE_VERSION: ${{ parameters.fromVersion }}
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      - pwsh: |
+          & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-TenantExports.ps1' `
+              -Tenant $env:PE_TENANT -TenantMap $env:PE_TENANT_MAP -Workload Full -ExportVersion $env:PE_VERSION -NoPrevious -VariablePrefix 'TO_' -SetVariables
+        displayName: Find the To export
+        env:
+          PE_TENANT: ${{ parameters.to }}
+          PE_TENANT_MAP: 'Dev=$(EXPORT_DEV_ID);PreProd=$(EXPORT_PREPROD_ID)__PROD_MAP__'
+          PE_VERSION: ${{ parameters.toVersion }}
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+      - task: DownloadPipelineArtifact@2
+        displayName: Download the From export
+        inputs:
+          buildType: 'specific'
+          project: '$(System.TeamProjectId)'
+          definition: '$(FROM_DEFINITION_ID)'
+          buildVersionToDownload: 'specific'
+          pipelineId: '$(FROM_RUN)'
+          artifactName: '$(FROM_ARTIFACT_NAME)'
+          targetPath: '$(Pipeline.Workspace)/from'
+      - task: DownloadPipelineArtifact@2
+        displayName: Download the To export
+        inputs:
+          buildType: 'specific'
+          project: '$(System.TeamProjectId)'
+          definition: '$(TO_DEFINITION_ID)'
+          buildVersionToDownload: 'specific'
+          pipelineId: '$(TO_RUN)'
+          artifactName: '$(TO_ARTIFACT_NAME)'
+          targetPath: '$(Pipeline.Workspace)/to'
 
       - pwsh: |
           & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Install-PipelineDependencies.ps1'
         displayName: Install PowerShell modules
 
+      # The service connection is chosen when the YAML is compiled, by the To tenant (Dev needs Key Vault for its Writer certificate's thumbprint).
       - task: AzurePowerShell@5
-        displayName: Compare PreProd to Dev and build MOFs
+        displayName: Compare the two exports
         inputs:
-          azureSubscription: '__DEV_SERVICE_CONNECTION__'
+          ${{ if eq(parameters.to, 'Dev') }}:
+            azureSubscription: '__DEV_SERVICE_CONNECTION__'
+          __PROD_CONNECTION_BRANCH_TO__
+          ${{ else }}:
+            azureSubscription: '__PREPROD_SERVICE_CONNECTION__'
           __AZ_POWERSHELL_VERSION__
           pwsh: true
           ScriptType: InlineScript
           Inline: |
             & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineCompare.ps1' `
-                -SourceExportPath '$(Pipeline.Workspace)/preprodExport/PreProdExport' `
-                -TargetExportPath '$(Pipeline.Workspace)/devExport/DevExport' `
+                -SourceTenant $env:PE_FROM -TargetTenant $env:PE_TO `
+                -SourceExportPath '$(Pipeline.Workspace)/from' `
+                -TargetExportPath '$(Pipeline.Workspace)/to' `
                 -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
-                -MofLayout '${{ parameters.mofLayout }}' `
-                -PreProdRun $env:PE_PREPROD_RUN -DevRun $env:PE_DEV_RUN
+                -MofLayout $env:PE_MOF_LAYOUT `
+                -PreProdRun $env:PE_FROM_RUN -DevRun $env:PE_TO_RUN
         env:
           __WORKLOAD_ENV__
-          PE_PREPROD_RUN: $(resources.pipeline.preprodExport.runID)
-          PE_DEV_RUN: $(resources.pipeline.devExport.runID)
+          PE_FROM: ${{ parameters.from }}
+          PE_TO: ${{ parameters.to }}
+          PE_MOF_LAYOUT: ${{ parameters.mofLayout }}
+          PE_FROM_RUN: $(FROM_RUN)
+          PE_TO_RUN: $(TO_RUN)
 
-      # The drift report and the generated configuration, for review and for Apply-Dev.
+      # The drift report and, for PreProd to Dev, the generated configuration, for review and for Apply-Dev.
       - publish: $(Build.ArtifactStagingDirectory)/compare
         artifact: DriftReport

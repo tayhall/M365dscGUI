@@ -127,6 +127,7 @@ $expansions = [ordered]@{
     # The tenants a picker offers; Prod only when it is set up. The service connection of a Prod target (an elseif between Dev and the default).
     '__TENANT_CHOICES__'               = @('- Dev', '- PreProd') + @($(if ($prodEnabled) { '- Prod' }))
     '__PROD_CONNECTION_BRANCH__'       = @($(if ($prodEnabled) { "`${{ elseif eq(parameters.tenant, 'Prod') }}:"; "  azureSubscription: '$($values['ProdServiceConnection'])'" }))
+    '__PROD_CONNECTION_BRANCH_TO__'    = @($(if ($prodEnabled) { "`${{ elseif eq(parameters.to, 'Prod') }}:"; "  azureSubscription: '$($values['ProdServiceConnection'])'" }))
     # The values of the workload picker of the export and Tenant-Changes pipelines: Full (the default workloads) and each workload by prefix.
     '__WORKLOAD_CHOICES__'             = @('- Full') + @($workloadList | ForEach-Object { "- $($_.Prefix)" })
     '__COMPLETE_WORKLOAD_PARAMETERS__' = @(Get-WorkloadParameterLines -LabelPrefix 'Complete in the Dev export: ')

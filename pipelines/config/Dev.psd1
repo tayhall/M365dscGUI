@@ -7,4 +7,7 @@
     ShortName        = 'CHANGE-ME'
     ReaderAppId      = 'CHANGE-ME'                       # application (client) id, a GUID
     WriterAppId      = 'CHANGE-ME'
+    # Optional: the Key Vault secret names of the certificates. Left out, they are <ShortName>-Cert-Reader and <ShortName>-Cert-Writer.
+    # ReaderCertSecret = 'dev-Cert-Reader'
+    # WriterCertSecret = 'dev-Cert-Writer'
 }

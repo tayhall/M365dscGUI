@@ -145,7 +145,7 @@ the environment's short name and the Reader (and, for Dev, Writer) application (
 Commit them to your ADO repo: they hold identifiers only, never a secret. `scripts\Get-PipelineConfig.ps1` reads them as data, allows only
 those keys, checks each value (GUID, domain, name) and refuses `CHANGE-ME`, so a typo or a pasted secret stops the run. Changing a value
 needs no regenerating: edit the file and run the pipeline.
-Certificates are read from Key Vault: the secret `<ShortName>-Cert-Reader` (and `<ShortName>-Cert-Writer` for Dev) holds the certificate as a
+Certificates are read from Key Vault (secret names can be set with `ReaderCertSecret` / `WriterCertSecret` in the config file): the secret `<ShortName>-Cert-Reader` (and `<ShortName>-Cert-Writer` for Dev) holds the certificate as a
 base64 PFX without a password, read with `Get-AzKeyVaultSecret`. The thumbprint is taken from the certificate itself and is not stored.
 
 **2. Settings for the YAML itself (once, then whenever a template or a setting changes).** Azure DevOps needs the agent pool, the service connections,

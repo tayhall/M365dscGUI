@@ -43,7 +43,9 @@ $config = & (Join-Path $PSScriptRoot 'Get-PipelineConfig.ps1') -Environment $Env
 $slug = $Environment.ToLowerInvariant()
 if (-not $ThumbprintOnly) { . (Join-Path $repoRoot 'tools\PEAppPath.ps1') }
 
-$secretName = "$($config.ShortName)-Cert-$Role"
+# The secret's name: ReaderCertSecret / WriterCertSecret from the config when set, otherwise <ShortName>-Cert-<Role>.
+$secretKey = "${Role}CertSecret"
+$secretName = if ($config.ContainsKey($secretKey) -and $config[$secretKey] -notmatch 'CHANGE-ME') { $config[$secretKey] } else { "$($config.ShortName)-Cert-$Role" }
 $vault = $config.KeyVault
 $vaultFile = "pipelines\config\$Environment.psd1"
 $context = Get-AzContext
@@ -72,7 +74,7 @@ catch
         }
         'SecretNotFound|404|not found'
         {
-            "The vault '$vault' was reached but has no secret named '$secretName' (name is ShortName '$($config.ShortName)' + '-Cert-$Role'). Check the secret name and that it is enabled and not deleted."
+            "The vault '$vault' was reached but has no secret named '$secretName' (set $secretKey in $vaultFile, or name the secret ShortName '$($config.ShortName)' + '-Cert-$Role'). Check the secret name and that it is enabled and not deleted."
             break
         }
         'AADSTS|Unauthorized|401|token'

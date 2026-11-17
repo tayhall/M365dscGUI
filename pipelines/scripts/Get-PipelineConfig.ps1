@@ -30,6 +30,9 @@ $rules = [ordered]@{
     ShortName        = '\A[A-Za-z0-9-]{1,24}\z'
     ReaderAppId      = '\A[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\z'
     WriterAppId      = '\A[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\z'
+    # Optional: the Key Vault secret names of the certificates (default <ShortName>-Cert-Reader / -Writer). Key Vault allows letters, digits and -.
+    ReaderCertSecret = '\A[A-Za-z0-9-]{1,127}\z'
+    WriterCertSecret = '\A[A-Za-z0-9-]{1,127}\z'
 }
 
 $path = Join-Path $ConfigPath "$Environment.psd1"

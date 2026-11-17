@@ -5,4 +5,6 @@
     KeyVault     = 'CHANGE-ME'                           # Key Vault holding <ShortName>-Cert-Reader (base64 PFX)
     ShortName    = 'CHANGE-ME'
     ReaderAppId  = 'CHANGE-ME'                           # application (client) id, a GUID
+    # Optional: the Key Vault secret name of the certificate. Left out, it is <ShortName>-Cert-Reader.
+    # ReaderCertSecret = 'preprod-Cert-Reader'
 }

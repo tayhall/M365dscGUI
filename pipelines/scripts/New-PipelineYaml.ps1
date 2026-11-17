@@ -94,10 +94,9 @@ foreach ($name in $tokens.Keys)
 }
 if ($problems) { throw "Fix $SettingsPath first:`n  $($problems -join "`n  ")" }
 
-# Prod-only text, empty when Prod is not set up: the pipeline lookup argument, the tenant map entry (the Tenant-Changes pipeline).
+# Prod-only text, empty when Prod is not set up: the pipeline lookup argument.
 $prodTokens = @{
     '__PROD_LOOKUP_ARGS__' = $(if ($prodEnabled) { "-ProdName '$($values['ExportProdPipeline'])'" } else { '' })
-    '__PROD_MAP__'         = $(if ($prodEnabled) { ';Prod=$(EXPORT_PROD_ID)' } else { '' })
 }
 
 # The workload checkboxes: a token alone on a line in a template is replaced by one entry per workload of Workloads.psd1.

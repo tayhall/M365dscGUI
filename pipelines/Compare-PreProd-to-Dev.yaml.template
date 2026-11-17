@@ -50,12 +50,13 @@ jobs:
             exit 1
           displayName: Choose two different tenants
 
-      # The export pipelines are found by name, so no pipeline id has to be in the settings.
+      # The export pipelines are found by name, so no pipeline id has to be in the settings. Only the two chosen tenants' pipelines have to exist.
       - pwsh: |
           & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-ExportPipelineIds.ps1' `
-              -PreProdName '__EXPORT_PREPROD_PIPELINE__' -DevName '__EXPORT_DEV_PIPELINE__' __PROD_LOOKUP_ARGS__
+              -PreProdName '__EXPORT_PREPROD_PIPELINE__' -DevName '__EXPORT_DEV_PIPELINE__' __PROD_LOOKUP_ARGS__ -Require $env:PE_REQUIRE
         displayName: Find the export pipelines
         env:
+          PE_REQUIRE: ${{ parameters.from }},${{ parameters.to }}
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
       # The export of each tenant: the named one, or the latest successful Full export that still has its artifact. Sets FROM_* and TO_*.
@@ -65,7 +66,7 @@ jobs:
         displayName: Find the From export
         env:
           PE_TENANT: ${{ parameters.from }}
-          PE_TENANT_MAP: 'Dev=$(EXPORT_DEV_ID);PreProd=$(EXPORT_PREPROD_ID)__PROD_MAP__'
+          PE_TENANT_MAP: '$(EXPORT_TENANT_MAP)'
           PE_VERSION: ${{ parameters.fromVersion }}
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
       - pwsh: |
@@ -74,7 +75,7 @@ jobs:
         displayName: Find the To export
         env:
           PE_TENANT: ${{ parameters.to }}
-          PE_TENANT_MAP: 'Dev=$(EXPORT_DEV_ID);PreProd=$(EXPORT_PREPROD_ID)__PROD_MAP__'
+          PE_TENANT_MAP: '$(EXPORT_TENANT_MAP)'
           PE_VERSION: ${{ parameters.toVersion }}
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 

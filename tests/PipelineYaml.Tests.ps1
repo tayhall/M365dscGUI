@@ -117,7 +117,9 @@ Describe 'the Tenant-Changes pipeline and the readable export run names' {
         $text = Get-Content (Join-Path (New-Yaml (New-Settings)) 'Tenant-Changes.yaml') -Raw
         $text | Should -Not -Match '__[A-Z][A-Z_]*__'
         $text | Should -Match "Resolve-ExportPipelineIds\.ps1"
-        $text | Should -Match 'PE_TENANT_MAP: ''Dev=\$\(EXPORT_DEV_ID\);PreProd=\$\(EXPORT_PREPROD_ID\)'''
+        $text | Should -Match 'PE_TENANT_MAP: ''\$\(EXPORT_TENANT_MAP\)'''
+        $text | Should -Match '(?s)Resolve-ExportPipelineIds\.ps1.*?-Require \$env:PE_REQUIRE'
+        $text | Should -Match '(?m)^\s+PE_REQUIRE: \$\{\{ parameters\.tenant \}\}'
     }
 
     It 'is queued by hand, with the tenant and the two optional versions as parameters' {
@@ -272,7 +274,7 @@ Describe 'Prod as a tenant' {
         (Test-Path (Join-Path $with 'Export-Prod.yaml')) | Should -BeTrue
         $tc = Get-Content (Join-Path $with 'Tenant-Changes.yaml') -Raw
         $tc | Should -Match '- Prod'
-        $tc | Should -Match 'Prod=\$\(EXPORT_PROD_ID\)'
+        $tc | Should -Match "-ProdName 'M365DSC - Export Prod tenant'"
         $without = New-Yaml (New-Settings)
         (Test-Path (Join-Path $without 'Export-Prod.yaml')) | Should -BeFalse
         (Get-Content (Join-Path $without 'Tenant-Changes.yaml') -Raw) | Should -Not -Match '(?<!Pre)Prod'
@@ -301,6 +303,13 @@ Describe 'the Compare pipeline with a From and a To picker' {
 
     It 'has the optional versions of both sides, blank for the latest export' {
         foreach ($name in 'fromVersion', 'toVersion') { $script:C | Should -Match "(?s)  - name: $name\b.*?default: ''" }
+    }
+
+    It 'requires only the two chosen tenants to have an export pipeline' {
+        $script:C | Should -Match '(?s)Resolve-ExportPipelineIds\.ps1.*?-Require \$env:PE_REQUIRE'
+        $script:C | Should -Match '(?m)^\s+PE_REQUIRE: \$\{\{ parameters\.from \}\},\$\{\{ parameters\.to \}\}'
+        $script:C | Should -Match "PE_TENANT_MAP: '\$\(EXPORT_TENANT_MAP\)'"
+        $script:C | Should -Not -Match 'EXPORT_PREPROD_ID|EXPORT_DEV_ID'
     }
 
     It 'has no pipeline resources and downloads both exports by the ids found at run time' {

@@ -37,12 +37,13 @@ jobs:
     steps:
       - checkout: self
 
-      # The two export pipelines are found by name, so no pipeline id has to be in the settings.
+      # The export pipelines are found by name, so no pipeline id has to be in the settings. Only the chosen tenant's pipeline has to exist.
       - pwsh: |
           & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-ExportPipelineIds.ps1' `
-              -PreProdName '__EXPORT_PREPROD_PIPELINE__' -DevName '__EXPORT_DEV_PIPELINE__' __PROD_LOOKUP_ARGS__
+              -PreProdName '__EXPORT_PREPROD_PIPELINE__' -DevName '__EXPORT_DEV_PIPELINE__' __PROD_LOOKUP_ARGS__ -Require $env:PE_REQUIRE
         displayName: Find the export pipelines
         env:
+          PE_REQUIRE: ${{ parameters.tenant }}
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
       # Finds the two export runs over the Azure DevOps API and sets DEFINITION_ID, ARTIFACT_NAME, LATEST_RUN, PREVIOUS_RUN,
@@ -54,7 +55,7 @@ jobs:
         env:
           PE_TENANT: ${{ parameters.tenant }}
           PE_WORKLOAD: ${{ parameters.workload }}
-          PE_TENANT_MAP: 'Dev=$(EXPORT_DEV_ID);PreProd=$(EXPORT_PREPROD_ID)__PROD_MAP__'
+          PE_TENANT_MAP: '$(EXPORT_TENANT_MAP)'
           PE_EXPORT_VERSION: ${{ parameters.exportVersion }}
           PE_PREVIOUS_VERSION: ${{ parameters.previousVersion }}
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)

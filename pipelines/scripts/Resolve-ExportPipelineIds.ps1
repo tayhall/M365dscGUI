@@ -18,7 +18,12 @@ param
     [string]$DevName,
 
     # Optional: the Prod export pipeline (only when Prod is set up).
-    [string]$ProdName = ''
+    [string]$ProdName = '',
+
+    # The tenants this run needs, comma separated (for example Dev,PreProd). A pipeline that is missing for one of them stops the run, naming it.
+    # A missing pipeline of any other tenant only warns, so a run that does not use it still works. Default: PreProd and Dev (Prod never).
+    [ValidatePattern('\A(Dev|PreProd|Prod)(,(Dev|PreProd|Prod))*\z')]
+    [string]$Require = 'PreProd,Dev'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,7 +34,8 @@ $headers = @{ Authorization = "Bearer $($env:SYSTEM_ACCESSTOKEN)" }
 
 function Get-DefinitionId
 {
-    param ([string]$Name, [switch]$Optional)
+    param ([string]$Name, [string]$Tenant)
+    $mustExist = @($Require -split ',') -contains $Tenant
     $uri = "$collection/$([System.Uri]::EscapeDataString($project))/_apis/build/definitions?name=$([System.Uri]::EscapeDataString($Name))&api-version=7.1"
     try { $result = Invoke-RestMethod -Method Get -Uri $uri -Headers $headers }
     catch
@@ -39,21 +45,25 @@ function Get-DefinitionId
         throw
     }
     $found = @($result.value | Where-Object { $_.name -ceq $Name })
-    if ($found.Count -eq 0 -and $Optional)
+    if ($found.Count -eq 0 -and -not $mustExist)
     {
-        # Only for Prod: a pipeline that is not created yet must not stop PreProd and Dev. Asking for a Prod export later still says why.
-        Write-Host "##vso[task.logissue type=warning]No pipeline is named '$Name' in project $project, so Prod cannot be used in this run (create it with exactly that name, or change ExportProdPipeline in the settings)."
+        # A tenant this run does not use: a pipeline that is not created yet must not stop it.
+        Write-Host "##vso[task.logissue type=warning]No pipeline is named '$Name' in project $project, so $Tenant cannot be used in this run (create it with exactly that name, or change Export${Tenant}Pipeline in the settings)."
         return ''
     }
-    if ($found.Count -eq 0) { throw "No pipeline is named '$Name' in project $project. Create it in Azure DevOps with exactly that name (or change ExportPreProdPipeline / ExportDevPipeline in the settings and generate the YAML again)." }
+    if ($found.Count -eq 0) { throw "No pipeline is named '$Name' in project $project. Create it in Azure DevOps with exactly that name (or change Export${Tenant}Pipeline in the settings and generate the YAML again)." }
     if ($found.Count -gt 1) { throw "More than one pipeline is named '$Name' in project $project." }
     [string][int]$found[0].id
 }
 
-$preProdId = Get-DefinitionId -Name $PreProdName
-$devId = Get-DefinitionId -Name $DevName
-$prodId = if ($ProdName) { Get-DefinitionId -Name $ProdName -Optional } else { '' }
-"Export pipelines: '$PreProdName' is $preProdId, '$DevName' is $devId$(if ($prodId) { ", '$ProdName' is $prodId" })."
-"##vso[task.setvariable variable=EXPORT_PREPROD_ID]$preProdId"
-"##vso[task.setvariable variable=EXPORT_DEV_ID]$devId"
+$preProdId = Get-DefinitionId -Name $PreProdName -Tenant PreProd
+$devId = Get-DefinitionId -Name $DevName -Tenant Dev
+$prodId = if ($ProdName) { Get-DefinitionId -Name $ProdName -Tenant Prod } else { '' }
+
+# EXPORT_TENANT_MAP holds only the tenants that were found (the format Resolve-TenantExports.ps1 takes), so a tenant this run does not use can be missing.
+$map = @(@(('Dev', $devId), ('PreProd', $preProdId), ('Prod', $prodId)) | Where-Object { $_[1] } | ForEach-Object { '{0}={1}' -f $_[0], $_[1] }) -join ';'
+"Export pipelines found: $map."
+"##vso[task.setvariable variable=EXPORT_TENANT_MAP]$map"
+if ($preProdId) { "##vso[task.setvariable variable=EXPORT_PREPROD_ID]$preProdId" }
+if ($devId) { "##vso[task.setvariable variable=EXPORT_DEV_ID]$devId" }
 if ($prodId) { "##vso[task.setvariable variable=EXPORT_PROD_ID]$prodId" }

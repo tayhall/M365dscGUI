@@ -153,6 +153,40 @@ Describe 'pipelines\scripts\Resolve-ExportPipelineIds.ps1' {
         $out | Should -Not -Match 'EXPORT_PROD_ID'
     }
 
+    It 'only the required tenants must exist: a missing PreProd pipeline only warns when just Dev is required, and the map holds just Dev' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @() } } -ParameterFilter { $Uri -match 'name=Pre&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=Dev&' }
+        $out = @(& $script:Script -PreProdName 'Pre' -DevName 'Dev' -Require 'Dev' 6>&1 | ForEach-Object { "$_" }) -join "`n"
+        $out | Should -Match "task\.logissue type=warning\].*'Pre'"
+        $out | Should -Match '(?m)variable=EXPORT_TENANT_MAP\]Dev=3\s*$'
+        $out | Should -Not -Match 'EXPORT_PREPROD_ID'
+    }
+
+    It 'a required tenant whose pipeline is missing stops, naming the pipeline' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @() } } -ParameterFilter { $Uri -match 'name=Pre&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=Dev&' }
+        { & $script:Script -PreProdName 'Pre' -DevName 'Dev' -Require 'PreProd' } | Should -Throw "*'Pre'*"
+    }
+
+    It 'a required Prod pipeline that is missing stops' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 4; name = 'Pre' }) } } -ParameterFilter { $Uri -match 'name=Pre&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=Dev&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @() } } -ParameterFilter { $Uri -match 'name=Prod&' }
+        { & $script:Script -PreProdName 'Pre' -DevName 'Dev' -ProdName 'Prod' -Require 'Prod' } | Should -Throw "*'Prod'*"
+    }
+
+    It 'EXPORT_TENANT_MAP holds every tenant found' {
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 7; name = 'Prod' }) } } -ParameterFilter { $Uri -match 'name=Prod&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 4; name = 'Pre' }) } } -ParameterFilter { $Uri -match 'name=Pre&' }
+        Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=Dev&' }
+        $out = @(& $script:Script -PreProdName 'Pre' -DevName 'Dev' -ProdName 'Prod' 6>&1 | ForEach-Object { "$_" }) -join "`n"
+        $out | Should -Match 'variable=EXPORT_TENANT_MAP\]Dev=3;PreProd=4;Prod=7'
+    }
+
+    It 'refuses a Require list that is not tenant names' {
+        { & $script:Script -PreProdName 'Pre' -DevName 'Dev' -Require 'Dev; x' } | Should -Throw
+    }
+
     It 'still stops when two pipelines are named like the Prod pipeline' {
         Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 4; name = 'Pre' }, [pscustomobject]@{ id = 3; name = 'Dev' }) } } -ParameterFilter { $Uri -match 'name=(Pre|Dev)&' }
         Mock Invoke-RestMethod { [pscustomobject]@{ value = @([pscustomobject]@{ id = 7; name = 'Prod' }, [pscustomobject]@{ id = 8; name = 'Prod' }) } } -ParameterFilter { $Uri -match 'name=Prod&' }

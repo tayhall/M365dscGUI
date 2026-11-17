@@ -88,7 +88,7 @@ branch and the folder, not who reviewed the change.
 
 `Compare-PreProd-to-Dev.yaml` (the file and the pipeline keep their old names because `Apply-Dev` finds this pipeline's `DriftReport` by name) has two pickers, **From** (the reference) and **To**, over Dev, PreProd and
 Prod, and the optional `fromVersion` / `toVersion` (blank = the latest successful Full export of that tenant, or a name such as `v9`). The same tenant on both sides stops the run before anything is looked up;
-for two exports of one tenant use Tenant changes. The exports are found by the names in the settings (`ExportPreProdPipeline`, `ExportDevPipeline`, `ExportProdPipeline`), no ids.
+for two exports of one tenant use Tenant changes. The exports are found by the names in the settings (`ExportPreProdPipeline`, `ExportDevPipeline`, `ExportProdPipeline`), no ids. Only the export pipelines of the tenants you pick have to exist: a missing pipeline of a tenant this run does not use only warns (Compare and Tenant changes). The Apply pipelines still need both PreProd and Dev.
 
 | From to To | MOF files, Changes/Removals | `drift-report.html` | `approved.json` and Apply |
 | --- | --- | --- | --- |

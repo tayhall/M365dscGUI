@@ -128,6 +128,32 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
         $r.Previous.RunId | Should -Be '90'
     }
 
+    It '-NoPrevious returns the latest run when no earlier export exists' {
+        Set-FakeAdo -Builds @((New-Build 130 'Dev-Full-v9'))
+        $r = Resolve-Exports @{ NoPrevious = $true }
+        $r.Latest.RunId | Should -Be '130'
+        $r.Previous | Should -BeNullOrEmpty
+    }
+
+    It '-NoPrevious with -ExportVersion v7 picks that run' {
+        $r = Resolve-Exports @{ NoPrevious = $true; ExportVersion = 'v7' }
+        $r.Latest.RunId | Should -Be '120'
+    }
+
+    It '-NoPrevious still stops, naming the tenant, when there is no successful export' {
+        Set-FakeAdo -Builds @((New-Build 130 'Dev-Full-v9' 'failed'))
+        { Resolve-Exports @{ NoPrevious = $true } } | Should -Throw '*no successful export of Dev*'
+    }
+
+    It '-NoPrevious -VariablePrefix FROM_ -SetVariables writes FROM_RUN, FROM_NAME, FROM_DEFINITION_ID and FROM_ARTIFACT_NAME only' {
+        $out = (& $script:Script -Tenant Dev -TenantMap $script:Map -NoPrevious -VariablePrefix 'FROM_' -SetVariables 6>&1 | ForEach-Object { "$_" }) -join "`n"
+        $out | Should -Match '##vso\[task\.setvariable variable=FROM_RUN\]130'
+        $out | Should -Match '##vso\[task\.setvariable variable=FROM_NAME\]v9'
+        $out | Should -Match '##vso\[task\.setvariable variable=FROM_DEFINITION_ID\]22'
+        $out | Should -Match '##vso\[task\.setvariable variable=FROM_ARTIFACT_NAME\]DevExport'
+        $out | Should -Not -Match 'variable=LATEST_RUN|variable=PREVIOUS_RUN'
+    }
+
     It 'writes the six pipeline variables with -SetVariables, and never prints the token' {
         $out = (& $script:Script -Tenant Dev -TenantMap $script:Map -SetVariables 6>&1 | ForEach-Object { "$_" }) -join "`n"
         foreach ($name in 'DEFINITION_ID', 'ARTIFACT_NAME', 'LATEST_RUN', 'PREVIOUS_RUN', 'LATEST_NAME', 'PREVIOUS_NAME')

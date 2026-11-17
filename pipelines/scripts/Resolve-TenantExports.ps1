@@ -35,6 +35,15 @@ param
     [ValidatePattern('\A(v\d{1,6}|\d{1,12})?\z')]
     [string]$PreviousVersion = '',
 
+    # Only the "after" export is wanted (the Compare pipeline looks up one export per tenant): no previous run is looked for or required, and
+    # .Previous is $null.
+    [switch]$NoPrevious,
+
+    # With -SetVariables and a prefix such as FROM_ the variables are <prefix>DEFINITION_ID, <prefix>ARTIFACT_NAME, <prefix>RUN and <prefix>NAME
+    # (the latest run) instead of the six names below. Used with -NoPrevious.
+    [ValidatePattern('\A[A-Z][A-Z0-9_]{0,20}\z')]
+    [string]$VariablePrefix = '',
+
     [switch]$SetVariables
 )
 
@@ -154,7 +163,8 @@ function Get-Candidate
 $latest = if ($ExportVersion) { Resolve-Version $ExportVersion } else { Get-Candidate }
 if (-not $latest) { throw "There is no successful export of $what with its artifact still available; take a fresh export first." }
 
-if ($PreviousVersion)
+if ($NoPrevious) { $previous = $null }
+elseif ($PreviousVersion)
 {
     $previous = Resolve-Version $PreviousVersion
     if ([int]$previous.id -eq [int]$latest.id) { throw "The previous and the latest export are the same run ($(Get-RunLabel $latest), id $($latest.id)); pick two different exports." }
@@ -170,19 +180,25 @@ $result = [pscustomobject]@{
     DefinitionId = [string]$definitionId
     ArtifactName = $artifactName
     Latest       = [pscustomobject]@{ RunId = [string]$latest.id; Name = Get-RunLabel $latest }
-    Previous     = [pscustomobject]@{ RunId = [string]$previous.id; Name = Get-RunLabel $previous }
+    Previous     = if ($previous) { [pscustomobject]@{ RunId = [string]$previous.id; Name = Get-RunLabel $previous } } else { $null }
 }
-Write-Host "$what changes: previous $($result.Previous.Name) (run $($result.Previous.RunId)) -> latest $($result.Latest.Name) (run $($result.Latest.RunId))"
+if ($NoPrevious) { Write-Host "$what export: $($result.Latest.Name) (run $($result.Latest.RunId))" }
+else { Write-Host "$what changes: previous $($result.Previous.Name) (run $($result.Previous.RunId)) -> latest $($result.Latest.Name) (run $($result.Latest.RunId))" }
 if ($SetVariables)
 {
-    $variables = [ordered]@{
+    $variables = if ($VariablePrefix) { [ordered]@{
+        "${VariablePrefix}DEFINITION_ID" = $result.DefinitionId
+        "${VariablePrefix}ARTIFACT_NAME" = $result.ArtifactName
+        "${VariablePrefix}RUN"           = $result.Latest.RunId
+        "${VariablePrefix}NAME"          = $result.Latest.Name
+    } } else { [ordered]@{
         DEFINITION_ID = $result.DefinitionId
         ARTIFACT_NAME = $result.ArtifactName
         LATEST_RUN    = $result.Latest.RunId
         PREVIOUS_RUN  = $result.Previous.RunId
         LATEST_NAME   = $result.Latest.Name
         PREVIOUS_NAME = $result.Previous.Name
-    }
+    } }
     foreach ($key in $variables.Keys) { Write-Host "##vso[task.setvariable variable=$key]$($variables[$key])" }
 }
 $result

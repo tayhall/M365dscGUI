@@ -4,8 +4,8 @@ Headless: no GUI, no worker. They call the PolicyEngine module and Microsoft365D
 
 | Pipeline | Does |
 | --- | --- |
-| `Export-PreProd.yaml`, `Export-Dev.yaml` (generated from the `.yaml.template` files) | Imports the tenant's Reader certificate from Key Vault, runs `tools\Export-M365DscTenant.ps1`, publishes `PreProdExport` / `DevExport`. What to export is one picker when you run it: Full or a single workload (see Configuration). |
-| `Compare-PreProd-to-Dev.yaml` | Takes the latest of both exports, runs `tools\Invoke-PEPipelineCompare.ps1`, publishes `DriftReport` (`drift-report.html`, `drift.csv`, `drift.json`, `Changes.ps1`, `Removals.ps1`, `Manual.json`, `MOF\Changes`, `MOF\Removals`). |
+| `Export-PreProd.yaml`, `Export-Dev.yaml` and, when Prod is set up, `Export-Prod.yaml` (generated from the `.yaml.template` files) | Imports the tenant's Reader certificate from Key Vault, runs `tools\Export-M365DscTenant.ps1`, publishes `PreProdExport` / `DevExport`. What to export is one picker when you run it: Full or a single workload (see Configuration). |
+| `Compare-PreProd-to-Dev.yaml` | One Compare pipeline with a **From** and a **To** picker (Dev, PreProd, and Prod when it is set up; see "Compare" below). Finds the exports by the names of the export pipelines, runs `tools\Invoke-PEPipelineCompare.ps1` (PreProd to Dev only), publishes `DriftReport` (`drift-report.html`, `drift.csv`, `drift.json`, `Changes.ps1`, `Removals.ps1`, `Manual.json`, `MOF\Changes`, `MOF\Removals`). |
 | `Apply-Dev.yaml` | Applies the MOFs to Dev through the LCM (`tools\Invoke-PELcm.ps1`). Default mode is `Test`; Removals only when asked; gated by the `m365-dev` environment approval. |
 | `Apply-Approved-Dev.yaml` | Applies exactly the items of one approved list (`approvals/*.json`, from the drift report). Default mode `Test`; gated by the `m365-dev` environment approval. See "Approved apply" below. |
 | `Tenant-Changes.yaml` | What changed in ONE tenant between two of its own exports. See "Tenant changes" below. |
@@ -84,6 +84,24 @@ branch and the folder, not who reviewed the change.
   Removals do not follow; in Test mode differences are only reported.
 - When you queue Apply by hand, Azure DevOps lets you pick which compare run to use (Resources); the default is the latest.
 
+## Compare: pick the two tenants
+
+`Compare-PreProd-to-Dev.yaml` (the file and the pipeline keep their old names because `Apply-Dev` finds this pipeline's `DriftReport` by name) has two pickers, **From** (the reference) and **To**, over Dev, PreProd and
+Prod, and the optional `fromVersion` / `toVersion` (blank = the latest successful Full export of that tenant, or a name such as `v9`). The same tenant on both sides stops the run before anything is looked up;
+for two exports of one tenant use Tenant changes. The exports are found by the names in the settings (`ExportPreProdPipeline`, `ExportDevPipeline`, `ExportProdPipeline`), no ids.
+
+| From to To | MOF files, Changes/Removals | `drift-report.html` | `approved.json` and Apply |
+| --- | --- | --- | --- |
+| PreProd to Dev | yes, as before | with selection | yes |
+| any other pair | no | read-only (no selection; every item says why) | no |
+
+Nothing can be applied to PreProd or Prod (they have a Reader app only), and the approved apply expects PreProd as the source, so Prod to Dev is a read-only report for now. `summary.json` of a read-only run
+names `SourceTenant`, `TargetTenant` and the two run ids.
+
+**Prod is optional.** Set `ProdServiceConnection` (and, if the pipeline is named differently, `ExportProdPipeline`, default `M365DSC - Export Prod tenant`) in `pipeline.settings.psd1`, fill in
+`pipelines\config\Prod.psd1` (a Reader app, like PreProd), generate the YAML and create the `Export-Prod` pipeline. Without `ProdServiceConnection` there is no Prod anywhere: no `Export-Prod.yaml`, and Prod is not offered in the Compare
+or Tenant-changes pickers.
+
 ## Tenant changes (`Tenant-Changes.yaml`): what changed in this tenant since the last export
 Queue it by hand (nothing triggers it). Parameters: `tenant` (Dev or PreProd), `exportVersion` and `previousVersion` (both optional).
 It compares the tenant's **previous** export (what it should look like) with its **latest** export (what it looks like), with the same comparison as the
@@ -153,7 +171,7 @@ the environment and the pipeline names before any script runs, so those are toke
 The templates are not YAML as far as Azure DevOps is concerned, so they never show up when you pick an existing pipeline file; only the generated
 `*.yaml` do.
 1. Copy `pipelines\pipeline.settings.example.psd1` to `pipelines\pipeline.settings.psd1` (git-ignored) and fill in the pool and one service connection per tenant (`DevServiceConnection`, used by Export Dev, Compare and Apply, and `PreProdServiceConnection`, used by Export PreProd). An old single `ServiceConnection` line still works as the default for both.
-2. Run `pwsh -NoProfile -File pipelines\scripts\New-PipelineYaml.ps1`. It writes `Export-Dev.yaml`, `Export-PreProd.yaml`, `Compare-PreProd-to-Dev.yaml`
+2. Run `pwsh -NoProfile -File pipelines\scripts\New-PipelineYaml.ps1`. It writes `Export-Dev.yaml`, `Export-PreProd.yaml` (and `Export-Prod.yaml` when Prod is set up), `Compare-PreProd-to-Dev.yaml`
    and `Apply-Dev.yaml` next to the templates, each with a header line saying it is generated. It stops on a missing value, an example value left in,
    or a token it does not know, and it never deletes anything. Old tenant keys in the settings file are ignored with a warning.
 3. Create the four pipelines in Azure DevOps from those `*.yaml` files, named as in the settings file (the `resources:` blocks look them up by name),

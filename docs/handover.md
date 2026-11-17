@@ -500,3 +500,13 @@ Things to know:
   (nothing is applied); the location guard is lexical (a committed symlink inside `approvals/` would pass); the LCM result is the last output line that starts with `{` (the wrapper prints one JSON line).
 - NOT verified (needs Azure DevOps and the Dev tenant): the YAML run itself (the `DownloadPipelineArtifact@2` input names were checked against Microsoft's page, the folder the
   artifact lands in was not), the retention lease permission, the Key Vault certificate import, the LCM apply on the agent, and the `SucceededWithIssues` result.
+
+## Compare picker and Prod (2026-11-17)
+
+One Compare pipeline with From and To pickers over Dev, PreProd and Prod; design `docs/superpowers/specs/2026-11-17-compare-picker-design.md`, plan `docs/superpowers/plans/2026-11-17-compare-picker.md`.
+- Only PreProd to Dev builds MOFs and an approvable report (and so only that pair can be applied). Every other pair, including Prod to Dev, is a read-only report (`New-PEDriftReport.ps1 -ReadOnlyReason`).
+  Deliberate gap: `Apply-Approved-Dev` and `Apply-Dev` still assume PreProd as the source; opening Prod to Dev would need the approved list to record its source tenant.
+- The Compare pipeline finds the exports at run time (`Resolve-ExportPipelineIds.ps1`, `Resolve-TenantExports.ps1 -NoPrevious -VariablePrefix`), no pipeline resources and no ids in settings. It keeps its old
+  name (`Compare-PreProd-to-Dev.yaml`, `M365DSC - Compare PreProd to Dev and build MOFs`) because `Apply-Dev` reads its `DriftReport` by that name; renaming both is a small separate change.
+- Prod is optional (`ProdServiceConnection` in the settings), read-only like PreProd, with `pipelines\config\Prod.psd1` and an `Export-Prod` pipeline.
+- NOT verified: a run in Azure DevOps (the template syntax, the `elseif` service-connection branch and the `DownloadPipelineArtifact@2` folder were checked only by the generator tests).

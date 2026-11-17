@@ -37,6 +37,19 @@ Describe 'Get-PEDriftReportData' {
         ($d.Items | Where-Object Approvable -eq $false).Count | Should -Be 0
     }
 
+    It 'with -ReadOnlyReason every drift item is not approvable and carries the reason' {
+        $d = Get-Data $script:Cmp -Extra @{ ReadOnlyReason = 'Read-only comparison: test.' }
+        @($d.Items).Count | Should -Be 3
+        @($d.Items | Where-Object Approvable).Count | Should -Be 0
+        foreach ($item in $d.Items) { $item.Reason | Should -Be 'Read-only comparison: test.' }
+        $d.Totals.Create + $d.Totals.Update + $d.Totals.Remove | Should -Be 0
+        $d.Totals.CannotApprove | Should -Be 3
+    }
+
+    It 'without -ReadOnlyReason the three items are still approvable' {
+        @((Get-Data $script:Cmp).Items | Where-Object Approvable).Count | Should -Be 3
+    }
+
     It 'shows the differing property with both values' {
         $d = Get-Data $script:Cmp
         $sales = $d.Items | Where-Object Key -eq 'Sales'

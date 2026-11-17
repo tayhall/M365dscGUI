@@ -50,6 +50,10 @@ function Get-PEDriftReportData
         [ValidatePattern('\A[\w .()-]{1,40}\z')]
         [string]$TargetLabel = 'Dev',
 
+        # A reason that makes every drift item not approvable (a comparison that can never be applied, for example one whose target is not
+        # Dev). The engine is then not asked about the findings. Items that were not compared keep their own reason.
+        [string]$ReadOnlyReason = '',
+
         [datetime]$GeneratedUtc = [datetime]::UtcNow,
 
         [ValidateRange(10, 100000)]
@@ -108,6 +112,11 @@ function Get-PEDriftReportData
         # A record of PreProd that has a finding does not match: Missing and Changed are one record each, Ambiguous holds BlueprintCount.
         if ($kind -in 'Missing', 'Changed') { $matchingTaken++ }
         elseif ($kind -eq 'Ambiguous' -and $null -ne $finding.PSObject.Properties['BlueprintCount']) { $matchingTaken += [int]$finding.BlueprintCount }
+    }
+
+    if ($ReadOnlyReason)
+    {
+        foreach ($entry in $entries) { $entry.Ask = $false; if (-not $entry.NotCompared) { $entry.Reason = ($ReadOnlyReason -split "`r?`n")[0] } }
     }
 
     # Pass 2: ask the engine per action, in groups (New-PERectifyPlanSafe splits a refused group until the refused finding is alone).

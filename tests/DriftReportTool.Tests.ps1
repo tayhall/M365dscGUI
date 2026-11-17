@@ -14,10 +14,12 @@ BeforeAll {
     }
     function Invoke-Tool
     {
-        param ([string]$SourceRun = '101', [string]$TargetRun = '102', [string]$Out)
+        param ([string]$SourceRun = '101', [string]$TargetRun = '102', [string]$Out, [string]$ReadOnlyReason = '')
         if (-not $Out) { $Out = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-tool-out-' + [guid]::NewGuid().ToString('N')) }
+        $extra = @{}
+        if ($ReadOnlyReason) { $extra.ReadOnlyReason = $ReadOnlyReason }
         $messages = & $script:Tool -SourceExportPath (New-ExportCopy 'entra.ps1') -TargetExportPath (New-ExportCopy 'entra-drift.ps1') `
-            -TargetTenantDomain 'contoso-dev.onmicrosoft.com' -OutputPath $Out -SourceRun $SourceRun -TargetRun $TargetRun -CompleteWorkload 'AAD' 6>&1 3>$null
+            -TargetTenantDomain 'contoso-dev.onmicrosoft.com' -OutputPath $Out -SourceRun $SourceRun -TargetRun $TargetRun -CompleteWorkload 'AAD' @extra 6>&1 3>$null
         [pscustomobject]@{ Out = $Out; Messages = @($messages | ForEach-Object { "$_" }) }
     }
 }
@@ -41,6 +43,11 @@ Describe 'tools\New-PEDriftReport.ps1' {
         $data.Meta.Source.Fingerprint | Should -Match '\A[0-9a-f]{64}\z'
         $data.Meta.Source.Fingerprint | Should -Not -Be $data.Meta.Target.Fingerprint
         $data.Meta.Tenant | Should -Be 'dev'
+    }
+
+    It '-ReadOnlyReason produces a page with 0 approvable items' {
+        $r = Invoke-Tool -ReadOnlyReason 'Read-only comparison: test.'
+        ($r.Messages -join "`n") | Should -Match 'Drift report: 3 items, 0 approvable'
     }
 
     It 'leaves no work folder behind' {

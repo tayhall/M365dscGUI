@@ -44,6 +44,9 @@ param
     [ValidatePattern('\A[\w .()-]{1,40}\z')]
     [string]$TargetLabel = 'Dev',
 
+    # Makes every drift item not approvable, with this reason (a comparison that can never be applied: the report is then read-only).
+    [string]$ReadOnlyReason = '',
+
     # Workload prefixes (Data\Workloads.psd1) whose Dev export is complete, so an empty type there is really empty.
     [string[]]$CompleteWorkload = @('AAD', 'Intune', 'EXO', 'Teams')
 )
@@ -70,7 +73,7 @@ try
     $source = @{ Run = $SourceRun; ExportedAt = [string]$comparison.SourceState.Meta.ExportedAt; Fingerprint = (Get-PEExportFingerprint -Path $SourceExportPath) }
     $target = @{ Run = $TargetRun; ExportedAt = [string]$targetState.Meta.ExportedAt; Fingerprint = (Get-PEExportFingerprint -Path $TargetExportPath) }
 
-    $data = Get-PEDriftReportData -Comparison $comparison -Tenant $Tenant -Source $source -Target $target -SourceLabel $SourceLabel -TargetLabel $TargetLabel
+    $data = Get-PEDriftReportData -Comparison $comparison -Tenant $Tenant -Source $source -Target $target -SourceLabel $SourceLabel -TargetLabel $TargetLabel -ReadOnlyReason $ReadOnlyReason
     New-PEDriftReportHtml -Data $data -Path $report -Title "Drift report: $SourceLabel to $TargetLabel" | Out-Null
     $approvable = @($data.Items | Where-Object Approvable).Count
     "Drift report: $(@($data.Items).Count) items, $approvable approvable ($report)"

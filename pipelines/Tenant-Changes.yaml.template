@@ -3,7 +3,7 @@ name: 'M365DSC - Tenant changes'
 trigger: none
 pr: none
 
-# What changed in ONE tenant between two of its own exports. Queue it by hand: choose the tenant; leave both versions blank for the latest
+# What changed in ONE tenant between two of its own exports. Queue it by hand: choose the tenant; leave both versions as latest for the latest
 # export of the chosen workload (Full by default) against the successful one before it, or type a name such as v7 (or a run id for an old run) to compare other exports.
 # Outputs (artifact TenantChanges): <Tenant>\Report.html, the revert configuration (<Tenant>\Revert\, compiled for a tenant with a Writer app) and
 # the promote configuration (<Tenant>\Promote\). Apply-Dev can apply the revert; nothing here writes to a tenant.
@@ -21,13 +21,13 @@ parameters:
     values:
       __WORKLOAD_CHOICES__
   - name: exportVersion
-    displayName: 'Export to look at, for example v9 (blank = the latest successful export)'
+    displayName: 'Export to look at, for example v9 (latest = the latest successful export)'
     type: string
-    default: ''
+    default: latest
   - name: previousVersion
-    displayName: 'Export to compare it with, for example v7 (blank = the successful export just before)'
+    displayName: 'Export to compare it with, for example v7 (latest = the successful export just before)'
     type: string
-    default: ''
+    default: latest
 
 pool:
   name: '__POOL__'   # needs pwsh 7.6+ and local admin

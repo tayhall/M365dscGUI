@@ -25,13 +25,13 @@ parameters:
     values:
       __WORKLOAD_CHOICES__
   - name: fromVersion
-    displayName: 'Export of the From tenant, a version of the chosen workload series, for example v9 (blank = its latest successful export)'
+    displayName: 'Export of the From tenant, a version of the chosen workload series, for example v9 (latest = its latest successful export)'
     type: string
-    default: ''
+    default: latest
   - name: toVersion
-    displayName: 'Export of the To tenant, a version of the chosen workload series, for example v9 (blank = its latest successful export)'
+    displayName: 'Export of the To tenant, a version of the chosen workload series, for example v9 (latest = its latest successful export)'
     type: string
-    default: ''
+    default: latest
   - name: mofLayout
     displayName: MOF layout (Combined = one Changes + one Removals; PerWorkload = a pair per workload, applied in stages). PreProd to Dev only.
     type: string

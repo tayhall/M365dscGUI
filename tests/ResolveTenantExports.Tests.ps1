@@ -128,6 +128,18 @@ Describe 'pipelines\scripts\Resolve-TenantExports.ps1' {
         $r.Previous.RunId | Should -Be '90'
     }
 
+    It 'the word latest (the default of the pipeline fields) means blank, for both versions, in any case' {
+        $r = Resolve-Exports @{ ExportVersion = 'latest'; PreviousVersion = 'Latest' }
+        $r.Latest.RunId | Should -Be '130'
+        $r.Previous.RunId | Should -Be '120'
+    }
+
+    It 'latest for the previous export still means the successful run just before the chosen one' {
+        $r = Resolve-Exports @{ ExportVersion = 'v7'; PreviousVersion = 'latest' }
+        $r.Latest.RunId | Should -Be '120'
+        $r.Previous.RunId | Should -Be '110'
+    }
+
     It '-NoPrevious returns the latest run when no earlier export exists' {
         Set-FakeAdo -Builds @((New-Build 130 'Dev-Full-v9'))
         $r = Resolve-Exports @{ NoPrevious = $true }

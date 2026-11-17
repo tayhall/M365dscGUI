@@ -27,12 +27,13 @@ param
     [ValidatePattern('\A[A-Za-z0-9]{1,20}\z')]
     [string]$Workload = 'Full',
 
-    # The "after" export: blank (latest), a friendly name such as v9, or a numeric run id.
-    [ValidatePattern('\A(v\d{1,6}|\d{1,12})?\z')]
+    # The "after" export: blank or the word latest (the newest), a friendly name such as v9, or a numeric run id. The pipeline fields default to
+    # the word latest because Azure DevOps disables the Run button for a text parameter whose default is empty.
+    [ValidatePattern('\A(v\d{1,6}|\d{1,12}|latest)?\z')]
     [string]$ExportVersion = '',
 
-    # The "before" export, same forms. Blank: the successful run just before the "after" one.
-    [ValidatePattern('\A(v\d{1,6}|\d{1,12})?\z')]
+    # The "before" export, same forms. Blank or latest: the successful run just before the "after" one.
+    [ValidatePattern('\A(v\d{1,6}|\d{1,12}|latest)?\z')]
     [string]$PreviousVersion = '',
 
     # Only the "after" export is wanted (the Compare pipeline looks up one export per tenant): no previous run is looked for or required, and
@@ -48,6 +49,8 @@ param
 )
 
 $ErrorActionPreference = 'Stop'
+if ($ExportVersion -ieq 'latest') { $ExportVersion = '' }
+if ($PreviousVersion -ieq 'latest') { $PreviousVersion = '' }
 
 $definitionId = $null
 foreach ($pair in $TenantMap -split ';') { $name, $value = $pair -split '=', 2; if ($name -ceq $Tenant) { $definitionId = [int]$value } }

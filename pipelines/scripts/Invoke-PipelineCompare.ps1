@@ -41,6 +41,11 @@ param
     [ValidateSet('Dev', 'PreProd', 'Prod')]
     [string]$TargetTenant = 'Dev',
 
+    # Which export series was compared: Full, or one workload prefix (AAD, Intune, EXO, Teams, SC). A single workload is the only complete one
+    # (the ticked boxes are ignored), because an export of one workload says nothing about the others.
+    [ValidatePattern('\A[A-Za-z0-9]{1,20}\z')]
+    [string]$Workload = 'Full',
+
     # Test hooks (refused unless PE_TEST_HOOKS is 1, which the pipeline never sets): the config folder and the scripts that touch tenants.
     [string]$ConfigPath = (Join-Path $PSScriptRoot '..\config'),
     [string]$ConnectScript = (Join-Path $PSScriptRoot 'Connect-PipelineTenant.ps1'),
@@ -63,7 +68,11 @@ if ($SourceTenant -eq $TargetTenant)
 # The pipeline passes one PE_WL_<Prefix> variable per workload: then the ticked boxes are the complete workloads, and no box ticked
 # means nothing is complete. With no such variable at all (a manual run) the parameter's default stays.
 $anyBox = @([Environment]::GetEnvironmentVariables().Keys | Where-Object { $_ -like 'PE_WL_*' }).Count -gt 0
-if (-not $PSBoundParameters.ContainsKey('CompleteWorkloads') -and $anyBox)
+if ($Workload -cne 'Full' -and -not $PSBoundParameters.ContainsKey('CompleteWorkloads'))
+{
+    $CompleteWorkloads = $Workload
+}
+elseif (-not $PSBoundParameters.ContainsKey('CompleteWorkloads') -and $anyBox)
 {
     $CompleteWorkloads = & (Join-Path $PSScriptRoot 'Get-WorkloadSelection.ps1') -AllowNone
 }
@@ -74,7 +83,7 @@ if (-not ($SourceTenant -eq 'PreProd' -and $TargetTenant -eq 'Dev'))
     $targetConfig = & (Join-Path $PSScriptRoot 'Get-PipelineConfig.ps1') -Environment $TargetTenant -Require TenantDomain -ConfigPath $ConfigPath
     New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
     [ordered]@{
-        SourceTenant = $SourceTenant; TargetTenant = $TargetTenant; ReadOnly = $true
+        SourceTenant = $SourceTenant; TargetTenant = $TargetTenant; ReadOnly = $true; Workload = $Workload
         SourceExportRun = $(if ($PreProdRun) { $PreProdRun } else { '(unknown)' }); TargetExportRun = $(if ($DevRun) { $DevRun } else { '(unknown)' })
         GeneratedAtUtc = [datetime]::UtcNow.ToString('yyyy-MM-dd HH:mm')
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $OutputPath 'summary.json') -Encoding utf8
@@ -109,6 +118,7 @@ $thumbprint = & $ConnectScript -Environment Dev -Role Writer -ThumbprintOnly
 $summaryPath = Join-Path $OutputPath 'summary.json'
 $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
 $summary | Add-Member -NotePropertyName GeneratedAtUtc -NotePropertyValue ([datetime]::UtcNow.ToString('yyyy-MM-dd HH:mm')) -Force
+$summary | Add-Member -NotePropertyName Workload -NotePropertyValue $Workload -Force
 $summary | Add-Member -NotePropertyName PreProdExportRun -NotePropertyValue $(if ($PreProdRun) { $PreProdRun } else { '(unknown)' }) -Force
 $summary | Add-Member -NotePropertyName DevExportRun -NotePropertyValue $(if ($DevRun) { $DevRun } else { '(unknown)' }) -Force
 $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Encoding utf8

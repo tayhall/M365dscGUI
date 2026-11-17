@@ -301,6 +301,14 @@ Describe 'the Compare pipeline with a From and a To picker' {
         $script:C | Should -Not -Match '(?<!Pre)Prod\b'
     }
 
+    It 'has one workload picker like the export pipelines, and uses it for both exports and the compare' {
+        $script:C | Should -Match '(?s)  - name: workload\b.*?default: Full\s+values:\s+- Full\s+- AAD'
+        ([regex]::Matches($script:C, '-Workload \$env:PE_WORKLOAD').Count) | Should -Be 3
+        $uses = @($script:C -split '\r?\n' | Where-Object { $_ -match 'parameters\.workload\b' })
+        $uses | ForEach-Object { $_ | Should -Match '^(name: |\s+PE_WORKLOAD: )' }
+        $uses.Count | Should -BeGreaterThan 2
+    }
+
     It 'has the optional versions of both sides, blank for the latest export' {
         foreach ($name in 'fromVersion', 'toVersion') { $script:C | Should -Match "(?s)  - name: $name\b.*?default: ''" }
     }

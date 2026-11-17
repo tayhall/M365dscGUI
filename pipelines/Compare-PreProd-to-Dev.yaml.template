@@ -1,4 +1,4 @@
-name: 'Compare ${{ parameters.from }} to ${{ parameters.to }} $(Rev:r)'
+name: 'Compare ${{ parameters.from }} to ${{ parameters.to }} ${{ parameters.workload }} $(Rev:r)'
 
 trigger: none
 
@@ -18,12 +18,18 @@ parameters:
     default: Dev
     values:
       __TENANT_CHOICES__
+  - name: workload
+    displayName: 'What to compare: Full (every default workload) or one workload (its own export series on both sides)'
+    type: string
+    default: Full
+    values:
+      __WORKLOAD_CHOICES__
   - name: fromVersion
-    displayName: 'Export of the From tenant, for example v9 (blank = its latest successful Full export)'
+    displayName: 'Export of the From tenant, a version of the chosen workload series, for example v9 (blank = its latest successful export)'
     type: string
     default: ''
   - name: toVersion
-    displayName: 'Export of the To tenant, for example v9 (blank = its latest successful Full export)'
+    displayName: 'Export of the To tenant, a version of the chosen workload series, for example v9 (blank = its latest successful export)'
     type: string
     default: ''
   - name: mofLayout
@@ -62,19 +68,21 @@ jobs:
       # The export of each tenant: the named one, or the latest successful Full export that still has its artifact. Sets FROM_* and TO_*.
       - pwsh: |
           & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-TenantExports.ps1' `
-              -Tenant $env:PE_TENANT -TenantMap $env:PE_TENANT_MAP -Workload Full -ExportVersion $env:PE_VERSION -NoPrevious -VariablePrefix 'FROM_' -SetVariables
+              -Tenant $env:PE_TENANT -TenantMap $env:PE_TENANT_MAP -Workload $env:PE_WORKLOAD -ExportVersion $env:PE_VERSION -NoPrevious -VariablePrefix 'FROM_' -SetVariables
         displayName: Find the From export
         env:
           PE_TENANT: ${{ parameters.from }}
+          PE_WORKLOAD: ${{ parameters.workload }}
           PE_TENANT_MAP: '$(EXPORT_TENANT_MAP)'
           PE_VERSION: ${{ parameters.fromVersion }}
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
       - pwsh: |
           & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Resolve-TenantExports.ps1' `
-              -Tenant $env:PE_TENANT -TenantMap $env:PE_TENANT_MAP -Workload Full -ExportVersion $env:PE_VERSION -NoPrevious -VariablePrefix 'TO_' -SetVariables
+              -Tenant $env:PE_TENANT -TenantMap $env:PE_TENANT_MAP -Workload $env:PE_WORKLOAD -ExportVersion $env:PE_VERSION -NoPrevious -VariablePrefix 'TO_' -SetVariables
         displayName: Find the To export
         env:
           PE_TENANT: ${{ parameters.to }}
+          PE_WORKLOAD: ${{ parameters.workload }}
           PE_TENANT_MAP: '$(EXPORT_TENANT_MAP)'
           PE_VERSION: ${{ parameters.toVersion }}
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
@@ -118,7 +126,7 @@ jobs:
           ScriptType: InlineScript
           Inline: |
             & '$(Build.SourcesDirectory)/__REPO_FOLDER__/pipelines/scripts/Invoke-PipelineCompare.ps1' `
-                -SourceTenant $env:PE_FROM -TargetTenant $env:PE_TO `
+                -SourceTenant $env:PE_FROM -TargetTenant $env:PE_TO -Workload $env:PE_WORKLOAD `
                 -SourceExportPath '$(Pipeline.Workspace)/from' `
                 -TargetExportPath '$(Pipeline.Workspace)/to' `
                 -OutputPath '$(Build.ArtifactStagingDirectory)/compare' `
@@ -126,6 +134,7 @@ jobs:
                 -PreProdRun $env:PE_FROM_RUN -DevRun $env:PE_TO_RUN
         env:
           __WORKLOAD_ENV__
+          PE_WORKLOAD: ${{ parameters.workload }}
           PE_FROM: ${{ parameters.from }}
           PE_TO: ${{ parameters.to }}
           PE_MOF_LAYOUT: ${{ parameters.mofLayout }}

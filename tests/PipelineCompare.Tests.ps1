@@ -70,6 +70,33 @@ Describe 'pipelines\scripts\Invoke-PipelineCompare.ps1 source and target tenant'
         (Get-Args $rig 'report') | Should -Match 'ReadOnlyReason'
     }
 
+    It 'with -Workload AAD only AAD is complete, in the compare, the report and the summary (PreProd to Dev)' {
+        $rig = New-Rig
+        $out = Invoke-Compare $rig @{ Workload = 'AAD' }
+        (Get-Args $rig 'compare') | Should -Match '-CompleteWorkload AAD\b(?!,)'
+        (Get-Args $rig 'report') | Should -Match '-CompleteWorkload AAD\b(?!,)'
+        (Get-Content (Join-Path $out 'summary.json') -Raw | ConvertFrom-Json).Workload | Should -Be 'AAD'
+    }
+
+    It 'with -Workload AAD the read-only report is complete for AAD only and the summary names the workload' {
+        $rig = New-Rig
+        $out = Invoke-Compare $rig @{ SourceTenant = 'Prod'; TargetTenant = 'PreProd'; Workload = 'AAD' }
+        (Get-Args $rig 'report') | Should -Match '-CompleteWorkload AAD\b(?!,)'
+        (Get-Content (Join-Path $out 'summary.json') -Raw | ConvertFrom-Json).Workload | Should -Be 'AAD'
+    }
+
+    It 'with Full (the default) the complete workloads are still the default list' {
+        $rig = New-Rig
+        $out = Invoke-Compare $rig
+        (Get-Args $rig 'compare') | Should -Match '-CompleteWorkload AAD,Intune,EXO,Teams'
+        (Get-Content (Join-Path $out 'summary.json') -Raw | ConvertFrom-Json).Workload | Should -Be 'Full'
+    }
+
+    It 'refuses a workload that is not letters and digits' {
+        $rig = New-Rig
+        { Invoke-Compare $rig @{ Workload = 'AAD; x' } } | Should -Throw
+    }
+
     It 'the same tenant on both sides stops and names Tenant changes, before anything runs' {
         $rig = New-Rig
         { Invoke-Compare $rig @{ SourceTenant = 'Dev'; TargetTenant = 'Dev' } } | Should -Throw '*Tenant changes*'

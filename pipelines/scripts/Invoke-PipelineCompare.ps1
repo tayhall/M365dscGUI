@@ -19,8 +19,8 @@ param
     [ValidateSet('Combined', 'PerWorkload')]
     [string]$MofLayout = 'Combined',
 
-    # Workloads whose Dev export is complete, comma separated, for example AAD,Intune,EXO,Teams.
-    # Not given: the ticked workload checkboxes (PE_WL_<Prefix>) when the pipeline passes them, else this default.
+    # Workloads whose exports are complete, comma separated, for example AAD,Intune,EXO,Teams.
+    # Not given: what -Workload means (Full: every default workload of Data\Workloads.psd1; one workload: just that one).
     [ValidatePattern('\A[A-Za-z0-9,]*\z')]
     [string]$CompleteWorkloads = 'AAD,Intune,EXO,Teams',
 
@@ -65,16 +65,11 @@ if ($SourceTenant -eq $TargetTenant)
     throw "Compare needs two different tenants (both are $SourceTenant). To see what changed in one tenant between two of its own exports, use the Tenant changes pipeline."
 }
 
-# The pipeline passes one PE_WL_<Prefix> variable per workload: then the ticked boxes are the complete workloads, and no box ticked
-# means nothing is complete. With no such variable at all (a manual run) the parameter's default stays.
-$anyBox = @([Environment]::GetEnvironmentVariables().Keys | Where-Object { $_ -like 'PE_WL_*' }).Count -gt 0
-if ($Workload -cne 'Full' -and -not $PSBoundParameters.ContainsKey('CompleteWorkloads'))
+# The workload picker alone decides which workloads are complete, as it decides what an export takes: Full is every default workload,
+# one workload is just that one (an export of one workload says nothing about the others). A typed -CompleteWorkloads wins.
+if (-not $PSBoundParameters.ContainsKey('CompleteWorkloads'))
 {
-    $CompleteWorkloads = $Workload
-}
-elseif (-not $PSBoundParameters.ContainsKey('CompleteWorkloads') -and $anyBox)
-{
-    $CompleteWorkloads = & (Join-Path $PSScriptRoot 'Get-WorkloadSelection.ps1') -AllowNone
+    $CompleteWorkloads = & (Join-Path $PSScriptRoot 'Resolve-WorkloadChoice.ps1') -Choice $Workload
 }
 
 if (-not ($SourceTenant -eq 'PreProd' -and $TargetTenant -eq 'Dev'))

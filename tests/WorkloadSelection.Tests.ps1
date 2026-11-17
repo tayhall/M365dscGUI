@@ -1,6 +1,5 @@
 BeforeAll {
     $script:repoRoot = Split-Path $PSScriptRoot -Parent
-    $script:selector = Join-Path $repoRoot 'pipelines\scripts\Get-WorkloadSelection.ps1'
 
     function script:Clear-WorkloadEnv
     {
@@ -8,64 +7,6 @@ BeforeAll {
         {
             Remove-Item -LiteralPath "Env:$name"
         }
-    }
-}
-
-Describe 'Get-WorkloadSelection.ps1' {
-    BeforeEach {
-        $script:saved = @{}
-        foreach ($name in @([Environment]::GetEnvironmentVariables().Keys | Where-Object { $_ -like 'PE_WL_*' }))
-        {
-            $script:saved[$name] = [Environment]::GetEnvironmentVariable($name)
-        }
-        Clear-WorkloadEnv
-        $script:list = Join-Path $TestDrive 'Workloads.psd1'
-        Set-Content -LiteralPath $script:list -Value "@{ Workloads = @( @{ Prefix = 'B1' }, @{ Prefix = 'A2' }, @{ Prefix = 'C3' } ) }"
-    }
-    AfterEach {
-        Clear-WorkloadEnv
-        foreach ($name in $script:saved.Keys) { Set-Item -LiteralPath "Env:$name" -Value $script:saved[$name] }
-    }
-
-    It 'returns the ticked prefixes in Workloads.psd1 order' {
-        $env:PE_WL_C3 = 'True'
-        $env:PE_WL_B1 = 'True'
-        & $selector -WorkloadsPath $list | Should -Be 'B1,C3'
-    }
-
-    It 'reads True case-insensitively and ignores any other value' {
-        $env:PE_WL_B1 = 'true'
-        $env:PE_WL_A2 = 'False'
-        $env:PE_WL_C3 = 'yes'
-        & $selector -WorkloadsPath $list | Should -Be 'B1'
-    }
-
-    It 'throws when nothing is ticked' {
-        $env:PE_WL_B1 = 'False'
-        { & $selector -WorkloadsPath $list } | Should -Throw 'No workload is ticked. Tick at least one workload.'
-    }
-
-    It 'returns an empty string with -AllowNone' {
-        $result = & $selector -WorkloadsPath $list -AllowNone
-        $result | Should -BeOfType [string]
-        $result | Should -Be ''
-    }
-
-    It 'ignores PE_WL_ variables that are not in the workload list' {
-        $env:PE_WL_Nope = 'True'
-        $env:PE_WL_A2 = 'True'
-        & $selector -WorkloadsPath $list | Should -Be 'A2'
-    }
-
-    It 'picks up a workload added to the list without any other change' {
-        $env:PE_WL_D4 = 'True'
-        Set-Content -LiteralPath $list -Value "@{ Workloads = @( @{ Prefix = 'B1' }, @{ Prefix = 'D4' } ) }"
-        & $selector -WorkloadsPath $list | Should -Be 'D4'
-    }
-
-    It 'uses the repo Workloads.psd1 by default' {
-        $env:PE_WL_AAD = 'True'
-        & $selector | Should -Be 'AAD'
     }
 }
 
@@ -127,7 +68,7 @@ Describe 'Invoke-PipelineCompare.ps1 workload selection' {
         $script:tree = Join-Path $TestDrive 'repo'
         $scripts = New-Item -ItemType Directory -Path (Join-Path $tree 'pipelines\scripts') -Force
         New-Item -ItemType Directory -Path (Join-Path $tree 'tools'), (Join-Path $tree 'src\PolicyEngine\Data') -Force | Out-Null
-        Copy-Item (Join-Path $repoRoot 'pipelines\scripts\Invoke-PipelineCompare.ps1'), $selector -Destination $scripts
+        Copy-Item (Join-Path $repoRoot 'pipelines\scripts\Invoke-PipelineCompare.ps1'), (Join-Path $repoRoot 'pipelines\scripts\Resolve-WorkloadChoice.ps1') -Destination $scripts
         Copy-Item (Join-Path $repoRoot 'src\PolicyEngine\Data\Workloads.psd1') -Destination (Join-Path $tree 'src\PolicyEngine\Data')
         Set-Content (Join-Path $scripts 'Get-PipelineConfig.ps1') '[pscustomobject]@{ TenantDomain = ''d.example''; OrganizationName = ''d.example''; WriterAppId = ''x'' }'
         Set-Content (Join-Path $scripts 'Connect-PipelineTenant.ps1') 'param($Environment, $Role, [switch]$ThumbprintOnly) ''THUMB'''
@@ -145,28 +86,28 @@ Set-Content (Join-Path $OutputPath 'complete.txt') ('[' + $CompleteWorkload + ']
         foreach ($name in $script:saved.Keys) { Set-Item -LiteralPath "Env:$name" -Value $script:saved[$name] }
     }
 
-    It 'treats the ticked boxes as complete' {
-        $env:PE_WL_AAD = 'True'
-        $env:PE_WL_EXO = 'True'
-        $env:PE_WL_Intune = 'False'
-        & $compareScript -SourceExportPath a -TargetExportPath b -OutputPath $outDir 3>$null 6>$null
-        Get-Content (Join-Path $outDir 'complete.txt') -Raw | Should -Match '\A\[AAD,EXO\]'
-    }
-
-    It 'treats nothing as complete when the boxes exist but none is ticked' {
-        $env:PE_WL_AAD = 'False'
-        & $compareScript -SourceExportPath a -TargetExportPath b -OutputPath $outDir 3>$null 6>$null
-        Get-Content (Join-Path $outDir 'complete.txt') -Raw | Should -Match '\A\[\]'
-    }
-
-    It 'keeps the old default when there is no PE_WL_ variable at all (manual run)' {
+    It 'Full (and no picker at all) treats every default workload as complete' {
         & $compareScript -SourceExportPath a -TargetExportPath b -OutputPath $outDir 3>$null 6>$null
         Get-Content (Join-Path $outDir 'complete.txt') -Raw | Should -Match '\A\[AAD,Intune,EXO,Teams\]'
     }
 
-    It 'lets a typed -CompleteWorkloads win over the ticked boxes' {
-        $env:PE_WL_AAD = 'True'
-        & $compareScript -SourceExportPath a -TargetExportPath b -OutputPath $outDir -CompleteWorkloads 'Teams' 3>$null 6>$null
+    It 'one workload from the picker is the only complete one' {
+        & $compareScript -SourceExportPath a -TargetExportPath b -OutputPath $outDir -Workload 'EXO' 3>$null 6>$null
+        Get-Content (Join-Path $outDir 'complete.txt') -Raw | Should -Match '\A\[EXO\]'
+    }
+
+    It 'a workload that is not in the list stops the run, naming the choices' {
+        { & $compareScript -SourceExportPath a -TargetExportPath b -OutputPath $outDir -Workload 'Nope' 3>$null 6>$null } | Should -Throw '*not one of*'
+    }
+
+    It 'ignores leftover PE_WL_ variables: the picker alone decides' {
+        $env:PE_WL_AAD = 'False'
+        & $compareScript -SourceExportPath a -TargetExportPath b -OutputPath $outDir 3>$null 6>$null
+        Get-Content (Join-Path $outDir 'complete.txt') -Raw | Should -Match '\A\[AAD,Intune,EXO,Teams\]'
+    }
+
+    It 'lets a typed -CompleteWorkloads win over the picker' {
+        & $compareScript -SourceExportPath a -TargetExportPath b -OutputPath $outDir -Workload 'AAD' -CompleteWorkloads 'Teams' 3>$null 6>$null
         Get-Content (Join-Path $outDir 'complete.txt') -Raw | Should -Match '\A\[Teams\]'
     }
 }

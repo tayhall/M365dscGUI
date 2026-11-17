@@ -510,4 +510,4 @@ One Compare pipeline with From and To pickers over Dev, PreProd and Prod; design
   name (`Compare-PreProd-to-Dev.yaml`, `M365DSC - Compare PreProd to Dev and build MOFs`) because `Apply-Dev` reads its `DriftReport` by that name; renaming both is a small separate change.
 - Prod is optional (`ProdServiceConnection` in the settings), read-only like PreProd, with `pipelines\config\Prod.psd1` and an `Export-Prod` pipeline.
 - NOT verified: a run in Azure DevOps (the template syntax, the `elseif` service-connection branch and the `DownloadPipelineArtifact@2` folder were checked only by the generator tests).
-- Compare also has the workload picker (Full or one workload): both exports come from that series, versions are that series' numbers, and a single workload is the only complete one. `summary.json` records `Workload`.
+- Compare also has the workload picker (Full or one workload): both exports come from that series, versions are that series' numbers, and a single workload is the only complete one. The old per-workload checkboxes of Compare (`PE_WL_*`) and `Get-WorkloadSelection.ps1` are gone: the dropdown alone decides. `summary.json` records `Workload`.

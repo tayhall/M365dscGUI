@@ -110,28 +110,14 @@ foreach ($w in $workloadList)
     if ([string]$w.Name -match '[
 ]') { throw "The Name of workload $($w.Prefix) in $WorkloadsPath must be one line." }
 }
-function Get-WorkloadParameterLines
-{
-    param ([string]$LabelPrefix)
-    foreach ($w in $workloadList)
-    {
-        $label = ($LabelPrefix + $w.Name + ' (' + $w.Prefix + ')') -replace "'", "''"
-        "- name: $($w.Prefix)"
-        "  displayName: '$label'"
-        '  type: boolean'
-        "  default: $(if ($w.Default) { 'true' } else { 'false' })"
-    }
-}
 $expansions = [ordered]@{
     # The tenants a picker offers; Prod only when it is set up. The service connection of a Prod target (an elseif between Dev and the default).
     '__TENANT_CHOICES__'               = @('- Dev', '- PreProd') + @($(if ($prodEnabled) { '- Prod' }))
     '__PROD_CONNECTION_BRANCH__'       = @($(if ($prodEnabled) { "`${{ elseif eq(parameters.tenant, 'Prod') }}:"; "  azureSubscription: '$($values['ProdServiceConnection'])'" }))
     '__PROD_CONNECTION_BRANCH_TO__'    = @($(if ($prodEnabled) { "`${{ elseif eq(parameters.to, 'Prod') }}:"; "  azureSubscription: '$($values['ProdServiceConnection'])'" }))
-    # The values of the workload picker of the export and Tenant-Changes pipelines: Full (the default workloads) and each workload by prefix.
+    # The values of the workload picker of the export, Tenant-Changes and Compare pipelines: Full (the default workloads) and each workload by prefix.
     '__WORKLOAD_CHOICES__'             = @('- Full') + @($workloadList | ForEach-Object { "- $($_.Prefix)" })
-    '__COMPLETE_WORKLOAD_PARAMETERS__' = @(Get-WorkloadParameterLines -LabelPrefix 'Complete in the Dev export: ')
     '__AZ_POWERSHELL_VERSION__'        = @($(if ($azVersion) { 'azurePowerShellVersion: OtherVersion'; "preferredAzurePowerShellVersion: '$azVersion'" } else { 'azurePowerShellVersion: LatestVersion' }))
-    '__WORKLOAD_ENV__'                 = @($workloadList | ForEach-Object { "PE_WL_$($_.Prefix): `${{ parameters.$($_.Prefix) }}" })
 }
 
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null

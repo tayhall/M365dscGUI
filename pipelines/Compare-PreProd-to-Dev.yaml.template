@@ -39,7 +39,6 @@ parameters:
     values:
       - Combined
       - PerWorkload
-  __COMPLETE_WORKLOAD_PARAMETERS__
 
 pool:
   name: '__POOL__'   # needs pwsh 7.6+ and local admin
@@ -133,7 +132,6 @@ jobs:
                 -MofLayout $env:PE_MOF_LAYOUT `
                 -PreProdRun $env:PE_FROM_RUN -DevRun $env:PE_TO_RUN
         env:
-          __WORKLOAD_ENV__
           PE_WORKLOAD: ${{ parameters.workload }}
           PE_FROM: ${{ parameters.from }}
           PE_TO: ${{ parameters.to }}

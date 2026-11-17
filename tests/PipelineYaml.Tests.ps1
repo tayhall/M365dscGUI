@@ -169,7 +169,7 @@ Describe 'the Tenant-Changes pipeline and the readable export run names' {
     }
 }
 
-Describe 'the workload picker of the export pipelines and the workload checkboxes of the compare pipeline' {
+Describe 'the workload picker of the export, Tenant-changes and Compare pipelines' {
     BeforeAll {
         $script:Workloads = (Import-PowerShellDataFile (Join-Path $PSScriptRoot '..\src\PolicyEngine\Data\Workloads.psd1')).Workloads
         function Get-Gen { param ([string]$Dir, [string]$Name) Get-Content (Join-Path $Dir $Name) -Raw }
@@ -187,14 +187,15 @@ Describe 'the workload picker of the export pipelines and the workload checkboxe
         }
     }
 
-    It 'the export pipelines pass the picker to the script as PE_WORKLOAD, and the compare pipeline passes each box as PE_WL_' {
+    It 'the export pipelines and the compare pipeline pass the picker to the script as PE_WORKLOAD, and the compare pipeline has no boxes' {
         $out = New-Yaml (New-Settings)
         foreach ($file in 'Export-Dev.yaml', 'Export-PreProd.yaml')
         {
             (Get-Gen $out $file) | Should -Match '(?m)^          PE_WORKLOAD: \$\{\{ parameters\.workload \}\}\r?$'
         }
         $text = Get-Gen $out 'Compare-PreProd-to-Dev.yaml'
-        foreach ($w in $script:Workloads) { $text | Should -Match "(?m)^          PE_WL_$($w['Prefix']): \`$\{\{ parameters\.$($w['Prefix']) \}\}\r?$" }
+        $text | Should -Match '(?m)^          PE_WORKLOAD: \$\{\{ parameters\.workload \}\}\r?$'
+        $text | Should -Not -Match 'PE_WL_|type: boolean'
     }
 
     It 'the export pipelines have no workloads text parameter and the compare pipeline no completeWorkloads' {
@@ -209,27 +210,26 @@ Describe 'the workload picker of the export pipelines and the workload checkboxe
         $c | Should -Match 'PE_FROM_RUN'
     }
 
-    It 'the compare pipeline labels its boxes as complete in the Dev export' {
+    It 'the compare pipeline has the same picker values as the export pipelines and no checkboxes' {
         $c = Get-Gen (New-Yaml (New-Settings)) 'Compare-PreProd-to-Dev.yaml'
-        foreach ($w in $script:Workloads) { $c | Should -Match "displayName: 'Complete in the Dev export: $([regex]::Escape($w['Name'])) \($($w['Prefix'])\)'" }
+        $values = [regex]::Match($c, '(?s)- name: workload.*?values:\r?\n((?:\s+- \w+\r?\n)+)').Groups[1].Value
+        @([regex]::Matches($values, '- (\w+)') | ForEach-Object { $_.Groups[1].Value }) | Should -Be (@('Full') + @($script:Workloads | ForEach-Object { $_['Prefix'] }))
+        $c | Should -Not -Match 'Complete in the Dev export|type: boolean|PE_WL_'
     }
 
-    It 'a workload added to a temp Workloads.psd1 is a picker value of the export pipelines and a box of the compare pipeline, and a single quote is doubled' {
+    It 'a workload added to a temp Workloads.psd1 is a picker value of the export, Tenant-changes and Compare pipelines (and no box appears)' {
         $path = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-wl-' + [guid]::NewGuid().ToString('N') + '.psd1')
         Set-Content $path -Value @('@{ Workloads = @(', "  @{ Prefix = 'AAD'; Name = 'Entra ID'; Default = `$true }", "  @{ Prefix = 'Zed9'; Name = `"Zed's thing`"; Default = `$false }", ') }')
         $out = Join-Path ([System.IO.Path]::GetTempPath()) ('pe-yaml-out-' + [guid]::NewGuid().ToString('N'))
         & $script:Generator -SettingsPath (New-Settings) -OutputPath $out -WorkloadsPath $path 6>&1 3>$null | Out-Null
-        foreach ($file in 'Export-Dev.yaml', 'Export-PreProd.yaml', 'Tenant-Changes.yaml')
+        foreach ($file in 'Export-Dev.yaml', 'Export-PreProd.yaml', 'Tenant-Changes.yaml', 'Compare-PreProd-to-Dev.yaml')
         {
             $text = Get-Gen $out $file
             $text | Should -Match '(?m)^      - Zed9\r?$'
             $text | Should -Not -Match 'Intune'
             $text | Should -Not -Match '__[A-Z][A-Z_]*__'
         }
-        $c = Get-Gen $out 'Compare-PreProd-to-Dev.yaml'
-        $c | Should -Match '(?m)^  - name: Zed9\r?$'
-        $c | Should -Match "PE_WL_Zed9: "
-        $c | Should -Match "Zed''s thing \(Zed9\)'"
+        (Get-Gen $out 'Compare-PreProd-to-Dev.yaml') | Should -Not -Match 'PE_WL_|type: boolean'
     }
 
     It 'refuses a workload prefix that is not letters and digits' {
@@ -246,13 +246,8 @@ Describe 'the workload picker of the export pipelines and the workload checkboxe
             $uses = @((Get-Gen $out $file) -split '\r?\n' | Where-Object { $_ -match 'parameters\.workload\b' })
             $uses | ForEach-Object { $_ | Should -Match "^(name: |\s+PE_WORKLOAD: )" }
         }
-        $lines = (Get-Gen $out 'Compare-PreProd-to-Dev.yaml') -split '\r?\n'
-        foreach ($w in $script:Workloads)
-        {
-            $uses = @($lines | Where-Object { $_ -match "parameters\.$($w['Prefix'])\b" })
-            $uses.Count | Should -Be 1
-            $uses[0] | Should -Match "^\s+PE_WL_$($w['Prefix']): "
-        }
+        $uses = @((Get-Gen $out 'Compare-PreProd-to-Dev.yaml') -split '\r?\n' | Where-Object { $_ -match 'parameters\.workload\b' })
+        $uses | ForEach-Object { $_ | Should -Match "^(name: |\s+PE_WORKLOAD: )" }
     }
 }
 

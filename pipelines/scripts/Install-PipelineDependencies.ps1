@@ -86,7 +86,23 @@ function Install-ToPath
         "ok        $Name $Version"
         return
     }
-    Save-PSResource -Name $Name -Version $Version -Repository PSGallery -Path $ModulePath -TrustRepository -SkipDependencyCheck -AcceptLicense
+    # The gallery sometimes answers 503 or times out for a moment: try again a few times, waiting longer each time, before failing.
+    $attempts = 5
+    for ($attempt = 1; $attempt -le $attempts; $attempt++)
+    {
+        try
+        {
+            Save-PSResource -Name $Name -Version $Version -Repository PSGallery -Path $ModulePath -TrustRepository -SkipDependencyCheck -AcceptLicense -ErrorAction Stop
+            break
+        }
+        catch
+        {
+            if ($attempt -eq $attempts) { throw }
+            $wait = 15 * $attempt
+            "retry     $Name $Version (attempt $attempt of $attempts failed: $(($_.Exception.Message -split "`r?`n")[0])); waiting $wait seconds"
+            Start-Sleep -Seconds $wait
+        }
+    }
     if (-not (Test-ModuleInPath -Name $Name -Version $Version)) { throw "$Name $Version was not saved to $ModulePath" }
     "installed $Name $Version"
 }
